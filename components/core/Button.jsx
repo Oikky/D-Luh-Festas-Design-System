@@ -3,13 +3,13 @@ import { Icon } from "./Icon.jsx";
 import { Spinner } from "./Spinner.jsx";
 
 const TONES = {
-  accent:    { bg: "var(--color-accent)",      fg: "var(--color-accent-contrast)", line: "transparent" },
-  success:   { bg: "var(--action-success)",    fg: "#fff", line: "transparent" },
-  chargeAll: { bg: "var(--action-charge-total)", fg: "#fff", line: "transparent" },
-  chargeEntry:{ bg: "var(--action-charge-entry)", fg: "#fff", line: "transparent" },
-  delivered: { bg: "var(--action-delivered)",  fg: "#fff", line: "transparent" },
-  warn:      { bg: "var(--action-warn)",       fg: "#fff", line: "transparent" },
-  danger:    { bg: "var(--action-danger)",     fg: "#fff", line: "transparent" }
+  accent:    { bg: "var(--color-accent-strong)", fg: "var(--color-accent-contrast)", line: "transparent" },
+  success:   { bg: "var(--action-success)",    fg: "var(--action-fg)", line: "transparent" },
+  chargeAll: { bg: "var(--action-charge-total)", fg: "var(--action-fg)", line: "transparent" },
+  chargeEntry:{ bg: "var(--action-charge-entry)", fg: "var(--action-fg)", line: "transparent" },
+  delivered: { bg: "var(--action-delivered)",  fg: "var(--action-fg)", line: "transparent" },
+  warn:      { bg: "var(--action-warn)",       fg: "var(--action-fg)", line: "transparent" },
+  danger:    { bg: "var(--action-danger)",     fg: "var(--action-fg)", line: "transparent" }
 };
 const SIZES = {
   sm: { padding: "8px 14px", fontSize: "var(--fs-small)", gap: 6, minHeight: 36 },
@@ -37,7 +37,7 @@ export function Button({
         padding: s.padding, minHeight: s.minHeight, fontSize: s.fontSize,
         fontFamily: "var(--font-ui)", fontWeight: "var(--fw-semibold)", lineHeight: 1,
         borderRadius: "var(--radius-sm)", cursor: off ? "not-allowed" : "pointer",
-        opacity: off ? "var(--disabled-opacity)" : 1, whiteSpace: "nowrap",
+        opacity: off ? "var(--disabled-opacity)" : undefined, whiteSpace: "nowrap",
         transition: "var(--transition-control)", ...skin, ...style
       }} {...rest}>
       {loading ? <Spinner size={15} inline /> : icon ? <Icon name={icon} size={size === "sm" ? 15 : 17} /> : null}

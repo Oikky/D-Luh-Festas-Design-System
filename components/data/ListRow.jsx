@@ -2,13 +2,17 @@ import React from "react";
 import { Icon } from "../core/Icon.jsx";
 
 export function ListRow({ avatar, icon, title, subtitle, value, valueSub, tone = "neutral", trailing, onClick, style }) {
-  const money = tone === "in" ? "var(--action-paid)" : tone === "out" ? "var(--action-danger)" : "var(--text-strong)";
+  /* Money leaving is signed ("− R$"), not painted red: red is reserved for apagar. */
+  const money = tone === "in" ? "var(--action-paid)" : "var(--text-strong)";
   return (
-    <div onClick={onClick} style={{
+    <div onClick={onClick} data-row-action={onClick ? "" : undefined}
+      role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? e => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); onClick(e); } } : undefined}
+      style={{
       display: "flex", alignItems: "center", gap: "var(--space-6)", padding: "11px 12px",
       borderRadius: "var(--radius-sm)", cursor: onClick ? "pointer" : "default",
       background: "var(--color-surface)", fontFamily: "var(--font-ui)",
-      border: "var(--border-hairline) solid var(--color-border-soft)", ...style
+      border: "var(--border-hairline) solid var(--color-border-soft)", transition: "var(--transition-control)", ...style
     }}>
       {avatar ? <span style={{
         width: 36, height: 36, flex: "0 0 auto", borderRadius: "var(--radius-sm)",

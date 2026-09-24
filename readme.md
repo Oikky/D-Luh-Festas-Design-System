@@ -1,13 +1,23 @@
 # D'Luh Festas — Design System
 
-D'Luh Festas is a bakery and party-catering business in Montes Claros (MG), Brazil — *doces e
-salgados pra festas*: cakes, savouries, sweets, party orders for people and for companies. It
-runs on a small, framework-free web stack the owner and Claude Code maintain together, and this
-design system is the visual and component layer for **the modern admin** the team asked for:
+D'Luh Festas is a bakery and party business in Montes Claros (MG), Brazil — *doces e salgados
+pra festas*: cakes, savouries, sweets, party orders for people and for companies, plus buffet
+and hall rental. It runs on a small, framework-free web stack the owner and Claude Code maintain
+together.
+
+This repository is **the new admin itself** — not a visual layer feeding somewhere else.
+`ui_kits/admin/` is the panel that replaces the live `admin.html`; the tokens, components and
+guidelines here are the system it is built on. The brief:
 *"Admin moderno para a D'Luh, clean, agradável visualmente e com as melhores práticas de UI/UX,
 com acesso também mobile completo, mas sem perder recursos importantes no desktop."*
 
 Everything here is in **pt-BR**, because the product is.
+
+**Read [`PRODUCT.md`](PRODUCT.md) before making a UI decision.** It holds product truth that this
+file does not: the four roles who use the panel, the order lifecycle and its exact Coda Status
+strings, which systems the product really talks to, and — most importantly — **which screens are
+shipped and which are still proposals**. This README covers the visual system; `PRODUCT.md`
+covers what is true.
 
 ---
 
@@ -15,7 +25,7 @@ Everything here is in **pt-BR**, because the product is.
 
 | Source | What it gave us | Access |
 | --- | --- | --- |
-| **github.com/sitedluh/site** (branch `main`) | The real product. `admin.html` + `admin.css` (tokens, order cards, status badges, modals), `painel-pedidos.html` (kitchen panel), `cardapio.html` / `empresas.html` (customer and B2B ordering), `index.html` (landing), `logo.png`, `hero.jpg`, and `CLAUDE.md` — the product bible: architecture, order lifecycle, business rules. | Read in full for tokens, components and the UI kit. |
+| **github.com/sitedluh/site** (branch `main`) | The product of record — where the admin runs today and where the customer-facing site lives. `admin.html` + `admin.css` (tokens, order cards, status badges, modals), `painel-pedidos.html` (kitchen panel), `cardapio.html` / `empresas.html` (customer and B2B ordering), `index.html` (landing), `logo.png`, `hero.jpg`, and `CLAUDE.md` — the product bible: architecture, order lifecycle, business rules. | Read in full for tokens, components and the admin. |
 | **github.com/Oikky/New** | Attached as the design-system repo, but it is an **empty repository** (GitHub returns 409 for both `main` and `master`). Nothing was imported from it. | ⚠️ Empty — see Caveats. |
 | `uploads/FINANCIA_01…15.png` | A 2026 fintech-dashboard concept board supplied as the *visual target*: dark UI, 48px rounded icon tiles, big numerals, sidebar rail, pill filters, KPI + chart cards, and an explicit spec for typography (**Urbanist** 400/500/600/700) and iconography (24px glyph in a 48px box). | Used for structure, type and layout language — **not** for brand identity. |
 | `uploads/Logo D'Luh.png` | The brand mark. Colours sampled from it feed the brand palette. | Copied to `assets/logo-dluh-festas.png`. |
@@ -37,14 +47,33 @@ No third-party brand identity was reproduced.
 
 | Path | What's in it |
 | --- | --- |
+| `PRODUCT.md` | Product truth: users, purpose, order lifecycle, integrations, what is real vs proposed |
 | `styles.css` | The entry point consumers link. Imports only. |
 | `tokens/` | `fonts.css`, `colors.css`, `typography.css`, `spacing.css`, `shape.css`, `motion.css`, `theme-dark.css` |
 | `components/` | React primitives, grouped by concern (see below) |
-| `ui_kits/admin/` | Navigable recreation of the admin — `index.html`, `Shell.jsx`, `VisaoGeral.jsx`, `Pedidos.jsx`, `Cozinha.jsx`, `App.jsx`, `data.js`, `README.md` |
+| `ui_kits/admin/` | The admin — `index.html`, `App.jsx`, `Shell.jsx`, the nine screens below, `data.js`, `contratos-data.js`, `README.md` |
 | `guidelines/` | 20 foundation specimen cards (Colors, Type, Spacing, Shape, Motion, Brand) |
 | `assets/` | `logo-dluh-festas.png` (transparent brand mark), `logo.png` (the mark as shipped on the live site — actually a JPEG), `hero.jpg` (landing cover) |
+| `CLAUDE.md` | Installed skills and which ones must not touch D'Luh screens |
 | `SKILL.md` | Agent-skill wrapper, for use in Claude Code |
 | `github.md` | Upstream repo association and screen map |
+
+### Screens
+
+Five in the nav rail, four that open over it. **Only Pedidos and Cozinha exist in the live
+product today** — the rest are proposals (see Caveats).
+
+| Screen | File | What it is |
+| --- | --- | --- |
+| Visão geral | `VisaoGeral.jsx` | KPI row, weekly revenue, recent payments, last orders |
+| Pedidos | `Pedidos.jsx` + `PedidosModais.jsx` | **Live.** Estoque pendente, one tab per Status, order cards, overflow menu, Detalhes and Pedido manual modals, confirm dialogs |
+| Agenda | `Agenda.jsx` | One calendar for five event types — encomenda, buffet, festa, boleto, cartão — each with its own hue and Lucide glyph |
+| Cozinha | `Cozinha.jsx` | **Live.** "Fazer agora", the queue, three-way delivery confirmation |
+| Financeiro | `Financeiro.jsx` | Four tabs: transações, boletos, cartões, contratos — each with its own entry form |
+| Contratos | `Contratos.jsx` | Fills the buffet and salão contract models from form fields |
+| Busca | `Busca.jsx` | Accent-insensitive search across pedidos, eventos and pagamentos |
+| Notificações | `Notificacoes.jsx` | Rail panel plus transient cards that route to the relevant screen |
+| Clientes | — | Deliberately absent: the product has no per-customer view |
 
 ### Components
 
@@ -114,8 +143,10 @@ almost no decoration. The admin is used at 7am with flour on someone's hands —
 big tap targets beat visual flourish every time.
 
 **Colour.** Terracotta `#C0725A` is the single accent: primary buttons, active nav, links, the
-order-id line, focus rings, chart bars. Neutrals are warm, never grey-blue — sand `#F9F7F5`
-page, white cards, `#E8E0D8` hairlines, `#1A1A1A` / `#555` / `#999` text. Two background
+order-id line, focus rings, chart bars. Where terracotta carries text it darkens within its own
+ramp to hold 4.5:1: `--color-accent-strong` (`#A85F49`) under white labels, `--text-accent`
+(`#8C4D3A`) for accent text. Neutrals are warm, never grey-blue — sand `#F9F7F5`
+page, white cards, `#E8E0D8` hairlines, `#1A1A1A` / `#555` / `#6F6A66` text (the old `#999` muted measured 2.85:1 and now marks only non-text). Two background
 colours per screen at most (sand page + white surfaces).
 Beyond the accent, colour is strictly **semantic**: seven status pills (one per lifecycle
 value) and six action hues (blue *cobrar entrada*, violet *cobrar total*, teal *marcar
@@ -130,8 +161,8 @@ below 16px; never Urbanist Light below 20px.
 
 **Backgrounds.** Flat colour. No gradients, no photography, no patterns, no texture inside the
 product. The only image in the admin is the logo. (`hero.jpg` exists for the marketing site.)
-The one exception is the kitchen "Fazer agora" block, a solid terracotta panel — a flat fill,
-not a gradient.
+The one exception is the kitchen "Fazer agora" block, a solid panel in the darker terracotta
+(`--color-accent-strong`, so its white text holds 4.5:1) — a flat fill, not a gradient.
 
 **Cards.** White surface, 1px `#E8E0D8` border, 16px radius, and a shadow so faint it is almost
 theoretical (`0 2px 8px rgba(0,0,0,.04)`). Depth comes from the border, not the shadow. Header
@@ -149,23 +180,37 @@ status select), 2px for the tab underline. A 1.5px terracotta border is the "you
 this" signal.
 
 **Transparency and blur.** Essentially unused in the light theme — only the scrim behind modals
-and `rgba(255,255,255,.22)` chips on the terracotta panel. In the dark theme, borders become
+and `rgba(0,0,0,.15)` chips on the terracotta panel. In the dark theme, borders become
 `rgba(255,255,255,.07)` and status pills become low-alpha tints. No frosted glass, no backdrop
 blur; they cost frames on the kitchen tablet.
 
-**Motion.** Fast and unshowy. 150ms for hover/border/colour, 250ms for the toast and the sidebar
-expand, 800ms for the spinner sweep, all on `cubic-bezier(.4,0,.2,1)`. No bounce, no spring, no
-entrance animation on lists. The single expressive moment is `--glow-accent`: a 4px terracotta
-ring that pulses twice on an order card that just changed.
+**Motion.** Fast and unshowy. 150ms for hover/border/colour, 250ms for the toast, the dialogs and
+the sidebar expand, 800ms for the spinner sweep. Two curves: `--ease-standard`
+(`cubic-bezier(.4,0,.2,1)`) for colour, hover and movement on screen; `--ease-out`
+(`cubic-bezier(.16,1,.3,1)`) for anything entering and for press feedback, so it moves the
+instant the eye lands on it. No bounce, no spring, no entrance animation on lists. The single
+expressive moment is `--glow-accent`: a 4px terracotta ring that pulses twice on an order card
+that just changed (documented, not yet built).
+
+- **Dialogs** (modal and confirm) enter once: the scrim fades and the panel settles from 97% to
+  100% over 250ms on `--ease-out`, centred. Closing is instant — the operator already decided.
+- **Toast** rises 20px and fades in over 250ms on `--ease-out`. **Notification cards** slide in
+  the same way and leave on `--ease-standard`.
+- **Sidebar** expands on hover over 250ms. Opened from the keyboard it snaps open with no
+  transition: Tab runs through it many times a day and never waits on an animation.
+- **Reduced motion** is gentler, not frozen. Movement (`--dur-move`, `--dur-move-fast`: scale,
+  slide, the sidebar width) drops to nothing; fades and colour changes stay at 150ms.
+- **Nothing animates** on the ☰ menu, tabs, search results or keyboard navigation — they are
+  used dozens of times a day.
 
 **Hover.** Solid buttons drop to 87% opacity. Outline and ghost controls swap their border and
 text to terracotta (that is the live `btn-refresh`/`btn-detalhes` behaviour). Rows tint to
 `--color-surface-2`. Nothing moves or scales on hover.
 
-**Press.** A 2% scale-down (`--press-scale`) and nothing else — no colour change, no shadow.
+**Press.** A 2% scale-down (`--press-scale`) over 150ms on `--ease-out`, and nothing else — no
+colour change, no shadow.
 
-**Focus.** 1px accent border plus a 3px terracotta glow (`--focus-ring`). Visible on keyboard
-and on touch; never removed.
+**Focus.** Inputs and selects: 1px accent border plus a 3px terracotta glow (`--focus-ring`). Buttons, tabs and rows: a 2px terracotta outline offset 2px. Visible on keyboard and on touch; never removed.
 
 **Layout.** 72px icon rail (248px when expanded) + 64px top bar on desktop; content padding
 20/24px, 16/10px on mobile, max width 1440px. Below ~600px the rail becomes a bottom tab bar,
@@ -229,5 +274,16 @@ Lucide glyph and note it.
    `@font-face` rules. Send us the licensed files if you need self-hosting.
 4. **The dark theme is an addition, not a spec.** It exists because the concept board is dark
    and a kitchen screen at night benefits from it. Nothing in the live product is dark today.
-5. **"Visão geral" is a new screen.** The live admin has no dashboard. It is built only from
-   numbers the system already stores, but the metrics themselves are a proposal.
+5. **Most screens are proposals, and their data is fake.** The live admin today has only
+   **Pedidos** and **Cozinha**. Visão geral, Agenda, Financeiro and Contratos have no system
+   behind them yet — no dashboard, no calendar, no ledger. `data.js` and `contratos-data.js` are
+   shaped like real Coda rows but every value in them is invented, so **never cite those numbers
+   as real, and never describe those screens as existing features.** The one carve-out: the
+   contract clause text in `uploads/Gerador de Contratos*.html` is transcribed from generators
+   that genuinely run, so the clauses are real even though the screen is not.
+6. **Nothing that touches money is implemented.** Firebase auth, the Telegram "Confirmar Estoque"
+   round-trip, InfinitePay links, the thermal receipt print sheet and the Coda writes are all
+   mocked here.
+7. **There is no permission model.** Four roles use the panel — dona, cozinha, atendimento,
+   contador — and the code enforces no separation between them. How that works is undecided, not
+   designed and omitted.

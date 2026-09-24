@@ -1,0 +1,147 @@
+[      50ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[      92ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[    6068ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6068ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6068ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6068ms] [LOG] %cundersized-ui-text%c 10.5px functional text "1,2k" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6068ms] [LOG] %cundersized-ui-text%c 10.5px functional text "Seg" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6068ms] [LOG] %cundersized-ui-text%c 10.5px functional text "1,7k" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6068ms] [LOG] %cundersized-ui-text%c 10.5px functional text "Ter" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6068ms] [LOG] %cundersized-ui-text%c 10.5px functional text "1,4k" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "Qua" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "2,1k" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "Qui" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "2,0k" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "Sex" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "2,7k" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "Sáb" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "2,3k" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cundersized-ui-text%c 10.5px functional text "Dom" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cai-color-palette%c Cyan neon text on dark background color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %cai-color-palette%c Cyan neon text on dark background color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6069ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6070ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[    6070ms] [LOG] %clayout-transition%c transition: width color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   50740ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   50740ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   50740ms] [LOG] %clayout-transition%c transition: width color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   53314ms] [LOG] %clow-contrast%c 1.9:1 (need 4.5:1) — text #ffffff on #2dd4bf color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   53314ms] [LOG] %clow-contrast%c 1.9:1 (need 4.5:1) — text #ffffff on #2dd4bf color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   53315ms] [LOG] %clow-contrast%c 1.9:1 (need 4.5:1) — text #ffffff on #2dd4bf color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   53315ms] [LOG] %clow-contrast%c 1.9:1 (need 4.5:1) — text #ffffff on #2dd4bf color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   53315ms] [LOG] %clayout-transition%c transition: width color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %ctiny-text%c 11px body text color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %cundersized-ui-text%c 10.5px functional text "dom" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %cundersized-ui-text%c 10.5px functional text "seg" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %cundersized-ui-text%c 10.5px functional text "ter" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %cundersized-ui-text%c 10.5px functional text "qua" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55952ms] [LOG] %cundersized-ui-text%c 10.5px functional text "qui" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 10.5px functional text "sex" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 10.5px functional text "sáb" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Cemig" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Embalagens" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cai-color-palette%c Cyan neon text on dark background color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Nubank" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 9.5px functional text "18:00 Ana" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Distribuidora" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55953ms] [LOG] %cundersized-ui-text%c 9.5px functional text "15:00 Maria" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "+1" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "11:00 Willian" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "07:00 Padaria" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "16:00 Tiago" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Copasa" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cai-color-palette%c Cyan neon text on dark background color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Itaú" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "20:00 Colégio" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55954ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Aluguel" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %cundersized-ui-text%c 9.5px functional text "14:00 Rafaela" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %cundersized-ui-text%c 9.5px functional text "09:30 João" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %cundersized-ui-text%c 9.5px functional text "Simples" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %cundersized-ui-text%c 9.5px functional text "12:00 Empresa" (below 11px floor) color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %cside-tab%c border-left: 3px + border-radius: 8px color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %cside-tab%c border-left: 3px + border-radius: 8px color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55955ms] [LOG] %cside-tab%c border-left: 3px + border-radius: 8px color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55956ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55956ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55956ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55956ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55956ms] [LOG] %clow-contrast%c 4.46:1 (need 4.5:1) — text #7c7a80 on #101018 color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[   55956ms] [LOG] %clayout-transition%c transition: width color: oklch(84% 0.19 80.46); font-weight: bold color: inherit JSHandle@node @ http://localhost:8400/detect.js:3497
+[ 1398019ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 1398069ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2192501ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2192549ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2227853ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2227881ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2262871ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2262905ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2276465ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2276493ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2279948ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2279972ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2280535ms] [ERROR] Warning: %s a style property during rerender (%s) when a conflicting property is set (%s) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.%s Updating padding paddingBottom 
+    at div
+    at div
+    at div
+    at Shell (<anonymous>:315:20)
+    at div
+    at App (<anonymous>:30:32) @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:72
+[ 2282611ms] [ERROR] Warning: %s a style property during rerender (%s) when a conflicting property is set (%s) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.%s Updating padding paddingBottom 
+    at div
+    at div
+    at div
+    at Shell (<anonymous>:315:20)
+    at div
+    at App (<anonymous>:30:32) @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:72
+[ 2282629ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2282653ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2283090ms] [ERROR] Warning: %s a style property during rerender (%s) when a conflicting property is set (%s) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.%s Updating padding paddingBottom 
+    at div
+    at div
+    at div
+    at Shell (<anonymous>:315:20)
+    at div
+    at App (<anonymous>:30:32) @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:72
+[ 2369106ms] [ERROR] Warning: %s a style property during rerender (%s) when a conflicting property is set (%s) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.%s Updating padding paddingBottom 
+    at div
+    at div
+    at div
+    at Shell (<anonymous>:315:20)
+    at div
+    at App (<anonymous>:30:32) @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:72
+[ 2369133ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2369171ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2373652ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2373675ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2378088ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2378109ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 2410669ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 2410707ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 3226136ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 3226171ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 3231784ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 3231807ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 4132758ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 4132818ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 4134652ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 4134679ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2
+[ 4144857ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js:29904
+[ 4144889ms] [WARNING] You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ @ https://unpkg.com/@babel/standalone@7.29.0/babel.min.js:2

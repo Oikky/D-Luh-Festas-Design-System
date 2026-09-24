@@ -9,7 +9,7 @@
 
 /* ── Neutrals — warm, from the live admin ── */
 --sand-0:#ffffff;--sand-50:#f9f7f5;--sand-100:#f3ede7;--sand-200:#e8e0d8;--sand-300:#d6cabe;
---ink-400:#999999;--ink-600:#555555;--ink-800:#333333;--ink-900:#1a1a1a;
+--ink-400:#999999;--ink-500:#6f6a66;--ink-600:#555555;--ink-800:#333333;--ink-900:#1a1a1a;
 
 /* ── Dark ink — from the 2026 admin concept boards ── */
 --night-950:#080910;--night-900:#101018;--night-850:#161622;--night-800:#1c1c2b;
@@ -19,10 +19,16 @@
 --color-bg:var(--sand-50);--color-surface:var(--sand-0);--color-surface-2:var(--sand-50);
 --color-surface-3:var(--sand-100);--color-surface-inset:var(--terracotta-50);
 --color-border:var(--sand-200);--color-border-soft:var(--sand-100);--color-border-strong:var(--sand-300);
---text-strong:var(--ink-900);--text-body:var(--ink-600);--text-muted:var(--ink-400);
---text-inverse:#ffffff;--text-accent:var(--terracotta-500);
+/* Muted text is a warm ink that holds 4.5:1 on white, sand and terracotta-50. #999 (ink-400)
+   measured 2.85:1 and stays only for non-text marks. */
+--text-strong:var(--ink-900);--text-body:var(--ink-600);--text-muted:var(--ink-500);
+/* Terracotta #C0725A is the brand accent for surfaces, rules, dots and rings. Where it carries
+   text it darkens: 700 for accent text (5.9:1), 600 under white labels (4.8:1). */
+--text-inverse:#ffffff;--text-accent:var(--terracotta-700);
 --color-accent:var(--terracotta-500);--color-accent-hover:var(--terracotta-600);
+--color-accent-strong:var(--terracotta-600);--color-accent-strong-hover:var(--terracotta-700);
 --color-accent-soft:var(--terracotta-50);--color-accent-contrast:#ffffff;
+--action-fg:#ffffff;
 --focus-ring:0 0 0 3px rgba(192,114,90,.32);
 --overlay-scrim:rgba(0,0,0,.45);
 

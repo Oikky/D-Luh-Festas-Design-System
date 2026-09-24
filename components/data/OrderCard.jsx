@@ -3,12 +3,15 @@ import { Card } from "../core/Card.jsx";
 import { StatusBadge } from "../core/StatusBadge.jsx";
 import { Badge } from "../core/Badge.jsx";
 
+/* "R$ 0,00" is a fact, not a payment: it stays neutral instead of taking the paid green. */
+const isZero = v => /^R\$\s*0(,0+)?$/.test(String(v).trim());
+
 export function OrderCard({ id, customer, status, meta = [], items = [], total, paid, due, badges, actions, highlight = false, style }) {
   return (
     <Card style={{ boxShadow: highlight ? "var(--glow-accent)" : "var(--shadow-card)", ...style }}
       header={<>
         <div style={{ minWidth: 0 }}>
-          {id ? <div style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--color-accent)", letterSpacing: "var(--ls-caps)", textTransform: "uppercase", marginBottom: 4 }}>{id}</div> : null}
+          {id ? <div style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-accent)", letterSpacing: "var(--ls-caps)", textTransform: "uppercase", marginBottom: 4 }}>{id}</div> : null}
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{customer}</div>
           {meta.length ? <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-body)", fontWeight: "var(--fw-medium)", marginTop: 3 }}>
             {meta.map((m, i) => <React.Fragment key={i}>{i ? <span style={{ opacity: .45, margin: "0 6px" }}>·</span> : null}{m}</React.Fragment>)}
@@ -22,7 +25,7 @@ export function OrderCard({ id, customer, status, meta = [], items = [], total, 
           <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginRight: 6 }}>Total</span>
           <span style={{ fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)" }}>{total}</span>
           {paid != null || due != null ? <div style={{ fontSize: "var(--fs-small)", fontWeight: "var(--fw-semibold)", color: "var(--text-body)", marginTop: 4 }}>
-            {paid != null ? <>Pago <b style={{ color: "var(--action-paid)" }}>{paid}</b></> : null}
+            {paid != null ? <>Pago <b style={{ color: isZero(paid) ? "var(--text-strong)" : "var(--action-paid)" }}>{paid}</b></> : null}
             {due != null ? <> · Falta <b style={{ color: "var(--action-warn)" }}>{due}</b></> : null}
           </div> : null}
         </div>
@@ -35,7 +38,7 @@ export function OrderCard({ id, customer, status, meta = [], items = [], total, 
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-medium)", color: "var(--text-strong)" }}>{it.qty ? <span style={{ color: "var(--text-muted)", marginRight: 6 }}>{it.qty}×</span> : null}{it.name}</div>
               {it.note ? <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 3, lineHeight: "var(--lh-snug)" }}>{it.note}</div> : null}
-              {it.topper ? <div style={{ display: "inline-block", fontSize: "var(--fs-tiny)", color: "var(--color-accent)", background: "var(--color-accent-soft)", padding: "4px 8px", borderRadius: "var(--radius-xs)", marginTop: 5, lineHeight: "var(--lh-normal)" }}>{it.topper}</div> : null}
+              {it.topper ? <div style={{ display: "inline-block", fontSize: "var(--fs-tiny)", color: "var(--text-accent)", background: "var(--color-accent-soft)", padding: "4px 8px", borderRadius: "var(--radius-xs)", marginTop: 5, lineHeight: "var(--lh-normal)" }}>{it.topper}</div> : null}
             </div>
             <div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", whiteSpace: "nowrap" }}>{it.price}</div>
           </div>

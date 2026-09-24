@@ -3,16 +3,24 @@
 --dur-base:250ms;/* @kind other */
 --dur-slow:700ms;/* @kind other */
 --dur-spin:800ms;/* @kind other */
+/* Movement (transform, a panel's width) gets its own durations so reduced motion can drop the
+   travel while keeping the fades and colour changes that say something changed. */
+--dur-move-fast:150ms;/* @kind other */
+--dur-move:250ms;/* @kind other */
+/* ease-standard for colour, hover and on-screen movement; ease-out for anything entering or
+   responding to a press, so it moves the instant the eye lands on it. */
 --ease-standard:cubic-bezier(.4,0,.2,1);/* @kind other */
 --ease-out:cubic-bezier(.16,1,.3,1);/* @kind other */
 --ease-linear:linear;/* @kind other */
---transition-control:all var(--dur-fast) var(--ease-standard);/* @kind other */
+--transition-control:background-color var(--dur-fast) var(--ease-standard),border-color var(--dur-fast) var(--ease-standard),color var(--dur-fast) var(--ease-standard),box-shadow var(--dur-fast) var(--ease-standard),opacity var(--dur-fast) var(--ease-standard),transform var(--dur-move-fast) var(--ease-out);/* @kind other */
 --press-scale:.98;/* @kind other */
 --hover-opacity:.87;/* @kind other */
 --disabled-opacity:.4;/* @kind other */
 }
+/* Reduced motion is gentler, not frozen: travel goes, fades and colour stay at 150ms. */
 @media (prefers-reduced-motion:reduce){:root{
---dur-fast:1ms;/* @kind other */
---dur-base:1ms;/* @kind other */
+--dur-move-fast:1ms;/* @kind other */
+--dur-move:1ms;/* @kind other */
+--dur-base:150ms;/* @kind other */
 --dur-slow:1ms;/* @kind other */
 }}

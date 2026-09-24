@@ -1,9 +1,9 @@
 import React from "react";
 
-export function DataTable({ columns = [], rows = [], empty, style }) {
+export function DataTable({ columns = [], rows = [], empty, minWidth = 520, style }) {
   return (
     <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", ...style }}>
-      <table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontFamily: "var(--font-ui)" }}>
+      <table style={{ width: "100%", minWidth, borderCollapse: "collapse", fontFamily: "var(--font-ui)" }}>
         <thead><tr>
           {columns.map(c => <th key={c.key} style={{
             textAlign: c.align || "left", padding: "0 12px 8px", whiteSpace: "nowrap",

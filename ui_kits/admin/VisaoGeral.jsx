@@ -1,4 +1,4 @@
-const { Card, StatCard, Sparkline, ListRow, DataTable, StatusBadge, Button, IconButton, Badge, Icon } = window.DLuhFestasDesignSystem_c861a2;
+const { Card, ListRow, StatusBadge, Button, IconButton, Badge, Icon, EmptyState } = window.DLuhFestasDesignSystem_c861a2;
 
 function ChartCard({ compact }) {
   const serie = window.DLUH.serieReceita;
@@ -19,8 +19,7 @@ function ChartCard({ compact }) {
             </span>
             <div style={{
               width: "100%", height: (v / max) * 104, borderRadius: "var(--radius-xs)",
-              background: i === serie.length - 2 ? "var(--color-accent)" : "var(--color-accent-soft)",
-              border: "1px solid " + (i === serie.length - 2 ? "transparent" : "var(--terracotta-200)")
+              background: "var(--color-accent-soft)", border: "1px solid var(--color-accent)"
             }} />
             <span style={{ fontSize: "var(--fs-micro)", color: "var(--text-muted)" }}>{dias[i]}</span>
           </div>
@@ -36,12 +35,12 @@ function VisaoGeral({ compact, onView }) {
   const d = window.DLUH;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-section)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12 }}>
-        <StatCard icon="receipt-text" label="Pedidos hoje" value="14" delta={8} deltaLabel="vs. ontem" />
-        <StatCard tone="accent" icon="wallet" label="A receber" value="R$ 3.420,00" chart={<Sparkline data={d.serieReceita} height={30} />} />
-        <StatCard icon="chef-hat" label="Na fila" value="4" unit="pedidos" />
-        <StatCard icon="cake-slice" label="Ticket médio" value="R$ 244" delta={-3} deltaLabel="na semana" />
-      </div>
+      {/* The indicators have no data source yet. Until one exists they say so, instead of
+          showing typed-in numbers that read as real. */}
+      <Card padded={false} header={<div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Indicadores</div>}>
+        <EmptyState icon="chart-no-axes-column" title="Sem dados para os indicadores ainda"
+          description="Pedidos do dia, valor a receber, fila da cozinha e ticket médio aparecem aqui quando houver uma fonte de dados ligada." />
+      </Card>
 
       <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
         <ChartCard compact={compact} />
@@ -56,7 +55,7 @@ function VisaoGeral({ compact, onView }) {
       <Card padded={false} header={<>
         <div>
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Últimos pedidos</div>
-          <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>5 de 6.244 no total</div>
+          <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>Os {d.recentes.length} mais recentes</div>
         </div>
         <Button size="sm" variant="ghost" iconRight="arrow-right" onClick={() => onView("pedidos")}>Ver todos</Button>
       </>}>

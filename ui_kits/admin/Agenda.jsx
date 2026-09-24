@@ -1,12 +1,17 @@
 const DS = window.DLuhFestasDesignSystem_c861a2;
 const { Card, Badge, Button, IconButton, FilterPill, StatusBadge, EmptyState, Icon, ListRow } = DS;
 
+/* Colour here separates only two families: what the shop delivers (terracotta) and what the
+   shop pays (neutral ink). Blue, violet and teal belong to money actions, so the five types
+   tell themselves apart by glyph and label instead. */
+const EVENTO = { cor: "var(--color-accent)", texto: "var(--text-accent)", tint: "var(--color-accent-soft)" };
+const CONTA = { cor: "var(--text-body)", texto: "var(--text-body)", tint: "var(--color-surface-3)" };
 const TIPOS = {
-  encomenda: { rot: "Encomenda", cor: "var(--color-accent)", tint: "var(--color-accent-soft)", icone: "cake-slice" },
-  buffet:    { rot: "Buffet",    cor: "var(--action-charge-entry)", tint: "var(--status-confirmado-bg)", icone: "chef-hat" },
-  festa:     { rot: "Festa",     cor: "var(--action-charge-total)", tint: "var(--status-preparo-bg)", icone: "party-popper" },
-  boleto:    { rot: "Boleto",    cor: "var(--action-warn)", tint: "var(--action-warn-bg)", icone: "barcode", fin: true },
-  cartao:    { rot: "Cartão",    cor: "var(--action-delivered)", tint: "rgba(15,118,110,.12)", icone: "credit-card", fin: true }
+  encomenda: { rot: "Encomenda", ...EVENTO, icone: "cake-slice" },
+  buffet:    { rot: "Buffet",    ...EVENTO, icone: "chef-hat" },
+  festa:     { rot: "Festa",     ...EVENTO, icone: "party-popper" },
+  boleto:    { rot: "Boleto",    ...CONTA, icone: "barcode", fin: true },
+  cartao:    { rot: "Cartão",    ...CONTA, icone: "credit-card", fin: true }
 };
 const SITUACAO = { "A vencer": "warn", "Vence hoje": "warn", "Vencido": "danger", "Pago": "success" };
 const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -16,7 +21,7 @@ function TipoDot({ tipo, size = 7 }) {
   return <span style={{ width: size, height: size, borderRadius: "var(--radius-pill)", background: TIPOS[tipo].cor, flex: "0 0 auto" }} />;
 }
 
-function Calendario({ ano, mes, sel, onSel, itens, compact }) {
+function Calendario({ ano, mes, sel, onSel, itens, compact, hoje }) {
   const primeiro = new Date(ano, mes, 1).getDay();
   const dias = new Date(ano, mes + 1, 0).getDate();
   const celulas = [];
@@ -25,45 +30,46 @@ function Calendario({ ano, mes, sel, onSel, itens, compact }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 4, marginBottom: 6 }}>
         {DIAS.map(d => <div key={d} style={{
           textAlign: "center", fontSize: "var(--fs-micro)", fontWeight: "var(--fw-semibold)",
           color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)"
         }}>{d}</div>)}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 4 }}>
         {celulas.map((d, i) => {
           if (!d) return <div key={"e" + i} />;
           const chave = ano + "-" + String(mes + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
           const doDia = itens.filter(x => x.data === chave);
           const ativo = sel === chave;
-          const hoje = chave === "2026-06-12";
+          const eHoje = chave === hoje;
           return (
-            <button key={chave} type="button" onClick={() => onSel(chave)} style={{
+            <button key={chave} type="button" data-cell onClick={() => onSel(chave)} aria-pressed={ativo}
+              aria-label={d + " de " + MESES[mes] + (eHoje ? ", hoje" : "") + (doDia.length ? ", " + doDia.length + (doDia.length === 1 ? " compromisso" : " compromissos") : "")} style={{
               minHeight: compact ? 46 : 74, display: "flex", flexDirection: "column", alignItems: "stretch",
               gap: 4, padding: compact ? "5px 4px" : "7px 8px", cursor: "pointer", textAlign: "left",
               borderRadius: "var(--radius-sm)", fontFamily: "var(--font-ui)",
-              background: ativo ? "var(--color-accent)" : doDia.length ? "var(--color-surface-2)" : "transparent",
-              border: "var(--border-hairline) solid " + (ativo ? "transparent" : hoje ? "var(--color-accent)" : "var(--color-border-soft)"),
+              background: ativo ? "var(--color-accent-strong)" : doDia.length ? "var(--color-surface-2)" : "transparent",
+              border: "var(--border-hairline) solid " + (ativo ? "transparent" : eHoje ? "var(--color-accent)" : "var(--color-border-soft)"),
               color: ativo ? "var(--color-accent-contrast)" : "var(--text-strong)",
               transition: "var(--transition-control)"
             }}>
-              <span style={{ fontSize: "var(--fs-tiny)", fontWeight: hoje || ativo ? "var(--fw-bold)" : "var(--fw-medium)" }}>{d}</span>
+              <span aria-hidden="true" style={{ fontSize: "var(--fs-tiny)", fontWeight: eHoje || ativo ? "var(--fw-bold)" : "var(--fw-medium)" }}>{d}</span>
               {compact
-                ? <span style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                ? <span aria-hidden="true" style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                     {doDia.slice(0, 3).map((x, k) => <TipoDot key={k} tipo={x.tipo} size={5} />)}
                   </span>
-                : <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                : <span aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                     {doDia.slice(0, 2).map((x, k) => (
                       <span key={k} style={{
                         display: "flex", alignItems: "center", gap: 4, padding: "2px 5px",
-                        borderRadius: 4, background: ativo ? "rgba(255,255,255,.22)" : TIPOS[x.tipo].tint,
-                        color: ativo ? "inherit" : TIPOS[x.tipo].cor,
-                        fontSize: 9.5, fontWeight: "var(--fw-semibold)",
+                        borderRadius: 4, background: ativo ? "transparent" : TIPOS[x.tipo].tint,
+                        color: ativo ? "inherit" : TIPOS[x.tipo].texto,
+                        fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                       }}>{x.hora ? x.hora + " " : ""}{x.cliente.split(" ")[0]}</span>
                     ))}
-                    {doDia.length > 2 ? <span style={{ fontSize: 9.5, color: ativo ? "inherit" : "var(--text-muted)", paddingLeft: 5 }}>+{doDia.length - 2}</span> : null}
+                    {doDia.length > 2 ? <span style={{ fontSize: "var(--fs-caption)", color: ativo ? "inherit" : "var(--text-muted)", paddingLeft: 5 }}>+{doDia.length - 2}</span> : null}
                   </span>}
             </button>
           );
@@ -79,7 +85,7 @@ function ItemAgenda({ x }) {
     <div style={{
       display: "flex", gap: 12, padding: "12px 13px", borderRadius: "var(--radius-sm)",
       background: "var(--color-surface)", border: "var(--border-hairline) solid var(--color-border)",
-      borderLeft: "3px solid " + t.cor, fontFamily: "var(--font-ui)"
+      fontFamily: "var(--font-ui)"
     }}>
       <span style={{
         width: 38, height: 38, flex: "0 0 auto", borderRadius: "var(--radius-sm)",
@@ -88,7 +94,7 @@ function ItemAgenda({ x }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-semibold)" }}>{x.cliente}</span>
-          <span style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: t.cor }}>{t.rot}</span>
+          <span style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: t.texto }}>{t.rot}</span>
         </div>
         <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 3, lineHeight: "var(--lh-snug)" }}>{x.titulo}</div>
         <div style={{ display: "flex", gap: 12, marginTop: 7, flexWrap: "wrap", fontSize: "var(--fs-tiny)", color: "var(--text-body)" }}>
@@ -100,7 +106,7 @@ function ItemAgenda({ x }) {
         </div>
       </div>
       <div style={{ textAlign: "right", flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-        <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", whiteSpace: "nowrap", color: t.fin ? "var(--action-danger)" : "var(--text-strong)" }}>{t.fin ? "− " + x.valor : x.valor}</span>
+        <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", whiteSpace: "nowrap", color: "var(--text-strong)" }}>{t.fin ? "− " + x.valor : x.valor}</span>
         {t.fin ? <Badge tone={SITUACAO[x.situacao] || "neutral"}>{x.situacao}</Badge> : <StatusBadge status={x.status} short />}
       </div>
     </div>
@@ -108,10 +114,20 @@ function ItemAgenda({ x }) {
 }
 
 function Agenda({ compact }) {
+  const hoje = window.DLUH.hoje;
   const [filtro, setFiltro] = React.useState("tudo");
-  const [sel, setSel] = React.useState("2026-06-12");
-  const [mes, setMes] = React.useState(5);
-  const ano = 2026;
+  const [sel, setSel] = React.useState(hoje);
+  const [cursor, setCursor] = React.useState(() => ({ ano: Number(hoje.slice(0, 4)), mes: Number(hoje.slice(5, 7)) - 1 }));
+  const { ano, mes } = cursor;
+  /* Moving the month moves the selected day with it (same day number, clamped to the month),
+     so the detail card never describes a month the grid is not showing. */
+  const irPara = (a, m) => {
+    const d = new Date(a, m, 1), na = d.getFullYear(), nm = d.getMonth();
+    const dia = Math.min(Number(sel.slice(8, 10)), new Date(na, nm + 1, 0).getDate());
+    setCursor({ ano: na, mes: nm });
+    setSel(na + "-" + String(nm + 1).padStart(2, "0") + "-" + String(dia).padStart(2, "0"));
+  };
+  const escolher = chave => { setSel(chave); setCursor({ ano: Number(chave.slice(0, 4)), mes: Number(chave.slice(5, 7)) - 1 }); };
 
   const todos = window.DLUH.agenda;
   const itens = filtro === "tudo" ? todos : todos.filter(x => x.tipo === filtro);
@@ -141,21 +157,21 @@ function Agenda({ compact }) {
       <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1.35fr 1fr", gap: 12, alignItems: "start" }}>
         <Card header={<>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <IconButton icon="chevron-left" label="Mês anterior" size={32} onClick={() => setMes((mes + 11) % 12)} />
+            <IconButton icon="chevron-left" label="Mês anterior" size={36} onClick={() => irPara(ano, mes - 1)} />
             <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)", minWidth: 150, textAlign: "center", textTransform: "capitalize" }}>
               {MESES[mes]} {ano}
             </div>
-            <IconButton icon="chevron-right" label="Próximo mês" size={32} onClick={() => setMes((mes + 1) % 12)} />
+            <IconButton icon="chevron-right" label="Próximo mês" size={36} onClick={() => irPara(ano, mes + 1)} />
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {Object.keys(TIPOS).map(k => (
+        </>}>
+          <Calendario ano={ano} mes={mes} sel={sel} onSel={escolher} itens={itens} compact={compact} hoje={hoje} />
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12 }}>
+            {[["encomenda", "Encomendas e eventos"], ["boleto", "Contas"]].map(([k, rot]) => (
               <span key={k} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>
-                <TipoDot tipo={k} />{TIPOS[k].rot}
+                <TipoDot tipo={k} />{rot}
               </span>
             ))}
           </div>
-        </>}>
-          <Calendario ano={ano} mes={mes} sel={sel} onSel={setSel} itens={itens} compact={compact} />
         </Card>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -179,7 +195,7 @@ function Agenda({ compact }) {
               {proximos.map((x, i) => (
                 <ListRow key={i} icon={TIPOS[x.tipo].icone} title={x.cliente}
                   subtitle={TIPOS[x.tipo].rot + " · " + x.data.split("-").reverse().slice(0, 2).join("/") + (x.hora ? " · " + x.hora : "")}
-                  value={TIPOS[x.tipo].fin ? "− " + x.valor : x.valor} tone={TIPOS[x.tipo].fin ? "out" : "neutral"} onClick={() => setSel(x.data)} />
+                  value={TIPOS[x.tipo].fin ? "− " + x.valor : x.valor} tone={TIPOS[x.tipo].fin ? "out" : "neutral"} onClick={() => escolher(x.data)} />
               ))}
             </Card>
           ) : null}

@@ -27,7 +27,7 @@ function FinRegistro({ tab, onClose, onSave }) {
   const f = FIN_FORM[tab];
   const [v, setV] = React.useState(() => Object.fromEntries(f.campos.filter(c => c.opcoes).map(c => [c.id, c.opcoes[0]])));
   return (
-    <FN.Modal width={480} title={f.titulo} onClose={onClose}
+    <FN.Modal width={480} title={f.titulo} onClose={onClose} dismissible={false}
       footer={<><FN.Button variant="ghost" block onClick={onClose}>Cancelar</FN.Button><FN.Button block icon="check" onClick={() => onSave(v)}>Registrar</FN.Button></>}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: "10px 12px" }}>
         {f.campos.map(c => (
@@ -47,12 +47,14 @@ function FinRegistro({ tab, onClose, onSave }) {
 function Financeiro({ compact }) {
   const [tab, setTab] = React.useState("transacoes");
   const [novo, setNovo] = React.useState(false);
+  const [apagar, setApagar] = React.useState(null);
   const [toast, setToast] = React.useState(null);
   const [dados, setDados] = React.useState(() => ({ ...window.DLUH.financeiro }));
   const showToast = m => { setToast(m); setTimeout(() => setToast(null), 2400); };
   const t = FIN_TABS.find(x => x.id === tab);
   const n = v => Number(String(v || "").replace(",", ".")) || 0;
-  const remover = i => { setDados(d => ({ ...d, [tab]: d[tab].filter((_, j) => j !== i) })); showToast("Registro removido"); };
+  const remover = i => { setDados(d => ({ ...d, [tab]: d[tab].filter((_, j) => j !== i) })); setApagar(null); showToast("Registro removido"); };
+  const nomeDe = x => x.desc || (x.nome ? x.nome + " · final " + x.final : "este registro");
 
   const salvar = v => {
     const item = tab === "transacoes" ? { desc: v.desc || "Transação", tipo: v.tipo, meio: v.meio, data: dataCurta(v.data), valor: n(v.valor) }
@@ -62,7 +64,7 @@ function Financeiro({ compact }) {
     setNovo(false); showToast("Registro salvo");
   };
 
-  const lixo = i => <FN.IconButton icon="trash" label="Remover" size={32} style={{ marginLeft: 10 }} onClick={() => remover(i)} />;
+  const lixo = i => <FN.IconButton icon="trash-2" label="Remover" size={36} style={{ marginLeft: 10 }} onClick={() => setApagar(i)} />;
   const vazio = <FN.EmptyState icon="wallet" title="Nada registrado ainda" description="Use o botão acima para adicionar o primeiro registro." />;
   const lista = dados[tab] || [];
 
@@ -74,7 +76,7 @@ function Financeiro({ compact }) {
         <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
           {tab === "transacoes" ? <>
             <FN.Badge tone="success" icon="arrow-down-left">Entradas {window.brl(lista.filter(x => x.tipo === "Entrada").reduce((s, x) => s + x.valor, 0))}</FN.Badge>
-            <FN.Badge tone="warn" icon="arrow-up-right">Saídas {window.brl(lista.filter(x => x.tipo === "Saída").reduce((s, x) => s + x.valor, 0))}</FN.Badge>
+            <FN.Badge icon="arrow-up-right">Saídas {window.brl(lista.filter(x => x.tipo === "Saída").reduce((s, x) => s + x.valor, 0))}</FN.Badge>
           </> : tab === "boletos" ? <FN.Badge tone="warn" icon="clock">Em aberto {window.brl(lista.filter(x => x.status !== "Pago").reduce((s, x) => s + x.valor, 0))}</FN.Badge> : null}
           <div style={{ flex: 1 }} />
           <FN.Button size="sm" icon="plus" onClick={() => setNovo(true)}>{t.acao}</FN.Button>
@@ -87,7 +89,7 @@ function Financeiro({ compact }) {
             <FN.ListRow key={i} icon="receipt" title={x.desc} subtitle={"Vence " + x.venc} value={window.brl(x.valor)}
               trailing={<div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 10 }}>
                 {x.status === "Pago" ? <FN.Badge tone="success">Pago</FN.Badge>
-                  : <FN.Button size="sm" variant="outline" icon="check" onClick={() => { setDados(d => ({ ...d, boletos: d.boletos.map((b, j) => j === i ? { ...b, status: "Pago" } : b) })); showToast("Boleto marcado como pago"); }}>Pagar</FN.Button>}
+                  : <FN.Button size="sm" variant="outline" icon="check" onClick={() => { setDados(d => ({ ...d, boletos: d.boletos.map((b, j) => j === i ? { ...b, status: "Pago" } : b) })); showToast("Boleto marcado como pago"); }}>Marcar pago</FN.Button>}
                 {lixo(i)}
               </div>} />
           )) : lista.map((x, i) => (
@@ -98,6 +100,9 @@ function Financeiro({ compact }) {
       </>}
 
       {novo ? <FinRegistro tab={tab} onClose={() => setNovo(false)} onSave={salvar} /> : null}
+      {apagar != null && lista[apagar] ? <FN.ConfirmDialog tone="danger" icon="trash-2" title="Remover registro?"
+        message={nomeDe(lista[apagar]) + " sai do financeiro. Não dá pra desfazer."}
+        confirmLabel="Sim, remover" cancelLabel="Voltar" onCancel={() => setApagar(null)} onConfirm={() => remover(apagar)} /> : null}
       {toast ? <FN.Toast tone="success" icon="check">{toast}</FN.Toast> : null}
     </div>
   );

@@ -5,10 +5,13 @@
 --color-surface-3:var(--night-800);--color-surface-inset:rgba(192,114,90,.12);
 --color-border:rgba(255,255,255,.07);--color-border-soft:rgba(255,255,255,.04);
 --color-border-strong:rgba(255,255,255,.14);
---text-strong:#f4f1ee;--text-body:#b9b4b0;--text-muted:#7c7a80;--text-inverse:#0d0d14;
+--text-strong:#f4f1ee;--text-body:#b9b4b0;--text-muted:#8a878e;--text-inverse:#0d0d14;
 --text-accent:#e2957a;
 --color-accent:#d98b6e;--color-accent-hover:#e8a289;--color-accent-soft:rgba(217,139,110,.14);
+--color-accent-strong:#d98b6e;--color-accent-strong-hover:#e8a289;
 --color-accent-contrast:#20120c;
+/* The dark action hues are light, so their labels flip to ink (white measured 1.7–2.8:1). */
+--action-fg:var(--text-inverse);
 --focus-ring:0 0 0 3px rgba(217,139,110,.35);
 --overlay-scrim:rgba(4,4,8,.66);
 --shadow-card:0 2px 8px rgba(0,0,0,.4);

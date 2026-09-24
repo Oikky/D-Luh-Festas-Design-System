@@ -2,7 +2,9 @@ import React from "react";
 
 /* Lucide is loaded from CDN by the page (see readme ICONOGRAPHY). This wrapper reads the
    icon data off window.lucide and renders a real <svg> so React keeps ownership of the node. */
-const pascal = n => String(n).replace(/(^|[-_])([a-z])/g, (_, __, c) => c.toUpperCase());
+/* Lucide names can end in digits ("trash-2" → Trash2), so the segment after a dash may be a number. */
+const pascal = n => String(n).replace(/(^|[-_])([a-z0-9])/g, (_, __, c) => c.toUpperCase());
+const missing = new Set();
 const reactAttrs = a => {
   const o = {};
   for (const k in a) o[k.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = a[k];
@@ -22,7 +24,10 @@ export function Icon({ name, size = 20, strokeWidth = 1.75, color = "currentColo
     ? node[2].filter(c => Array.isArray(c) && typeof c[0] === "string")
     : [];
   const base = { width: size, height: size, flex: "0 0 auto", display: "block", ...style };
-  if (!nodes.length) return <span aria-hidden="true" style={base} {...rest} />;
+  if (!nodes.length) {
+    if (window.lucide && !missing.has(name)) { missing.add(name); console.warn(`[Icon] Lucide has no icon "${name}"`); }
+    return <span aria-hidden="true" style={base} {...rest} />;
+  }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={base} {...rest}>

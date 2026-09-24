@@ -9,7 +9,33 @@
 <script src="../../_ds_bundle.js"></script>
 <script src="data.js"></script>
 <script src="contratos-data.js"></script>
-<style>*{box-sizing:border-box;scrollbar-width:none}*::-webkit-scrollbar{display:none}html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}body{font-family:var(--font-ui)}a{color:var(--color-accent)}a:hover{color:var(--color-accent-hover)}</style>
+<style>
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--color-border-strong) transparent}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{font-family:var(--font-ui);caret-color:var(--color-accent)}
+::selection{background:var(--color-accent-soft);color:var(--text-strong)}
+a{color:var(--text-accent);text-underline-offset:2px}a:hover{color:var(--color-accent-strong-hover)}
+/* Focus: a terracotta ring on anything reachable by keyboard, never removed. Inputs and
+   selects draw their own ring on the wrapper (--focus-ring), so only their outline is off. */
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,[role="dialog"]:focus-visible,[role="alertdialog"]:focus-visible{outline:none}
+/* Hover and press from readme "Visual foundations": solid buttons drop to 87%, outline and
+   ghost controls turn terracotta, clickable rows tint, and every pressable scales 2% on press.
+   The components style inline, so hover rules need !important to win. */
+@media (hover:hover) and (pointer:fine){
+  button[data-variant="solid"]:not(:disabled):hover{opacity:var(--hover-opacity)}
+  button[data-variant="ghost"]:not(:disabled):hover,button[data-variant="quiet"]:not(:disabled):hover{border-color:var(--color-accent)!important;color:var(--text-accent)!important}
+  [data-row-action]:hover{background:var(--color-surface-2)!important}
+}
+button:not(:disabled):active{transform:scale(var(--press-scale))}
+/* Touch: every control reaches 44px (PRODUCT "minimum 44px hit targets on touch"). Calendar
+   day cells are exempt from the width floor; seven of them share a 390px row. */
+@media (max-width:760px),(pointer:coarse){
+  button,[role="tab"],[role="menuitem"],select,label[data-target]{min-height:var(--tap-min)!important}
+  button:not([data-cell]):not([role="tab"]):not([role="menuitem"]){min-width:var(--tap-min)!important}
+}
+@media (prefers-reduced-motion:reduce){button:not(:disabled):active{transform:none}}
+</style>
 </head><body><div id="root"></div>
 <script type="text/babel" src="Busca.jsx"></script>
 <script type="text/babel" src="Notificacoes.jsx"></script>

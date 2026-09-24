@@ -1,21 +1,23 @@
 window.DLUH = {
+  /* The shop day the fake rows are built around. Agenda opens on it and the rail counts it. */
+  hoje: "2026-06-12",
   pedidos: [
-    { id: "PED-2291", cliente: "Maria Helena", status: "Pago — Em produção", tel: "(38) 99812-4410",
+    { id: "PED-2291", data: "2026-06-12", hora: "15:00", modo: "Entrega em endereço", cliente: "Maria Helena", status: "Pago — Em produção", tel: "(38) 99812-4410",
       entrega: "12/06 · 15h", pgto: "Pix", tipo: null, total: "R$ 480,00", pago: "R$ 240,00", falta: "R$ 240,00",
       itens: [{ qty: 1, name: "Bolo Vulcão 2kg", note: "Recheio: ninho com nutella", topper: "Topo: “Ana faz 5”", price: "R$ 240,00" },
               { qty: 100, name: "Salgados sortidos", note: "Coxinha, risoles, quibe", price: "R$ 228,00" },
               { qty: 1, name: "Taxa de entrega", note: "Centro · 3,2 km", price: "R$ 12,00" }] },
-    { id: "PED-2290", cliente: "Willian Bicalho", status: "Confirmado — Esperando pagamento", tel: "(38) 99114-2087",
+    { id: "PED-2290", data: "2026-06-13", hora: "11:00", modo: "Retirada no local", cliente: "Willian Bicalho", status: "Confirmado — Esperando pagamento", tel: "(38) 99114-2087",
       entrega: "13/06 · 11h", pgto: "Cartão", tipo: null, total: "R$ 740,00", pago: "R$ 0,00", falta: "R$ 370,00",
       itens: [{ qty: 2, name: "Bolo Red Velvet 1,5kg", note: "Cobertura: cream cheese", price: "R$ 520,00" },
               { qty: 50, name: "Docinhos gourmet", note: "Brigadeiro belga e beijinho", price: "R$ 220,00" }] },
-    { id: "PED-2289", cliente: "Padaria Central", status: "Aguardando confirmação", tel: "(38) 3221-9080",
+    { id: "PED-2289", data: "2026-06-14", hora: "07:00", modo: "Entrega em endereço", cliente: "Padaria Central", status: "Aguardando confirmação", tel: "(38) 3221-9080",
       entrega: "14/06 · 07h", pgto: "Pix", tipo: "Empresa", total: "R$ 1.240,00", pago: "R$ 0,00", falta: null,
       itens: [{ qty: 400, name: "Salgados para revenda", note: "Entrega semanal — contrato", price: "R$ 1.240,00" }] },
-    { id: "PED-2288", cliente: "Ana Cláudia", status: "Entregue — Esperando restante", tel: "(38) 99701-3322",
+    { id: "PED-2288", data: "2026-06-10", hora: "18:00", modo: "Retirada no local", cliente: "Ana Cláudia", status: "Entregue — Esperando restante", tel: "(38) 99701-3322",
       entrega: "10/06 · 18h", pgto: "Dinheiro", tipo: null, total: "R$ 320,00", pago: "R$ 160,00", falta: "R$ 160,00",
       itens: [{ qty: 1, name: "Bolo de festa 3 andares", note: "Tema: jardim encantado", topper: "Topo: “Helena 1 ano”", price: "R$ 320,00" }] },
-    { id: "PED-2287", cliente: "João Vitor", status: "Finalizado", tel: "(38) 99455-1190",
+    { id: "PED-2287", data: "2026-06-09", hora: "16:00", modo: "Retirada no local", cliente: "João Vitor", status: "Finalizado", tel: "(38) 99455-1190",
       entrega: "09/06 · 16h", pgto: "Pix", tipo: null, total: "R$ 188,00", pago: "R$ 188,00", falta: null,
       itens: [{ qty: 1, name: "Torta salgada grande", note: "Frango com catupiry", price: "R$ 188,00" }] }
   ],

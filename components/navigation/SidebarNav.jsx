@@ -8,7 +8,7 @@ export function SidebarNav({ items = [], value, onChange, expanded = false, logo
       width: expanded ? "var(--sidebar-w)" : "var(--rail-w)", flex: "0 0 auto",
       padding: "var(--space-6)", background: "var(--color-surface)",
       borderRight: "var(--border-hairline) solid var(--color-border)",
-      fontFamily: "var(--font-ui)", transition: "width var(--dur-base) var(--ease-standard)",
+      fontFamily: "var(--font-ui)", transition: "width var(--dur-move) var(--ease-out)",
       height: "100%", boxSizing: "border-box", ...style
     }}>
       {logo ? <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "var(--space-2) var(--space-2) var(--space-8)" }}>{logo}</div> : null}

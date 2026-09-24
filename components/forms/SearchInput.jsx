@@ -13,10 +13,12 @@ export function SearchInput({ value, onChange, onClear, placeholder = "Buscar po
     }}>
       <Icon name="search" size={17} style={{ color: "var(--text-muted)" }} />
       <input value={value} onChange={onChange} placeholder={placeholder}
-        onFocus={() => setFocus(true)} onBlur={() => setFocus(false)} {...rest}
+        {...rest}
+        onFocus={e => { setFocus(true); rest.onFocus && rest.onFocus(e); }}
+        onBlur={e => { setFocus(false); rest.onBlur && rest.onBlur(e); }}
         style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontFamily: "var(--font-ui)", fontSize: "var(--fs-body-s)", color: "var(--text-strong)" }} />
       {value ? <button type="button" onClick={onClear} aria-label="Limpar busca"
-        style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--text-muted)", display: "flex", padding: 0 }}>
+        style={{ width: 32, height: 32, margin: "-8px -8px -8px 0", border: "none", borderRadius: "var(--radius-pill)", background: "transparent", cursor: "pointer", color: "var(--text-muted)", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flex: "0 0 auto" }}>
         <Icon name="x" size={16} />
       </button> : null}
     </div>

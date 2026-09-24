@@ -66,7 +66,9 @@ try { (() => {
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
 /* Lucide is loaded from CDN by the page (see readme ICONOGRAPHY). This wrapper reads the
    icon data off window.lucide and renders a real <svg> so React keeps ownership of the node. */
-const pascal = n => String(n).replace(/(^|[-_])([a-z])/g, (_, __, c) => c.toUpperCase());
+/* Lucide names can end in digits ("trash-2" → Trash2), so the segment after a dash may be a number. */
+const pascal = n => String(n).replace(/(^|[-_])([a-z0-9])/g, (_, __, c) => c.toUpperCase());
+const missing = new Set();
 const reactAttrs = a => {
   const o = {};
   for (const k in a) o[k.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = a[k];
@@ -101,10 +103,16 @@ function Icon({
     display: "block",
     ...style
   };
-  if (!nodes.length) return /*#__PURE__*/React.createElement("span", _extends({
-    "aria-hidden": "true",
-    style: base
-  }, rest));
+  if (!nodes.length) {
+    if (window.lucide && !missing.has(name)) {
+      missing.add(name);
+      console.warn(`[Icon] Lucide has no icon "${name}"`);
+    }
+    return /*#__PURE__*/React.createElement("span", _extends({
+      "aria-hidden": "true",
+      style: base
+    }, rest));
+  }
   return /*#__PURE__*/React.createElement("svg", _extends({
     viewBox: "0 0 24 24",
     fill: "none",
@@ -119,7 +127,9 @@ function Icon({
     ...reactAttrs(attrs)
   })));
 }
-Object.assign(__ds_scope, { Icon });
+Object.assign(__ds_scope, {
+  Icon
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/core/Icon.jsx", error: String((e && e.message) || e) }); }
 
 // components/core/Badge.jsx
@@ -333,38 +343,38 @@ try { (() => {
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
 const TONES = {
   accent: {
-    bg: "var(--color-accent)",
+    bg: "var(--color-accent-strong)",
     fg: "var(--color-accent-contrast)",
     line: "transparent"
   },
   success: {
     bg: "var(--action-success)",
-    fg: "#fff",
+    fg: "var(--action-fg)",
     line: "transparent"
   },
   chargeAll: {
     bg: "var(--action-charge-total)",
-    fg: "#fff",
+    fg: "var(--action-fg)",
     line: "transparent"
   },
   chargeEntry: {
     bg: "var(--action-charge-entry)",
-    fg: "#fff",
+    fg: "var(--action-fg)",
     line: "transparent"
   },
   delivered: {
     bg: "var(--action-delivered)",
-    fg: "#fff",
+    fg: "var(--action-fg)",
     line: "transparent"
   },
   warn: {
     bg: "var(--action-warn)",
-    fg: "#fff",
+    fg: "var(--action-fg)",
     line: "transparent"
   },
   danger: {
     bg: "var(--action-danger)",
-    fg: "#fff",
+    fg: "var(--action-fg)",
     line: "transparent"
   }
 };
@@ -440,7 +450,7 @@ function Button({
       lineHeight: 1,
       borderRadius: "var(--radius-sm)",
       cursor: off ? "not-allowed" : "pointer",
-      opacity: off ? "var(--disabled-opacity)" : 1,
+      opacity: off ? "var(--disabled-opacity)" : undefined,
       whiteSpace: "nowrap",
       transition: "var(--transition-control)",
       ...skin,
@@ -457,7 +467,9 @@ function Button({
     size: size === "sm" ? 15 : 17
   }) : null);
 }
-Object.assign(__ds_scope, { Button });
+Object.assign(__ds_scope, {
+  Button
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/core/Button.jsx", error: String((e && e.message) || e) }); }
 
 // components/core/StatusBadge.jsx
@@ -543,6 +555,7 @@ function DataTable({
   columns = [],
   rows = [],
   empty,
+  minWidth = 520,
   style
 }) {
   return /*#__PURE__*/React.createElement("div", {
@@ -554,7 +567,7 @@ function DataTable({
   }, /*#__PURE__*/React.createElement("table", {
     style: {
       width: "100%",
-      minWidth: 520,
+      minWidth,
       borderCollapse: "collapse",
       fontFamily: "var(--font-ui)"
     }
@@ -592,7 +605,9 @@ function DataTable({
     }
   }, empty)))));
 }
-Object.assign(__ds_scope, { DataTable });
+Object.assign(__ds_scope, {
+  DataTable
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/DataTable.jsx", error: String((e && e.message) || e) }); }
 
 // components/data/ListRow.jsx
@@ -609,9 +624,19 @@ function ListRow({
   onClick,
   style
 }) {
-  const money = tone === "in" ? "var(--action-paid)" : tone === "out" ? "var(--action-danger)" : "var(--text-strong)";
+  /* Money leaving is signed ("− R$"), not painted red: red is reserved for apagar. */
+  const money = tone === "in" ? "var(--action-paid)" : "var(--text-strong)";
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClick,
+    "data-row-action": onClick ? "" : undefined,
+    role: onClick ? "button" : undefined,
+    tabIndex: onClick ? 0 : undefined,
+    onKeyDown: onClick ? e => {
+      if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+        e.preventDefault();
+        onClick(e);
+      }
+    } : undefined,
     style: {
       display: "flex",
       alignItems: "center",
@@ -622,6 +647,7 @@ function ListRow({
       background: "var(--color-surface)",
       fontFamily: "var(--font-ui)",
       border: "var(--border-hairline) solid var(--color-border-soft)",
+      transition: "var(--transition-control)",
       ...style
     }
   }, avatar ? /*#__PURE__*/React.createElement("span", {
@@ -694,11 +720,15 @@ function ListRow({
     }
   }, valueSub) : null) : null, trailing);
 }
-Object.assign(__ds_scope, { ListRow });
+Object.assign(__ds_scope, {
+  ListRow
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/ListRow.jsx", error: String((e && e.message) || e) }); }
 
 // components/data/OrderCard.jsx
 try { (() => {
+/* "R$ 0,00" is a fact, not a payment: it stays neutral instead of taking the paid green. */
+const isZero = v => /^R\$\s*0(,0+)?$/.test(String(v).trim());
 function OrderCard({
   id,
   customer,
@@ -726,7 +756,7 @@ function OrderCard({
       style: {
         fontSize: "var(--fs-caption)",
         fontWeight: "var(--fw-semibold)",
-        color: "var(--color-accent)",
+        color: "var(--text-accent)",
         letterSpacing: "var(--ls-caps)",
         textTransform: "uppercase",
         marginBottom: 4
@@ -787,7 +817,7 @@ function OrderCard({
       }
     }, paid != null ? /*#__PURE__*/React.createElement(React.Fragment, null, "Pago ", /*#__PURE__*/React.createElement("b", {
       style: {
-        color: "var(--action-paid)"
+        color: isZero(paid) ? "var(--text-strong)" : "var(--action-paid)"
       }
     }, paid)) : null, due != null ? /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 Falta ", /*#__PURE__*/React.createElement("b", {
       style: {
@@ -850,7 +880,7 @@ function OrderCard({
     style: {
       display: "inline-block",
       fontSize: "var(--fs-tiny)",
-      color: "var(--color-accent)",
+      color: "var(--text-accent)",
       background: "var(--color-accent-soft)",
       padding: "4px 8px",
       borderRadius: "var(--radius-xs)",
@@ -866,7 +896,9 @@ function OrderCard({
     }
   }, it.price)))) : null);
 }
-Object.assign(__ds_scope, { OrderCard });
+Object.assign(__ds_scope, {
+  OrderCard
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/OrderCard.jsx", error: String((e && e.message) || e) }); }
 
 // components/data/Sparkline.jsx
@@ -1057,7 +1089,7 @@ function UserChip({
       borderRadius: "var(--radius-md)",
       overflow: "hidden",
       background: "var(--color-accent-soft)",
-      color: "var(--color-accent)",
+      color: "var(--text-accent)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -1092,13 +1124,32 @@ function UserChip({
     }
   }, role) : null));
 }
-Object.assign(__ds_scope, { UserChip });
+Object.assign(__ds_scope, {
+  UserChip
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/data/UserChip.jsx", error: String((e && e.message) || e) }); }
 
 // components/feedback/ConfirmDialog.jsx
 try { (() => {
+/* Icon hue follows the confirm button's tone, so a money confirmation reads in the same
+   semantic colour as the action that opened it. */
+const HUE = {
+  accent: "var(--color-accent)",
+  danger: "var(--action-danger)",
+  warn: "var(--action-warn)",
+  success: "var(--action-success)",
+  chargeAll: "var(--action-charge-total)",
+  chargeEntry: "var(--action-charge-entry)",
+  delivered: "var(--action-delivered)"
+};
+let seq = 0;
 function ConfirmDialog({
   open = true,
+  ...props
+}) {
+  return open ? /*#__PURE__*/React.createElement(ConfirmPanel, props) : null;
+}
+function ConfirmPanel({
   icon = "circle-check",
   tone = "accent",
   title,
@@ -1108,29 +1159,46 @@ function ConfirmDialog({
   onConfirm,
   onCancel
 }) {
-  if (!open) return null;
-  const color = tone === "danger" ? "var(--action-danger)" : tone === "warn" ? "var(--action-warn)" : "var(--color-accent)";
+  const panel = React.useRef(null);
+  const [ids] = React.useState(() => {
+    const n = ++seq;
+    return {
+      t: "dluh-confirm-t" + n,
+      m: "dluh-confirm-m" + n
+    };
+  });
+  __ds_scope.useDialogFocus(panel, onCancel);
+  const entrada = __ds_scope.useEntrada();
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      position: "absolute",
+      position: "fixed",
       inset: 0,
       zIndex: 1000,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "var(--space-10)",
-      background: "var(--overlay-scrim)"
+      background: "var(--overlay-scrim)",
+      ...entrada.scrim
     }
   }, /*#__PURE__*/React.createElement("div", {
+    ref: panel,
+    role: "alertdialog",
+    "aria-modal": "true",
+    "aria-labelledby": ids.t,
+    "aria-describedby": message ? ids.m : undefined,
+    tabIndex: -1,
     style: {
       background: "var(--color-surface)",
       borderRadius: "var(--radius-lg)",
-      maxWidth: 340,
+      maxWidth: 360,
       width: "100%",
+      outline: "none",
       padding: "22px 20px",
       textAlign: "center",
       boxShadow: "var(--shadow-modal)",
-      fontFamily: "var(--font-ui)"
+      fontFamily: "var(--font-ui)",
+      ...entrada.panel
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1139,7 +1207,7 @@ function ConfirmDialog({
       margin: "0 auto var(--space-5)",
       borderRadius: "var(--radius-pill)",
       background: "var(--color-surface-3)",
-      color,
+      color: HUE[tone] || HUE.accent,
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
@@ -1148,6 +1216,7 @@ function ConfirmDialog({
     name: icon,
     size: 25
   })), /*#__PURE__*/React.createElement("div", {
+    id: ids.t,
     style: {
       fontFamily: "var(--font-display)",
       fontSize: "var(--fs-title)",
@@ -1155,14 +1224,15 @@ function ConfirmDialog({
       color: "var(--text-strong)",
       marginBottom: 6
     }
-  }, title), /*#__PURE__*/React.createElement("div", {
+  }, title), message ? /*#__PURE__*/React.createElement("div", {
+    id: ids.m,
     style: {
       fontSize: "var(--fs-body-s)",
       color: "var(--text-body)",
       lineHeight: "var(--lh-normal)",
       marginBottom: "var(--space-9)"
     }
-  }, message), /*#__PURE__*/React.createElement("div", {
+  }, message) : null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: "var(--space-5)"
@@ -1170,53 +1240,143 @@ function ConfirmDialog({
   }, /*#__PURE__*/React.createElement(__ds_scope.Button, {
     variant: "ghost",
     block: true,
-    onClick: onCancel
+    onClick: onCancel,
+    "data-autofocus": true
   }, cancelLabel), /*#__PURE__*/React.createElement(__ds_scope.Button, {
     block: true,
-    tone: tone === "danger" ? "danger" : "accent",
+    tone: HUE[tone] ? tone : "accent",
     onClick: onConfirm
   }, confirmLabel))));
 }
-Object.assign(__ds_scope, { ConfirmDialog });
+Object.assign(__ds_scope, {
+  ConfirmDialog
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/ConfirmDialog.jsx", error: String((e && e.message) || e) }); }
 
 // components/feedback/Modal.jsx
 try { (() => {
+const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/* Shared by Modal and ConfirmDialog: moves focus into the dialog, keeps Tab inside it, maps
+   Escape to the dialog's own exit and hands focus back to whatever opened it. */
+function useDialogFocus(ref, onEscape) {
+  const esc = React.useRef(onEscape);
+  esc.current = onEscape;
+  React.useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const opener = document.activeElement;
+    const list = () => [...node.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length);
+    (node.querySelector("[data-autofocus]") || node).focus({
+      preventScroll: true
+    });
+    const onKey = e => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        if (esc.current) esc.current();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const f = list();
+      if (!f.length) {
+        e.preventDefault();
+        return;
+      }
+      const first = f[0],
+        last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === node)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    node.addEventListener("keydown", onKey);
+    return () => {
+      node.removeEventListener("keydown", onKey);
+      if (opener && opener.focus && document.contains(opener)) opener.focus({
+        preventScroll: true
+      });
+    };
+  }, []);
+}
+let seq = 0;
+
+/* Dialogs rise in once, on open: the scrim fades and the panel settles from 97% on ease-out, so
+   the page behind does not swap instantly. Centered, so no transform-origin. Closing is instant;
+   the operator already decided. Reduced motion keeps the fade and drops the scale. */
+function useEntrada() {
+  const [on, setOn] = React.useState(false);
+  React.useEffect(() => {
+    const f = requestAnimationFrame(() => setOn(true));
+    return () => cancelAnimationFrame(f);
+  }, []);
+  return {
+    scrim: {
+      opacity: on ? 1 : 0,
+      transition: "opacity var(--dur-base) var(--ease-out)"
+    },
+    panel: {
+      opacity: on ? 1 : 0,
+      transform: on ? "none" : "scale(.97)",
+      transition: "opacity var(--dur-base) var(--ease-out), transform var(--dur-move) var(--ease-out)"
+    }
+  };
+}
 function Modal({
   open = true,
+  ...props
+}) {
+  return open ? /*#__PURE__*/React.createElement(ModalPanel, props) : null;
+}
+function ModalPanel({
   title,
   subtitle,
   children,
   footer,
   onClose,
+  dismissible = true,
   width = 580,
   style
 }) {
-  if (!open) return null;
+  const panel = React.useRef(null);
+  const [titleId] = React.useState(() => "dluh-modal-" + ++seq);
+  useDialogFocus(panel, onClose);
+  const entrada = useEntrada();
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      position: "absolute",
+      position: "fixed",
       inset: 0,
       zIndex: 1000,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "var(--space-10)",
-      background: "var(--overlay-scrim)"
+      background: "var(--overlay-scrim)",
+      ...entrada.scrim
     },
-    onClick: onClose
+    onClick: e => {
+      if (dismissible && onClose && e.target === e.currentTarget) onClose();
+    }
   }, /*#__PURE__*/React.createElement("div", {
-    onClick: e => e.stopPropagation(),
+    ref: panel,
+    role: "dialog",
+    "aria-modal": "true",
+    "aria-labelledby": title ? titleId : undefined,
+    tabIndex: -1,
     style: {
       background: "var(--color-surface)",
       borderRadius: "var(--radius-lg)",
       width: "100%",
+      outline: "none",
       maxWidth: width,
-      maxHeight: "90%",
+      maxHeight: "calc(100dvh - 2 * var(--space-10))",
       overflowY: "auto",
       padding: "22px 20px",
       boxShadow: "var(--shadow-modal)",
       fontFamily: "var(--font-ui)",
+      ...entrada.panel,
       ...style
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -1231,6 +1391,7 @@ function Modal({
       minWidth: 0
     }
   }, title ? /*#__PURE__*/React.createElement("div", {
+    id: titleId,
     style: {
       fontFamily: "var(--font-display)",
       fontSize: "var(--fs-title)",
@@ -1249,12 +1410,19 @@ function Modal({
     onClick: onClose,
     "aria-label": "Fechar",
     style: {
+      width: 40,
+      height: 40,
+      margin: "-10px -10px 0 0",
+      flex: "0 0 auto",
       border: "none",
+      borderRadius: "var(--radius-sm)",
       background: "transparent",
       cursor: "pointer",
       color: "var(--text-muted)",
       display: "flex",
-      padding: 2
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 0
     }
   }, /*#__PURE__*/React.createElement(__ds_scope.Icon, {
     name: "x",
@@ -1271,7 +1439,11 @@ function Modal({
     }
   }, footer) : null));
 }
-Object.assign(__ds_scope, { Modal });
+Object.assign(__ds_scope, {
+  useDialogFocus,
+  useEntrada,
+  Modal
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/Modal.jsx", error: String((e && e.message) || e) }); }
 
 // components/feedback/Toast.jsx
@@ -1283,16 +1455,26 @@ function Toast({
   visible = true,
   style
 }) {
+  /* Mounts one frame hidden so the documented 250ms rise plays instead of a pop-in. */
+  const [montado, setMontado] = React.useState(false);
+  React.useEffect(() => {
+    const f = requestAnimationFrame(() => setMontado(true));
+    return () => cancelAnimationFrame(f);
+  }, []);
+  visible = visible && montado;
   const fg = tone === "success" ? "var(--action-paid-line)" : tone === "danger" ? "var(--action-danger)" : "#fff";
   return /*#__PURE__*/React.createElement("div", {
     role: "status",
     style: {
-      position: "absolute",
-      bottom: "var(--space-11)",
+      /* Fixed to the viewport, above the modal layer: a toast confirms the action that just
+         happened, even when that action came from inside a dialog or a scrolled list. The shell
+         sets --toast-offset to clear the mobile bottom bar. */
+      position: "fixed",
+      bottom: "calc(var(--space-11) + var(--toast-offset, 0px) + env(safe-area-inset-bottom))",
       left: "50%",
       transform: `translateX(-50%) translateY(${visible ? 0 : 20}px)`,
       opacity: visible ? 1 : 0,
-      transition: `all var(--dur-base) var(--ease-standard)`,
+      transition: "opacity var(--dur-base) var(--ease-out), transform var(--dur-move) var(--ease-out)",
       display: "inline-flex",
       alignItems: "center",
       gap: 9,
@@ -1304,7 +1486,7 @@ function Toast({
       fontSize: "var(--fs-body-l)",
       whiteSpace: "nowrap",
       pointerEvents: "none",
-      zIndex: 999,
+      zIndex: 1100,
       ...style
     }
   }, icon ? /*#__PURE__*/React.createElement(__ds_scope.Icon, {
@@ -1315,7 +1497,9 @@ function Toast({
     }
   }) : null, children);
 }
-Object.assign(__ds_scope, { Toast });
+Object.assign(__ds_scope, {
+  Toast
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/feedback/Toast.jsx", error: String((e && e.message) || e) }); }
 
 // components/forms/Field.jsx
@@ -1463,10 +1647,16 @@ function SearchInput({
   }), /*#__PURE__*/React.createElement("input", _extends({
     value: value,
     onChange: onChange,
-    placeholder: placeholder,
-    onFocus: () => setFocus(true),
-    onBlur: () => setFocus(false)
+    placeholder: placeholder
   }, rest, {
+    onFocus: e => {
+      setFocus(true);
+      rest.onFocus && rest.onFocus(e);
+    },
+    onBlur: e => {
+      setFocus(false);
+      rest.onBlur && rest.onBlur(e);
+    },
     style: {
       flex: 1,
       minWidth: 0,
@@ -1482,19 +1672,28 @@ function SearchInput({
     onClick: onClear,
     "aria-label": "Limpar busca",
     style: {
+      width: 32,
+      height: 32,
+      margin: "-8px -8px -8px 0",
       border: "none",
+      borderRadius: "var(--radius-pill)",
       background: "transparent",
       cursor: "pointer",
       color: "var(--text-muted)",
       display: "flex",
-      padding: 0
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 0,
+      flex: "0 0 auto"
     }
   }, /*#__PURE__*/React.createElement(__ds_scope.Icon, {
     name: "x",
     size: 16
   })) : null);
 }
-Object.assign(__ds_scope, { SearchInput });
+Object.assign(__ds_scope, {
+  SearchInput
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/SearchInput.jsx", error: String((e && e.message) || e) }); }
 
 // components/forms/Select.jsx
@@ -1507,6 +1706,7 @@ function Select({
   style,
   ...rest
 }) {
+  const [focus, setFocus] = React.useState(false);
   return /*#__PURE__*/React.createElement("span", {
     style: {
       position: "relative",
@@ -1514,11 +1714,21 @@ function Select({
       alignItems: "center",
       width: "100%",
       background: "var(--color-surface)",
-      border: `${accent ? "var(--border-control)" : "var(--border-hairline)"} solid ${accent ? "var(--color-accent)" : "var(--color-border)"}`,
+      border: `${accent ? "var(--border-control)" : "var(--border-hairline)"} solid ${accent || focus ? "var(--color-accent)" : "var(--color-border)"}`,
       borderRadius: "var(--radius-xs)",
+      boxShadow: focus ? "var(--focus-ring)" : "none",
+      transition: "var(--transition-control)",
       ...style
     }
   }, /*#__PURE__*/React.createElement("select", _extends({}, rest, {
+    onFocus: e => {
+      setFocus(true);
+      rest.onFocus && rest.onFocus(e);
+    },
+    onBlur: e => {
+      setFocus(false);
+      rest.onBlur && rest.onBlur(e);
+    },
     style: {
       appearance: "none",
       width: "100%",
@@ -1530,7 +1740,7 @@ function Select({
       fontFamily: "var(--font-ui)",
       fontSize: "var(--fs-body-s)",
       fontWeight: accent ? "var(--fw-semibold)" : "var(--fw-regular)",
-      color: accent ? "var(--color-accent)" : "var(--text-strong)"
+      color: accent ? "var(--text-accent)" : "var(--text-strong)"
     }
   }), options.map(o => typeof o === "string" ? /*#__PURE__*/React.createElement("option", {
     key: o,
@@ -1549,11 +1759,15 @@ function Select({
     }
   }));
 }
-Object.assign(__ds_scope, { Select });
+Object.assign(__ds_scope, {
+  Select
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/forms/Select.jsx", error: String((e && e.message) || e) }); }
 
 // components/navigation/DropdownMenu.jsx
 try { (() => {
+/* The menu is position: fixed against the trigger's rect, so a parent with overflow: hidden
+   (every Card) can no longer clip it. It flips above the trigger when there is no room below. */
 function DropdownMenu({
   trigger,
   items = [],
@@ -1568,14 +1782,83 @@ function DropdownMenu({
     onOpenChange ? onOpenChange(v) : setOpenState(v);
   };
   const ref = React.useRef(null);
-  React.useEffect(() => {
-    if (!open) return;
+  const menu = React.useRef(null);
+  const [pos, setPos] = React.useState(null);
+  const place = () => {
+    const t = ref.current.getBoundingClientRect();
+    const h = menu.current ? menu.current.offsetHeight : 0;
+    const below = t.bottom + 6 + h <= window.innerHeight - 8;
+    setPos({
+      top: below ? t.bottom + 6 : Math.max(8, t.top - 6 - h),
+      [align]: align === "right" ? window.innerWidth - t.right : t.left
+    });
+  };
+  const close = refocus => {
+    setOpen(false);
+    if (refocus) {
+      const b = ref.current && ref.current.querySelector("button");
+      if (b) b.focus();
+    }
+  };
+  React.useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    place();
     const away = e => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target) && menu.current && !menu.current.contains(e.target)) close(false);
     };
+    const drop = () => close(false);
     document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
+    document.addEventListener("touchstart", away);
+    window.addEventListener("resize", drop);
+    document.addEventListener("scroll", drop, true);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("touchstart", away);
+      window.removeEventListener("resize", drop);
+      document.removeEventListener("scroll", drop, true);
+    };
   }, [open]);
+
+  /* Focus moves in only once the menu is placed; a visibility: hidden element cannot take focus. */
+  React.useEffect(() => {
+    if (!open || !pos) return;
+    const first = menu.current && menu.current.querySelector('[role="menuitem"]');
+    if (first && !menu.current.contains(document.activeElement)) first.focus({
+      preventScroll: true
+    });
+  }, [open, !!pos]);
+  const onMenuKey = e => {
+    const list = [...menu.current.querySelectorAll('[role="menuitem"]')];
+    const i = list.indexOf(document.activeElement);
+    const go = n => {
+      e.preventDefault();
+      list[(n + list.length) % list.length].focus();
+    };
+    if (e.key === "ArrowDown") go(i + 1);else if (e.key === "ArrowUp") go(i - 1);else if (e.key === "Home") go(0);else if (e.key === "End") go(list.length - 1);else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      close(true);
+    } else if (e.key === "Tab") close(false);
+  };
+  const trig = React.isValidElement(trigger) ? React.cloneElement(trigger, {
+    "aria-haspopup": "menu",
+    "aria-expanded": open,
+    onClick: e => {
+      trigger.props.onClick && trigger.props.onClick(e);
+      setOpen(!open);
+    },
+    onKeyDown: e => {
+      if (e.key === "ArrowDown" && !open) {
+        e.preventDefault();
+        setOpen(true);
+      }
+    }
+  }) : /*#__PURE__*/React.createElement("span", {
+    onClick: () => setOpen(!open)
+  }, trigger);
   return /*#__PURE__*/React.createElement("span", {
     ref: ref,
     style: {
@@ -1583,19 +1866,23 @@ function DropdownMenu({
       display: "inline-flex",
       ...style
     }
-  }, /*#__PURE__*/React.createElement("span", {
-    onClick: () => setOpen(!open)
-  }, trigger), open ? /*#__PURE__*/React.createElement("div", {
+  }, trig, open ? /*#__PURE__*/React.createElement("div", {
+    ref: menu,
     role: "menu",
+    onKeyDown: onMenuKey,
     style: {
-      position: "absolute",
-      top: "calc(100% + 6px)",
-      [align]: 0,
-      zIndex: 40,
+      position: "fixed",
+      zIndex: 950,
+      visibility: pos ? "visible" : "hidden",
+      ...(pos || {
+        top: 0,
+        [align]: 0
+      }),
       display: "flex",
       flexDirection: "column",
       gap: 2,
       minWidth: 220,
+      maxWidth: "calc(100vw - 16px)",
       padding: 6,
       background: "var(--color-surface)",
       border: "var(--border-hairline) solid var(--color-border)",
@@ -1605,6 +1892,7 @@ function DropdownMenu({
     }
   }, items.map((it, i) => it.divider ? /*#__PURE__*/React.createElement("span", {
     key: i,
+    role: "separator",
     style: {
       height: 1,
       background: "var(--color-border)",
@@ -1614,8 +1902,9 @@ function DropdownMenu({
     key: i,
     type: "button",
     role: "menuitem",
+    tabIndex: -1,
     onClick: () => {
-      setOpen(false);
+      close(true);
       it.onClick && it.onClick();
     },
     style: {
@@ -1623,6 +1912,7 @@ function DropdownMenu({
       alignItems: "center",
       gap: 9,
       width: "100%",
+      minHeight: 40,
       textAlign: "left",
       padding: "9px 10px",
       borderRadius: "var(--radius-xs)",
@@ -1640,7 +1930,9 @@ function DropdownMenu({
     size: 16
   }) : null, it.label))) : null);
 }
-Object.assign(__ds_scope, { DropdownMenu });
+Object.assign(__ds_scope, {
+  DropdownMenu
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/navigation/DropdownMenu.jsx", error: String((e && e.message) || e) }); }
 
 // components/navigation/FilterPill.jsx
@@ -1658,6 +1950,7 @@ function FilterPill({
   const Tag = as;
   return /*#__PURE__*/React.createElement(Tag, _extends({
     type: as === "button" ? "button" : undefined,
+    "aria-pressed": as === "button" ? active : undefined,
     style: {
       display: "inline-flex",
       alignItems: "center",
@@ -1668,7 +1961,7 @@ function FilterPill({
       whiteSpace: "nowrap",
       background: active ? "var(--color-accent-soft)" : "var(--color-surface)",
       border: `var(--border-hairline) solid ${active ? "var(--color-accent)" : "var(--color-border)"}`,
-      color: active ? "var(--color-accent)" : "var(--text-body)",
+      color: active ? "var(--text-accent)" : "var(--text-body)",
       fontFamily: "var(--font-ui)",
       fontSize: "var(--fs-small)",
       fontWeight: "var(--fw-semibold)",
@@ -1686,7 +1979,9 @@ function FilterPill({
     }
   }) : null);
 }
-Object.assign(__ds_scope, { FilterPill });
+Object.assign(__ds_scope, {
+  FilterPill
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/navigation/FilterPill.jsx", error: String((e && e.message) || e) }); }
 
 // components/navigation/SidebarNav.jsx
@@ -1711,7 +2006,7 @@ function SidebarNav({
       background: "var(--color-surface)",
       borderRight: "var(--border-hairline) solid var(--color-border)",
       fontFamily: "var(--font-ui)",
-      transition: "width var(--dur-base) var(--ease-standard)",
+      transition: "width var(--dur-move) var(--ease-out)",
       height: "100%",
       boxSizing: "border-box",
       ...style
@@ -1788,19 +2083,49 @@ function SidebarNav({
     }
   }), footer);
 }
-Object.assign(__ds_scope, { SidebarNav });
+Object.assign(__ds_scope, {
+  SidebarNav
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/navigation/SidebarNav.jsx", error: String((e && e.message) || e) }); }
 
 // components/navigation/Tabs.jsx
 try { (() => {
+/* Roving tabindex: Tab lands on the selected tab, arrows move between tabs (and select them),
+   Home/End jump to the ends. The selected tab scrolls into view when the strip overflows on
+   a phone, so "Em produção" is never selected off-screen. */
 function Tabs({
   items = [],
   value,
   onChange,
   style
 }) {
+  const list = React.useRef(null);
+  React.useEffect(() => {
+    const el = list.current && list.current.querySelector('[aria-selected="true"]');
+    if (el && list.current.scrollWidth > list.current.clientWidth) el.scrollIntoView({
+      block: "nearest",
+      inline: "nearest"
+    });
+  }, [value]);
+  const onKey = e => {
+    const i = items.findIndex(it => it.id === value);
+    const to = {
+      ArrowRight: i + 1,
+      ArrowLeft: i - 1,
+      Home: 0,
+      End: items.length - 1
+    }[e.key];
+    if (to == null || !onChange) return;
+    e.preventDefault();
+    const n = (to + items.length) % items.length;
+    onChange(items[n].id);
+    const btn = list.current.querySelectorAll('[role="tab"]')[n];
+    if (btn) btn.focus();
+  };
   return /*#__PURE__*/React.createElement("div", {
     role: "tablist",
+    ref: list,
+    onKeyDown: onKey,
     style: {
       display: "flex",
       gap: 2,
@@ -1816,6 +2141,7 @@ function Tabs({
       key: it.id,
       role: "tab",
       "aria-selected": active,
+      tabIndex: active ? 0 : -1,
       type: "button",
       onClick: () => onChange && onChange(it.id),
       style: {
@@ -1829,7 +2155,7 @@ function Tabs({
         border: "none",
         cursor: "pointer",
         borderBottom: `var(--border-tab) solid ${active ? "var(--color-accent)" : "transparent"}`,
-        color: active ? "var(--color-accent)" : "var(--text-muted)",
+        color: active ? "var(--text-accent)" : "var(--text-muted)",
         fontSize: "var(--fs-body)",
         fontWeight: active ? "var(--fw-semibold)" : "var(--fw-medium)",
         transition: "var(--transition-control)"
@@ -1837,12 +2163,14 @@ function Tabs({
     }, it.label, it.count != null ? /*#__PURE__*/React.createElement("span", {
       style: {
         fontWeight: "var(--fw-semibold)",
-        color: active ? "var(--color-accent)" : "var(--text-muted)"
+        color: active ? "var(--text-accent)" : "var(--text-muted)"
       }
     }, it.count) : null);
   }));
 }
-Object.assign(__ds_scope, { Tabs });
+Object.assign(__ds_scope, {
+  Tabs
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/navigation/Tabs.jsx", error: String((e && e.message) || e) }); }
 
 // components/navigation/Topbar.jsx
@@ -1922,36 +2250,45 @@ const {
   Icon,
   ListRow
 } = DS;
+
+/* Colour here separates only two families: what the shop delivers (terracotta) and what the
+   shop pays (neutral ink). Blue, violet and teal belong to money actions, so the five types
+   tell themselves apart by glyph and label instead. */
+const EVENTO = {
+  cor: "var(--color-accent)",
+  texto: "var(--text-accent)",
+  tint: "var(--color-accent-soft)"
+};
+const CONTA = {
+  cor: "var(--text-body)",
+  texto: "var(--text-body)",
+  tint: "var(--color-surface-3)"
+};
 const TIPOS = {
   encomenda: {
     rot: "Encomenda",
-    cor: "var(--color-accent)",
-    tint: "var(--color-accent-soft)",
+    ...EVENTO,
     icone: "cake-slice"
   },
   buffet: {
     rot: "Buffet",
-    cor: "var(--action-charge-entry)",
-    tint: "var(--status-confirmado-bg)",
+    ...EVENTO,
     icone: "chef-hat"
   },
   festa: {
     rot: "Festa",
-    cor: "var(--action-charge-total)",
-    tint: "var(--status-preparo-bg)",
+    ...EVENTO,
     icone: "party-popper"
   },
   boleto: {
     rot: "Boleto",
-    cor: "var(--action-warn)",
-    tint: "var(--action-warn-bg)",
+    ...CONTA,
     icone: "barcode",
     fin: true
   },
   cartao: {
     rot: "Cartão",
-    cor: "var(--action-delivered)",
-    tint: "rgba(15,118,110,.12)",
+    ...CONTA,
     icone: "credit-card",
     fin: true
   }
@@ -1984,7 +2321,8 @@ function Calendario({
   sel,
   onSel,
   itens,
-  compact
+  compact,
+  hoje
 }) {
   const primeiro = new Date(ano, mes, 1).getDay();
   const dias = new Date(ano, mes + 1, 0).getDate();
@@ -1994,7 +2332,7 @@ function Calendario({
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "repeat(7,1fr)",
+      gridTemplateColumns: "repeat(7,minmax(0,1fr))",
       gap: 4,
       marginBottom: 6
     }
@@ -2011,7 +2349,7 @@ function Calendario({
   }, d))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "repeat(7,1fr)",
+      gridTemplateColumns: "repeat(7,minmax(0,1fr))",
       gap: 4
     }
   }, celulas.map((d, i) => {
@@ -2021,11 +2359,14 @@ function Calendario({
     const chave = ano + "-" + String(mes + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
     const doDia = itens.filter(x => x.data === chave);
     const ativo = sel === chave;
-    const hoje = chave === "2026-06-12";
+    const eHoje = chave === hoje;
     return /*#__PURE__*/React.createElement("button", {
       key: chave,
       type: "button",
+      "data-cell": true,
       onClick: () => onSel(chave),
+      "aria-pressed": ativo,
+      "aria-label": d + " de " + MESES[mes] + (eHoje ? ", hoje" : "") + (doDia.length ? ", " + doDia.length + (doDia.length === 1 ? " compromisso" : " compromissos") : ""),
       style: {
         minHeight: compact ? 46 : 74,
         display: "flex",
@@ -2037,17 +2378,19 @@ function Calendario({
         textAlign: "left",
         borderRadius: "var(--radius-sm)",
         fontFamily: "var(--font-ui)",
-        background: ativo ? "var(--color-accent)" : doDia.length ? "var(--color-surface-2)" : "transparent",
-        border: "var(--border-hairline) solid " + (ativo ? "transparent" : hoje ? "var(--color-accent)" : "var(--color-border-soft)"),
+        background: ativo ? "var(--color-accent-strong)" : doDia.length ? "var(--color-surface-2)" : "transparent",
+        border: "var(--border-hairline) solid " + (ativo ? "transparent" : eHoje ? "var(--color-accent)" : "var(--color-border-soft)"),
         color: ativo ? "var(--color-accent-contrast)" : "var(--text-strong)",
         transition: "var(--transition-control)"
       }
     }, /*#__PURE__*/React.createElement("span", {
+      "aria-hidden": "true",
       style: {
         fontSize: "var(--fs-tiny)",
-        fontWeight: hoje || ativo ? "var(--fw-bold)" : "var(--fw-medium)"
+        fontWeight: eHoje || ativo ? "var(--fw-bold)" : "var(--fw-medium)"
       }
     }, d), compact ? /*#__PURE__*/React.createElement("span", {
+      "aria-hidden": "true",
       style: {
         display: "flex",
         gap: 2,
@@ -2058,6 +2401,7 @@ function Calendario({
       tipo: x.tipo,
       size: 5
     }))) : /*#__PURE__*/React.createElement("span", {
+      "aria-hidden": "true",
       style: {
         display: "flex",
         flexDirection: "column",
@@ -2072,9 +2416,9 @@ function Calendario({
         gap: 4,
         padding: "2px 5px",
         borderRadius: 4,
-        background: ativo ? "rgba(255,255,255,.22)" : TIPOS[x.tipo].tint,
-        color: ativo ? "inherit" : TIPOS[x.tipo].cor,
-        fontSize: 9.5,
+        background: ativo ? "transparent" : TIPOS[x.tipo].tint,
+        color: ativo ? "inherit" : TIPOS[x.tipo].texto,
+        fontSize: "var(--fs-caption)",
         fontWeight: "var(--fw-semibold)",
         whiteSpace: "nowrap",
         overflow: "hidden",
@@ -2082,7 +2426,7 @@ function Calendario({
       }
     }, x.hora ? x.hora + " " : "", x.cliente.split(" ")[0])), doDia.length > 2 ? /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 9.5,
+        fontSize: "var(--fs-caption)",
         color: ativo ? "inherit" : "var(--text-muted)",
         paddingLeft: 5
       }
@@ -2101,7 +2445,6 @@ function ItemAgenda({
       borderRadius: "var(--radius-sm)",
       background: "var(--color-surface)",
       border: "var(--border-hairline) solid var(--color-border)",
-      borderLeft: "3px solid " + t.cor,
       fontFamily: "var(--font-ui)"
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -2140,7 +2483,7 @@ function ItemAgenda({
     style: {
       fontSize: "var(--fs-caption)",
       fontWeight: "var(--fw-semibold)",
-      color: t.cor
+      color: t.texto
     }
   }, t.rot)), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2217,7 +2560,7 @@ function ItemAgenda({
       fontSize: "var(--fs-body-l)",
       fontWeight: "var(--fw-bold)",
       whiteSpace: "nowrap",
-      color: t.fin ? "var(--action-danger)" : "var(--text-strong)"
+      color: "var(--text-strong)"
     }
   }, t.fin ? "− " + x.valor : x.valor), t.fin ? /*#__PURE__*/React.createElement(Badge, {
     tone: SITUACAO[x.situacao] || "neutral"
@@ -2229,10 +2572,37 @@ function ItemAgenda({
 function Agenda({
   compact
 }) {
+  const hoje = window.DLUH.hoje;
   const [filtro, setFiltro] = React.useState("tudo");
-  const [sel, setSel] = React.useState("2026-06-12");
-  const [mes, setMes] = React.useState(5);
-  const ano = 2026;
+  const [sel, setSel] = React.useState(hoje);
+  const [cursor, setCursor] = React.useState(() => ({
+    ano: Number(hoje.slice(0, 4)),
+    mes: Number(hoje.slice(5, 7)) - 1
+  }));
+  const {
+    ano,
+    mes
+  } = cursor;
+  /* Moving the month moves the selected day with it (same day number, clamped to the month),
+     so the detail card never describes a month the grid is not showing. */
+  const irPara = (a, m) => {
+    const d = new Date(a, m, 1),
+      na = d.getFullYear(),
+      nm = d.getMonth();
+    const dia = Math.min(Number(sel.slice(8, 10)), new Date(na, nm + 1, 0).getDate());
+    setCursor({
+      ano: na,
+      mes: nm
+    });
+    setSel(na + "-" + String(nm + 1).padStart(2, "0") + "-" + String(dia).padStart(2, "0"));
+  };
+  const escolher = chave => {
+    setSel(chave);
+    setCursor({
+      ano: Number(chave.slice(0, 4)),
+      mes: Number(chave.slice(5, 7)) - 1
+    });
+  };
   const todos = window.DLUH.agenda;
   const itens = filtro === "tudo" ? todos : todos.filter(x => x.tipo === filtro);
   const doDia = itens.filter(x => x.data === sel).sort((a, b) => (a.hora || "00:00").localeCompare(b.hora || "00:00"));
@@ -2291,8 +2661,8 @@ function Agenda({
     }, /*#__PURE__*/React.createElement(IconButton, {
       icon: "chevron-left",
       label: "M\xEAs anterior",
-      size: 32,
-      onClick: () => setMes((mes + 11) % 12)
+      size: 36,
+      onClick: () => irPara(ano, mes - 1)
     }), /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "var(--font-display)",
@@ -2305,34 +2675,36 @@ function Agenda({
     }, MESES[mes], " ", ano), /*#__PURE__*/React.createElement(IconButton, {
       icon: "chevron-right",
       label: "Pr\xF3ximo m\xEAs",
-      size: 32,
-      onClick: () => setMes((mes + 1) % 12)
-    })), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 12,
-        flexWrap: "wrap"
-      }
-    }, Object.keys(TIPOS).map(k => /*#__PURE__*/React.createElement("span", {
-      key: k,
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 5,
-        fontSize: "var(--fs-tiny)",
-        color: "var(--text-muted)"
-      }
-    }, /*#__PURE__*/React.createElement(TipoDot, {
-      tipo: k
-    }), TIPOS[k].rot))))
+      size: 36,
+      onClick: () => irPara(ano, mes + 1)
+    })))
   }, /*#__PURE__*/React.createElement(Calendario, {
     ano: ano,
     mes: mes,
     sel: sel,
-    onSel: setSel,
+    onSel: escolher,
     itens: itens,
-    compact: compact
-  })), /*#__PURE__*/React.createElement("div", {
+    compact: compact,
+    hoje: hoje
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 16,
+      flexWrap: "wrap",
+      marginTop: 12
+    }
+  }, [["encomenda", "Encomendas e eventos"], ["boleto", "Contas"]].map(([k, rot]) => /*#__PURE__*/React.createElement("span", {
+    key: k,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 5,
+      fontSize: "var(--fs-tiny)",
+      color: "var(--text-muted)"
+    }
+  }, /*#__PURE__*/React.createElement(TipoDot, {
+    tipo: k
+  }), rot)))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -2383,7 +2755,7 @@ function Agenda({
     subtitle: TIPOS[x.tipo].rot + " · " + x.data.split("-").reverse().slice(0, 2).join("/") + (x.hora ? " · " + x.hora : ""),
     value: TIPOS[x.tipo].fin ? "− " + x.valor : x.valor,
     tone: TIPOS[x.tipo].fin ? "out" : "neutral",
-    onClick: () => setSel(x.data)
+    onClick: () => escolher(x.data)
   }))) : null)));
 }
 Object.assign(window, {
@@ -2508,15 +2880,20 @@ function indiceBusca() {
 function ResultadoRow({
   grupo,
   it,
-  onPick
+  onPick,
+  id,
+  ativo,
+  onHover
 }) {
-  const [h, setH] = React.useState(false);
   return /*#__PURE__*/React.createElement("button", {
     type: "button",
+    id: id,
+    role: "option",
+    "aria-selected": ativo,
+    tabIndex: -1,
     onMouseDown: e => e.preventDefault(),
     onClick: () => onPick(grupo, it),
-    onMouseEnter: () => setH(true),
-    onMouseLeave: () => setH(false),
+    onMouseEnter: onHover,
     style: {
       display: "flex",
       alignItems: "center",
@@ -2525,7 +2902,7 @@ function ResultadoRow({
       padding: "8px 10px",
       border: "none",
       borderRadius: "var(--radius-sm)",
-      background: h ? "var(--color-accent-soft)" : "transparent",
+      background: ativo ? "var(--color-accent-soft)" : "transparent",
       cursor: "pointer",
       textAlign: "left",
       fontFamily: "var(--font-ui)",
@@ -2574,7 +2951,7 @@ function ResultadoRow({
       fontSize: "var(--fs-body-s)",
       fontWeight: "var(--fw-semibold)",
       whiteSpace: "nowrap",
-      color: it.tone === "in" ? "var(--action-success, var(--text-strong))" : it.tone === "out" ? "var(--action-danger)" : "var(--text-strong)"
+      color: it.tone === "in" ? "var(--action-paid)" : "var(--text-strong)"
     }
   }, it.value) : null);
 }
@@ -2584,6 +2961,7 @@ function GlobalSearch({
   onView
 }) {
   const [open, setOpen] = React.useState(false);
+  const [ativo, setAtivo] = React.useState(-1);
   const indice = React.useMemo(indiceBusca, []);
   const t = norm(q).trim();
   const grupos = t ? indice.map(g => ({
@@ -2591,17 +2969,52 @@ function GlobalSearch({
     achados: g.itens.filter(it => it.busca.some(s => norm(s).includes(t)))
   })).filter(g => g.achados.length) : [];
   const total = grupos.reduce((s, g) => s + g.achados.length, 0);
+  /* Flat list of what is on screen (five per group), so arrows walk the results in order. */
+  const visiveis = grupos.flatMap(g => g.achados.slice(0, 5).map(it => ({
+    g,
+    it
+  })));
   const pick = (g, it) => {
     onView(g.view);
     onQ(it.q || "");
     setOpen(false);
+    setAtivo(-1);
   };
+  const aberto = open && !!t;
+  const onKey = e => {
+    if (e.key === "Escape") {
+      if (aberto) {
+        e.preventDefault();
+        setOpen(false);
+      } else if (q) onQ("");
+      return;
+    }
+    if (!visiveis.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setOpen(true);
+      const d = e.key === "ArrowDown" ? 1 : -1;
+      setAtivo(a => (a + d + visiveis.length) % visiveis.length);
+    } else if (e.key === "Enter" && aberto && ativo >= 0 && visiveis[ativo]) {
+      e.preventDefault();
+      pick(visiveis[ativo].g, visiveis[ativo].it);
+    }
+  };
+  React.useEffect(() => {
+    setAtivo(-1);
+  }, [t]);
+  React.useEffect(() => {
+    const el = ativo >= 0 && document.getElementById("busca-op-" + ativo);
+    if (el) el.scrollIntoView({
+      block: "nearest"
+    });
+  }, [ativo]);
+  let n = -1;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       position: "relative",
       width: "100%"
-    },
-    onKeyDown: e => e.key === "Escape" && setOpen(false)
+    }
   }, /*#__PURE__*/React.createElement(BX.SearchInput, {
     value: q,
     onChange: e => {
@@ -2611,12 +3024,22 @@ function GlobalSearch({
     onClear: () => onQ(""),
     onFocus: () => setOpen(true),
     onBlur: () => setOpen(false),
+    onKeyDown: onKey,
+    role: "combobox",
+    "aria-label": "Buscar pedidos, eventos e pagamentos",
+    "aria-expanded": aberto,
+    "aria-controls": "busca-resultados",
+    "aria-autocomplete": "list",
+    "aria-activedescendant": aberto && ativo >= 0 ? "busca-op-" + ativo : undefined,
     placeholder: "Pesquise aqui qualquer coisa",
     style: {
       width: "100%",
       maxWidth: "none"
     }
-  }), open && t ? /*#__PURE__*/React.createElement("div", {
+  }), aberto ? /*#__PURE__*/React.createElement("div", {
+    id: "busca-resultados",
+    role: "listbox",
+    "aria-label": "Resultados da busca",
     style: {
       position: "absolute",
       top: "calc(100% + 8px)",
@@ -2633,6 +3056,8 @@ function GlobalSearch({
     }
   }, total ? grupos.map(g => /*#__PURE__*/React.createElement("div", {
     key: g.id,
+    role: "group",
+    "aria-label": g.label,
     style: {
       display: "flex",
       flexDirection: "column",
@@ -2640,6 +3065,7 @@ function GlobalSearch({
       paddingBottom: 6
     }
   }, /*#__PURE__*/React.createElement("div", {
+    "aria-hidden": "true",
     style: {
       display: "flex",
       justifyContent: "space-between",
@@ -2650,12 +3076,19 @@ function GlobalSearch({
       textTransform: "uppercase",
       letterSpacing: "var(--ls-label)"
     }
-  }, /*#__PURE__*/React.createElement("span", null, g.label), /*#__PURE__*/React.createElement("span", null, g.achados.length)), g.achados.slice(0, 5).map((it, i) => /*#__PURE__*/React.createElement(ResultadoRow, {
-    key: i,
-    grupo: g,
-    it: it,
-    onPick: pick
-  })))) : /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, g.label), /*#__PURE__*/React.createElement("span", null, g.achados.length)), g.achados.slice(0, 5).map((it, i) => {
+    n++;
+    const k = n;
+    return /*#__PURE__*/React.createElement(ResultadoRow, {
+      key: i,
+      id: "busca-op-" + k,
+      ativo: k === ativo,
+      onHover: () => setAtivo(k),
+      grupo: g,
+      it: it,
+      onPick: pick
+    });
+  }))) : /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "18px 10px",
       fontSize: "var(--fs-body-s)",
@@ -2714,7 +3147,8 @@ function preencher(texto, vals, modelo) {
 function EscolhaTipo({
   modelos,
   valor,
-  onChange
+  onChange,
+  travado
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2727,13 +3161,16 @@ function EscolhaTipo({
     return /*#__PURE__*/React.createElement("button", {
       key: m.id,
       type: "button",
+      "aria-pressed": on,
+      disabled: travado && !on,
       onClick: () => onChange(m.id),
       style: {
         display: "flex",
         gap: 12,
         alignItems: "flex-start",
         textAlign: "left",
-        cursor: "pointer",
+        cursor: travado ? "default" : "pointer",
+        opacity: travado && !on ? "var(--disabled-opacity)" : undefined,
         padding: "14px 16px",
         borderRadius: "var(--radius-lg)",
         background: on ? "var(--color-accent-soft)" : "var(--color-surface)",
@@ -2748,7 +3185,7 @@ function EscolhaTipo({
         height: "var(--icon-tile)",
         flex: "0 0 auto",
         borderRadius: "var(--radius-md)",
-        background: on ? "var(--color-accent)" : "var(--color-surface-3)",
+        background: on ? "var(--color-accent-strong)" : "var(--color-surface-3)",
         color: on ? "var(--color-accent-contrast)" : "var(--text-body)",
         display: "flex",
         alignItems: "center",
@@ -2771,12 +3208,12 @@ function EscolhaTipo({
       style: {
         fontSize: "var(--fs-body-l)",
         fontWeight: "var(--fw-semibold)",
-        color: on ? "var(--color-accent)" : "var(--text-strong)"
+        color: on ? "var(--text-accent)" : "var(--text-strong)"
       }
     }, m.nome), on ? /*#__PURE__*/React.createElement(Icon, {
       name: "check",
       size: 16,
-      color: "var(--color-accent)"
+      color: "var(--text-accent)"
     }) : null), /*#__PURE__*/React.createElement("span", {
       style: {
         display: "block",
@@ -2818,7 +3255,7 @@ function Previa({
   })), /*#__PURE__*/React.createElement("h1", {
     style: {
       fontFamily: "var(--font-display)",
-      fontSize: 15,
+      fontSize: 16,
       fontWeight: 700,
       textAlign: "center",
       margin: "0 0 18px",
@@ -2908,8 +3345,8 @@ function ContratoEditor({
 }) {
   const tipo = contrato.tipo;
   const modelo = modelos.find(m => m.id === tipo);
-  const vals = contrato.dados[tipo];
   const [verPrevia, setVerPrevia] = React.useState(!compact);
+  const [finalizar, setFinalizar] = React.useState(false);
   const set = (id, v) => onChange({
     dados: {
       ...contrato.dados,
@@ -2919,14 +3356,19 @@ function ContratoEditor({
       }
     }
   });
-  React.useEffect(() => {
-    if (tipo !== "salao") return;
-    const t = Number(String(vals.valor_total || "").replace(",", "."));
-    const e = Number(String(vals.entrada || "").replace(",", "."));
+
+  /* The hall contract's saldo is derived from total minus entrada on every render. Storing it
+     used to rewrite the contract, and its "salvo" time, the moment it was opened. */
+  const base = contrato.dados[tipo];
+  const vals = tipo !== "salao" ? base : (() => {
+    const t = Number(String(base.valor_total || "").replace(",", "."));
+    const e = Number(String(base.entrada || "").replace(",", "."));
     const s = (isNaN(t) ? 0 : t) - (isNaN(e) ? 0 : e);
-    const novo = s > 0 ? String(s) : "";
-    if (novo !== (vals.saldo || "")) set("saldo", novo);
-  }, [tipo, vals.valor_total, vals.entrada]);
+    return {
+      ...base,
+      saldo: s > 0 ? String(s) : ""
+    };
+  })();
   const campos = modelo.grupos.flatMap(g => g.campos);
   const faltando = campos.filter(c => c.req && !vals[c.id]).length;
   const final = contrato.status === "Finalizado";
@@ -2959,7 +3401,8 @@ function ContratoEditor({
   }, "Salvo automaticamente \xB7 ", contrato.atualizado)), /*#__PURE__*/React.createElement(EscolhaTipo, {
     modelos: modelos,
     valor: tipo,
-    onChange: t => onChange({
+    travado: final,
+    onChange: t => !final && onChange({
       tipo: t
     })
   }), /*#__PURE__*/React.createElement("div", {
@@ -2969,10 +3412,10 @@ function ContratoEditor({
       alignItems: "center",
       flexWrap: "wrap"
     }
-  }, /*#__PURE__*/React.createElement(Badge, {
+  }, final ? null : /*#__PURE__*/React.createElement(Badge, {
     tone: faltando ? "warn" : "success",
     icon: faltando ? "circle-alert" : "circle-check"
-  }, faltando ? faltando + " campo(s) obrigatório(s) em falta" : "Pronto para gerar"), /*#__PURE__*/React.createElement("div", {
+  }, faltando ? faltando === 1 ? "Falta 1 campo obrigatório" : "Faltam " + faltando + " campos obrigatórios" : "Pronto para gerar"), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -2994,12 +3437,9 @@ function ContratoEditor({
   }, "PDF"), final ? null : /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     icon: "check",
-    onClick: () => {
-      onChange({
-        status: "Finalizado"
-      });
-      onToast("Contrato finalizado");
-    }
+    disabled: faltando > 0,
+    title: faltando ? "Preencha os campos obrigatórios para finalizar" : undefined,
+    onClick: () => setFinalizar(true)
   }, "Finalizar")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
@@ -3038,13 +3478,14 @@ function ContratoEditor({
   }, c.tipo === "opcao" ? /*#__PURE__*/React.createElement(Select, {
     options: c.opcoes,
     value: vals[c.id] || "",
+    disabled: final,
     onChange: e => set(c.id, e.target.value)
   }) : /*#__PURE__*/React.createElement(Input, {
     type: c.tipo === "date" ? "date" : c.tipo === "time" ? "time" : c.tipo === "number" || c.tipo === "dinheiro" ? "number" : "text",
     step: c.tipo === "dinheiro" ? "0.01" : undefined,
     prefix: c.tipo === "dinheiro" ? "R$" : undefined,
     placeholder: c.ph,
-    readOnly: c.auto,
+    readOnly: c.auto || final,
     value: vals[c.id] || "",
     onChange: e => set(c.id, e.target.value)
   }))))))) : null, !compact || verPrevia ? /*#__PURE__*/React.createElement("div", {
@@ -3069,7 +3510,21 @@ function ContratoEditor({
   }, /*#__PURE__*/React.createElement(Previa, {
     modelo: modelo,
     vals: vals
-  }))) : null));
+  }))) : null), finalizar ? /*#__PURE__*/React.createElement(DS.ConfirmDialog, {
+    icon: "file-check",
+    title: "Finalizar contrato?",
+    message: "O contrato sai de rascunho e fica s\xF3 para leitura. Imprimir e gerar PDF continuam dispon\xEDveis.",
+    confirmLabel: "Sim, finalizar",
+    cancelLabel: "Voltar",
+    onCancel: () => setFinalizar(false),
+    onConfirm: () => {
+      setFinalizar(false);
+      onChange({
+        status: "Finalizado"
+      });
+      onToast("Contrato finalizado");
+    }
+  }) : null);
 }
 function Contratos({
   compact
@@ -3152,7 +3607,7 @@ function Contratos({
   }, rascunhos ? /*#__PURE__*/React.createElement(Badge, {
     tone: "warn",
     icon: "pencil"
-  }, rascunhos, " rascunho(s) em andamento") : null, /*#__PURE__*/React.createElement("div", {
+  }, rascunhos === 1 ? "1 rascunho em andamento" : rascunhos + " rascunhos em andamento") : null, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -3193,12 +3648,12 @@ function Contratos({
     }, c.status === "Finalizado" ? "Abrir" : "Continuar"), /*#__PURE__*/React.createElement(IconButton, {
       icon: "download",
       label: "Baixar PDF",
-      size: 32,
+      size: 36,
       onClick: () => showToast("PDF gerado")
     }), /*#__PURE__*/React.createElement(IconButton, {
-      icon: "trash",
+      icon: "trash-2",
       label: "Apagar",
-      size: 32,
+      size: 36,
       onClick: () => setApagar(c)
     }))
   })) : /*#__PURE__*/React.createElement(DS.EmptyState, {
@@ -3207,8 +3662,9 @@ function Contratos({
     description: "Crie o primeiro pelo bot\xE3o Novo contrato."
   }))), apagar ? /*#__PURE__*/React.createElement(DS.ConfirmDialog, {
     tone: "danger",
-    icon: "trash",
+    icon: "trash-2",
     title: "Apagar contrato?",
+    cancelLabel: "Voltar",
     message: "O contrato de " + ctCliente(apagar) + " sai do histórico. Não dá pra desfazer.",
     confirmLabel: "Sim, apagar",
     onCancel: () => setApagar(null),
@@ -3248,6 +3704,9 @@ const PAGO_TONE = {
   "Só entrada": "warn",
   "Não pago": "danger"
 };
+
+/* Kitchen cards are read at arm's length on a shared tablet: what to make is the largest,
+   darkest text on the card, and the one action is a full 44px target. */
 function FilaCard({
   p,
   onEntregar
@@ -3265,7 +3724,7 @@ function FilaCard({
       style: {
         fontSize: "var(--fs-caption)",
         fontWeight: "var(--fw-semibold)",
-        color: "var(--color-accent)",
+        color: "var(--text-accent)",
         letterSpacing: "var(--ls-caps)"
       }
     }, p.hora), /*#__PURE__*/React.createElement("div", {
@@ -3279,9 +3738,10 @@ function FilaCard({
     }, p.pago))
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: "var(--fs-body-s)",
-      color: "var(--text-body)",
-      lineHeight: "var(--lh-normal)"
+      fontSize: "var(--fs-subhead)",
+      fontWeight: "var(--fw-medium)",
+      color: "var(--text-strong)",
+      lineHeight: "var(--lh-snug)"
     }
   }, p.itens), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3297,24 +3757,48 @@ function FilaCard({
       flex: 1
     }
   }), /*#__PURE__*/React.createElement(Button, {
-    size: "sm",
+    size: "lg",
     tone: "delivered",
     icon: "check",
     onClick: () => onEntregar(p)
   }, "Feito")));
 }
+
+/* The "Fazer agora" panel sits on the darker terracotta (white text 4.8:1), and its chips darken
+   the panel rather than lighten it, so their white labels hold 6:1. */
+const chip = {
+  padding: "5px 12px",
+  borderRadius: "var(--radius-pill)",
+  background: "rgba(0,0,0,.15)",
+  fontSize: "var(--fs-caption)",
+  fontWeight: "var(--fw-semibold)"
+};
+const seta = {
+  width: 48,
+  height: 48,
+  background: "rgba(255,255,255,.16)",
+  border: "1.5px solid rgba(255,255,255,.5)",
+  color: "inherit"
+};
 function Cozinha({
   compact
 }) {
-  const fila = window.DLUH.fila;
+  const [fila, setFila] = React.useState(() => window.DLUH.fila);
   const [feature, setFeature] = React.useState(0);
   const [confirm, setConfirm] = React.useState(null);
   const [toast, setToast] = React.useState(null);
   const [som, setSom] = React.useState(true);
-  const p = fila[feature];
+  const atual = Math.min(feature, Math.max(0, fila.length - 1));
+  const p = fila[atual];
   const showToast = m => {
     setToast(m);
     setTimeout(() => setToast(null), 2400);
+  };
+  /* The kitchen only confirms that an order is done; charging stays with atendimento in Pedidos. */
+  const feito = x => {
+    setFila(l => l.filter(y => y.id !== x.id));
+    setConfirm(null);
+    showToast("Pedido marcado como feito");
   };
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3324,11 +3808,11 @@ function Cozinha({
       gap: "var(--gap-section)",
       minHeight: "100%"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, p ? /*#__PURE__*/React.createElement("div", {
     style: {
       borderRadius: "var(--radius-xl)",
       padding: compact ? "18px" : "24px 28px",
-      background: "var(--color-accent)",
+      background: "var(--color-accent-strong)",
       color: "var(--color-accent-contrast)",
       display: "flex",
       gap: 20,
@@ -3345,14 +3829,13 @@ function Cozinha({
       display: "flex",
       alignItems: "center",
       gap: 8,
-      fontSize: "var(--fs-small)",
-      fontWeight: "var(--fw-semibold)",
-      opacity: .85
+      fontSize: "var(--fs-body-s)",
+      fontWeight: "var(--fw-semibold)"
     }
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "flame",
     size: 16
-  }), " Fazer agora \xB7 ", feature + 1, " de ", fila.length), /*#__PURE__*/React.createElement("div", {
+  }), " Fazer agora \xB7 ", atual + 1, " de ", fila.length), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: "var(--font-display)",
       fontSize: compact ? "var(--fs-display-s)" : "var(--fs-display)",
@@ -3362,9 +3845,9 @@ function Cozinha({
     }
   }, p.cliente), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: "var(--fs-subhead)",
+      fontSize: "var(--fs-title)",
+      fontWeight: "var(--fw-semibold)",
       marginTop: 8,
-      opacity: .92,
       lineHeight: "var(--lh-snug)"
     }
   }, p.itens), /*#__PURE__*/React.createElement("div", {
@@ -3375,54 +3858,44 @@ function Cozinha({
       flexWrap: "wrap"
     }
   }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      padding: "5px 12px",
-      borderRadius: "var(--radius-pill)",
-      background: "rgba(255,255,255,.22)",
-      fontSize: "var(--fs-caption)",
-      fontWeight: "var(--fw-semibold)"
-    }
+    style: chip
   }, p.hora), /*#__PURE__*/React.createElement("span", {
-    style: {
-      padding: "5px 12px",
-      borderRadius: "var(--radius-pill)",
-      background: "rgba(255,255,255,.22)",
-      fontSize: "var(--fs-caption)",
-      fontWeight: "var(--fw-semibold)"
-    }
+    style: chip
   }, p.entrega), /*#__PURE__*/React.createElement("span", {
-    style: {
-      padding: "5px 12px",
-      borderRadius: "var(--radius-pill)",
-      background: "rgba(255,255,255,.22)",
-      fontSize: "var(--fs-caption)",
-      fontWeight: "var(--fw-semibold)"
-    }
+    style: chip
   }, p.pago))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: compact ? "row" : "column",
+      alignItems: compact ? "center" : "stretch",
+      gap: 8,
+      width: compact ? "100%" : "auto"
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    size: "lg",
+    icon: "check",
+    onClick: () => setConfirm(p),
+    style: {
+      background: "var(--color-accent-contrast)",
+      color: "var(--color-accent-strong)",
+      flex: compact ? 1 : "none"
+    }
+  }, "Feito"), fila.length > 1 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
       gap: 8
     }
   }, /*#__PURE__*/React.createElement(IconButton, {
     icon: "chevron-left",
-    label: "Anterior",
-    onClick: () => setFeature((feature - 1 + fila.length) % fila.length),
-    style: {
-      background: "rgba(255,255,255,.16)",
-      border: "1.5px solid rgba(255,255,255,.3)",
-      color: "inherit"
-    }
+    label: "Pedido anterior",
+    onClick: () => setFeature((atual - 1 + fila.length) % fila.length),
+    style: seta
   }), /*#__PURE__*/React.createElement(IconButton, {
     icon: "chevron-right",
-    label: "Pr\xF3ximo",
-    onClick: () => setFeature((feature + 1) % fila.length),
-    style: {
-      background: "rgba(255,255,255,.16)",
-      border: "1.5px solid rgba(255,255,255,.3)",
-      color: "inherit"
-    }
-  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    label: "Pr\xF3ximo pedido",
+    onClick: () => setFeature((atual + 1) % fila.length),
+    style: seta
+  })) : null)) : null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -3436,7 +3909,7 @@ function Cozinha({
       fontSize: "var(--fs-heading)",
       fontWeight: "var(--fw-semibold)"
     }
-  }, "Fila de hoje"), /*#__PURE__*/React.createElement(Badge, null, fila.length, " pedidos"), /*#__PURE__*/React.createElement("div", {
+  }, "Fila de hoje"), /*#__PURE__*/React.createElement(Badge, null, fila.length, " ", fila.length === 1 ? "pedido" : "pedidos"), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -3452,7 +3925,7 @@ function Cozinha({
     icon: "printer",
     trailingIcon: null,
     onClick: () => showToast("Fila enviada para impressão")
-  }, "Imprimir fila")), /*#__PURE__*/React.createElement("div", {
+  }, "Imprimir fila")), fila.length ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: compact ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))",
@@ -3462,20 +3935,21 @@ function Cozinha({
     key: x.id,
     p: x,
     onEntregar: setConfirm
-  })))), confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
-    icon: "truck",
-    title: "Pedido feito?",
-    message: `${confirm.cliente} — ${confirm.entrega.toLowerCase()} às ${confirm.hora}. O que fazer com o pagamento?`,
-    cancelLabel: "Sem cobrar",
-    confirmLabel: "Cobrar restante",
-    onCancel: () => {
-      setConfirm(null);
-      showToast("Pedido marcado como feito");
-    },
-    onConfirm: () => {
-      setConfirm(null);
-      showToast("Cobrança do restante enviada");
-    }
+  }))) : /*#__PURE__*/React.createElement(Card, {
+    padded: false
+  }, /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "chef-hat",
+    title: "Fila vazia",
+    description: "Tudo o que era para hoje j\xE1 foi feito. Pedidos pagos entram aqui automaticamente."
+  }))), confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
+    tone: "delivered",
+    icon: "check",
+    title: "Marcar como feito?",
+    message: `${confirm.cliente} — ${confirm.entrega.toLowerCase()} às ${confirm.hora}. O pedido sai da fila de hoje.`,
+    cancelLabel: "Voltar",
+    confirmLabel: "Sim, marcar feito",
+    onCancel: () => setConfirm(null),
+    onConfirm: () => feito(confirm)
   }) : null, toast ? /*#__PURE__*/React.createElement(Toast, {
     tone: "success",
     icon: "check"
@@ -3598,6 +4072,7 @@ function FinRegistro({
     width: 480,
     title: f.titulo,
     onClose: onClose,
+    dismissible: false,
     footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FN.Button, {
       variant: "ghost",
       block: true,
@@ -3643,6 +4118,7 @@ function Financeiro({
 }) {
   const [tab, setTab] = React.useState("transacoes");
   const [novo, setNovo] = React.useState(false);
+  const [apagar, setApagar] = React.useState(null);
   const [toast, setToast] = React.useState(null);
   const [dados, setDados] = React.useState(() => ({
     ...window.DLUH.financeiro
@@ -3658,8 +4134,10 @@ function Financeiro({
       ...d,
       [tab]: d[tab].filter((_, j) => j !== i)
     }));
+    setApagar(null);
     showToast("Registro removido");
   };
+  const nomeDe = x => x.desc || (x.nome ? x.nome + " · final " + x.final : "este registro");
   const salvar = v => {
     const item = tab === "transacoes" ? {
       desc: v.desc || "Transação",
@@ -3688,13 +4166,13 @@ function Financeiro({
     showToast("Registro salvo");
   };
   const lixo = i => /*#__PURE__*/React.createElement(FN.IconButton, {
-    icon: "trash",
+    icon: "trash-2",
     label: "Remover",
-    size: 32,
+    size: 36,
     style: {
       marginLeft: 10
     },
-    onClick: () => remover(i)
+    onClick: () => setApagar(i)
   });
   const vazio = /*#__PURE__*/React.createElement(FN.EmptyState, {
     icon: "wallet",
@@ -3731,7 +4209,6 @@ function Financeiro({
     tone: "success",
     icon: "arrow-down-left"
   }, "Entradas ", window.brl(lista.filter(x => x.tipo === "Entrada").reduce((s, x) => s + x.valor, 0))), /*#__PURE__*/React.createElement(FN.Badge, {
-    tone: "warn",
     icon: "arrow-up-right"
   }, "Sa\xEDdas ", window.brl(lista.filter(x => x.tipo === "Saída").reduce((s, x) => s + x.valor, 0)))) : tab === "boletos" ? /*#__PURE__*/React.createElement(FN.Badge, {
     tone: "warn",
@@ -3788,7 +4265,7 @@ function Financeiro({
         }));
         showToast("Boleto marcado como pago");
       }
-    }, "Pagar"), lixo(i))
+    }, "Marcar pago"), lixo(i))
   })) : lista.map((x, i) => /*#__PURE__*/React.createElement(FN.ListRow, {
     key: i,
     icon: "credit-card",
@@ -3800,6 +4277,15 @@ function Financeiro({
     tab: tab,
     onClose: () => setNovo(false),
     onSave: salvar
+  }) : null, apagar != null && lista[apagar] ? /*#__PURE__*/React.createElement(FN.ConfirmDialog, {
+    tone: "danger",
+    icon: "trash-2",
+    title: "Remover registro?",
+    message: nomeDe(lista[apagar]) + " sai do financeiro. Não dá pra desfazer.",
+    confirmLabel: "Sim, remover",
+    cancelLabel: "Voltar",
+    onCancel: () => setApagar(null),
+    onConfirm: () => remover(apagar)
   }) : null, toast ? /*#__PURE__*/React.createElement(FN.Toast, {
     tone: "success",
     icon: "check"
@@ -3834,6 +4320,11 @@ const NOTIF_DEMO = [{
   sub: "PED-2293 · Rafaela Prates saiu da cozinha",
   view: "cozinha"
 }];
+
+/* The transient cards replay NOTIF_DEMO only when the page is opened with ?demo. Without a real
+   event source the production panel must not invent orders arriving. */
+const DEMO = /[?&]demo\b/.test(window.location.search);
+const VISIVEL_MS = 6000;
 function NotifCard({
   n,
   onClose,
@@ -3841,35 +4332,59 @@ function NotifCard({
   compact
 }) {
   const [on, setOn] = React.useState(false);
+  const [pausa, setPausa] = React.useState(false);
   React.useEffect(() => {
     const a = requestAnimationFrame(() => setOn(true));
-    const b = setTimeout(() => setOn(false), 3000);
-    const c = setTimeout(onClose, 3300);
+    return () => cancelAnimationFrame(a);
+  }, []);
+  /* The timer stops while the card is hovered or focused, so it can be read and acted on. */
+  React.useEffect(() => {
+    if (pausa) return;
+    const b = setTimeout(() => setOn(false), VISIVEL_MS);
+    const c = setTimeout(onClose, VISIVEL_MS + 300);
     return () => {
-      cancelAnimationFrame(a);
       clearTimeout(b);
       clearTimeout(c);
     };
-  }, []);
+  }, [pausa]);
   return /*#__PURE__*/React.createElement("div", {
-    role: "status",
-    onClick: onOpen,
+    onMouseEnter: () => setPausa(true),
+    onMouseLeave: () => setPausa(false),
+    onFocus: () => setPausa(true),
+    onBlur: () => setPausa(false),
     style: {
       display: "flex",
       alignItems: "center",
-      gap: 12,
-      width: compact ? "100%" : 340,
+      gap: 4,
+      width: compact ? "100%" : 360,
       boxSizing: "border-box",
-      padding: "12px 12px 12px 14px",
-      cursor: "pointer",
+      padding: 6,
       borderRadius: "var(--radius-md)",
       border: "var(--border-hairline) solid var(--color-border)",
       background: "var(--color-surface)",
-      boxShadow: "0 12px 36px rgba(0,0,0,.28)",
+      boxShadow: "var(--shadow-pop)",
       pointerEvents: "auto",
       opacity: on ? 1 : 0,
       transform: on ? "none" : compact ? "translateY(-16px)" : "translateX(24px)",
-      transition: "opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard)"
+      /* Enters on ease-out (moves the moment it appears); leaves on the neutral curve. */
+      transition: on ? "opacity var(--dur-base) var(--ease-out), transform var(--dur-move) var(--ease-out)" : "opacity var(--dur-base) var(--ease-standard), transform var(--dur-move) var(--ease-standard)"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: onOpen,
+    style: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: "6px 6px 6px 8px",
+      textAlign: "left",
+      border: "none",
+      borderRadius: "var(--radius-sm)",
+      background: "transparent",
+      cursor: "pointer",
+      fontFamily: "var(--font-ui)"
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -3905,22 +4420,24 @@ function NotifCard({
       color: "var(--text-muted)",
       lineHeight: "var(--lh-normal)"
     }
-  }, n.sub)), /*#__PURE__*/React.createElement("button", {
+  }, n.sub))), /*#__PURE__*/React.createElement("button", {
     type: "button",
-    "aria-label": "Fechar",
-    onClick: e => {
-      e.stopPropagation();
-      onClose();
-    },
+    "aria-label": "Fechar notifica\xE7\xE3o",
+    onClick: onClose,
     style: {
       alignSelf: "flex-start",
+      width: 36,
+      height: 36,
+      flex: "0 0 auto",
       display: "flex",
-      padding: 4,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 0,
       border: "none",
       background: "transparent",
       color: "var(--text-muted)",
       cursor: "pointer",
-      borderRadius: "var(--radius-xs)"
+      borderRadius: "var(--radius-sm)"
     }
   }, /*#__PURE__*/React.createElement(NT.Icon, {
     name: "x",
@@ -3933,6 +4450,7 @@ function Notificacoes({
 }) {
   const [lista, setLista] = React.useState([]);
   React.useEffect(() => {
+    if (!DEMO) return;
     let i = 0;
     const push = () => {
       const n = NOTIF_DEMO[i++ % NOTIF_DEMO.length];
@@ -3950,6 +4468,7 @@ function Notificacoes({
   }, []);
   const tirar = k => setLista(l => l.filter(x => x.key !== k));
   return /*#__PURE__*/React.createElement("div", {
+    "aria-live": "polite",
     style: {
       position: "absolute",
       zIndex: 900,
@@ -4008,38 +4527,93 @@ const {
   StatusBadge,
   DataTable
 } = DS;
+
+/* One tab per Coda Status. "Verificando Estoque" is the Telegram round-trip in progress, so it
+   lives with "Aguardando confirmação" under Estoque pendente instead of vanishing. */
 const TABS = [{
   id: "estoque",
   label: "Estoque pendente",
-  filtro: "Aguardando confirmação"
+  filtro: ["Aguardando confirmação", "Verificando Estoque"]
 }, {
   id: "pagamento",
   label: "Esperando pagamento",
-  filtro: "Confirmado — Esperando pagamento"
+  filtro: ["Confirmado — Esperando pagamento"]
 }, {
   id: "producao",
   label: "Em produção",
-  filtro: "Pago — Em produção"
+  filtro: ["Pago — Em produção"]
 }, {
   id: "restante",
   label: "Esperando restante",
-  filtro: "Entregue — Esperando restante"
+  filtro: ["Entregue — Esperando restante"]
 }, {
   id: "final",
   label: "Finalizados",
-  filtro: "Finalizado"
+  filtro: ["Finalizado"]
+}, {
+  id: "cancelado",
+  label: "Cancelados",
+  filtro: ["Cancelado"]
 }];
+const valor = s => Number(String(s || "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+const casa = (p, q) => !q || [p.cliente, p.id, p.tel].some(v => String(v || "").toLowerCase().includes(q.toLowerCase()));
+
+/* Every confirmation the order card can open. Money actions name the amount in the question. */
+const CONFIRMA = {
+  estoque: p => ({
+    tone: "accent",
+    icon: "circle-check",
+    title: "Confirmar estoque?",
+    message: "O cliente recebe o link de pagamento da entrada e o pedido vai para Esperando pagamento.",
+    confirmLabel: "Sim, confirmar",
+    toast: "Estoque confirmado"
+  }),
+  entrada: p => ({
+    tone: "chargeEntry",
+    icon: "link",
+    title: `Cobrar entrada de ${p.falta}?`,
+    message: `${p.cliente} recebe o link de pagamento da entrada.`,
+    confirmLabel: "Sim, cobrar",
+    toast: "Link de cobrança enviado"
+  }),
+  restante: p => ({
+    tone: "chargeAll",
+    icon: "banknote",
+    title: `Cobrar restante de ${p.falta}?`,
+    message: `${p.cliente} recebe o link de pagamento do restante.`,
+    confirmLabel: "Sim, cobrar",
+    toast: "Cobrança do restante enviada"
+  }),
+  pago: p => ({
+    tone: "success",
+    icon: "badge-check",
+    title: "Marcar como pago?",
+    message: `O pedido de ${p.cliente} fica como totalmente pago. Nenhuma cobrança é enviada.`,
+    confirmLabel: "Sim, marcar pago",
+    toast: "Pagamento registrado"
+  }),
+  apagar: p => ({
+    tone: "danger",
+    icon: "trash-2",
+    title: "Apagar pedido?",
+    message: "O pedido sai da fila e do Coda. Não dá pra desfazer.",
+    confirmLabel: "Sim, apagar",
+    toast: "Pedido apagado"
+  })
+};
 function DetalhesModal({
   pedido,
   onClose,
   onToast
 }) {
-  const [pgtos, setPgtos] = React.useState([{
-    quando: "10/06 · 14:32",
-    valor: 240,
+  /* What the order already received comes from the order itself. The site does not report
+     when it was paid, so that row carries no timestamp until Coda provides one. */
+  const [pgtos, setPgtos] = React.useState(() => pedido && valor(pedido.pago) > 0 ? [{
+    quando: null,
+    valor: valor(pedido.pago),
     origem: "site",
-    meio: "Pix"
-  }]);
+    meio: pedido.pgto
+  }] : []);
   const [verPgtos, setVerPgtos] = React.useState(false);
   if (!pedido) return null;
   const recebido = pgtos.reduce((s, p) => s + p.valor, 0);
@@ -4047,7 +4621,7 @@ function DetalhesModal({
     width: 620,
     title: "Detalhes do pedido",
     onClose: onClose,
-    subtitle: "Edite o que precisar \u2014 produtos, quantidades, valores, dados do cliente, entrega, pagamento e observa\xE7\xF5es.",
+    subtitle: "Edite os dados do cliente, a entrega e o pagamento.",
     footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
       variant: "ghost",
       block: true,
@@ -4077,7 +4651,7 @@ function DetalhesModal({
     style: {
       fontSize: "var(--fs-caption)",
       fontWeight: "var(--fw-semibold)",
-      color: "var(--color-accent)",
+      color: "var(--text-accent)",
       letterSpacing: "var(--ls-caps)"
     }
   }, pedido.id), /*#__PURE__*/React.createElement(StatusBadge, {
@@ -4088,7 +4662,7 @@ function DetalhesModal({
   }, pedido.tipo) : null), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "1fr 1fr 1fr",
+      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
       gap: "10px 12px"
     }
   }, /*#__PURE__*/React.createElement(Field, {
@@ -4104,17 +4678,18 @@ function DetalhesModal({
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Entrega"
   }, /*#__PURE__*/React.createElement(Select, {
-    options: ["Retirada no local", "Entrega em endereço"]
+    options: ["Retirada no local", "Entrega em endereço"],
+    defaultValue: pedido.modo
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Data"
   }, /*#__PURE__*/React.createElement(Input, {
     type: "date",
-    defaultValue: "2026-06-12"
+    defaultValue: pedido.data
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Hora"
   }, /*#__PURE__*/React.createElement(Input, {
     type: "time",
-    defaultValue: "15:00"
+    defaultValue: pedido.hora
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Pagamento"
   }, /*#__PURE__*/React.createElement(Select, {
@@ -4125,6 +4700,7 @@ function DetalhesModal({
       marginTop: 16
     }
   }, /*#__PURE__*/React.createElement(DataTable, {
+    minWidth: 0,
     rows: pedido.itens.map((it, i) => ({
       id: i,
       ...it
@@ -4193,10 +4769,24 @@ function Pedidos({
     setToast(msg);
     setTimeout(() => setToast(null), 2600);
   };
+  const todos = window.DLUH.pedidos;
   const filtro = (TABS.find(t => t.id === tab) || TABS[0]).filtro;
-  const lista = window.DLUH.pedidos.filter(p => p.status === filtro).filter(p => !q || p.cliente.toLowerCase().includes(q.toLowerCase()) || p.id.toLowerCase().includes(q.toLowerCase()));
+  const lista = todos.filter(p => filtro.includes(p.status)).filter(p => casa(p, q));
+
+  /* A search that only matches in another status moves to that tab, so picking a pedido in
+     the global search never lands on an empty list. */
+  React.useEffect(() => {
+    if (!q || lista.length) return;
+    const alvo = TABS.find(t => todos.some(p => t.filtro.includes(p.status) && casa(p, q)));
+    if (alvo) setTab(alvo.id);
+  }, [q]);
   const counts = {};
-  TABS.forEach(t => counts[t.id] = window.DLUH.pedidos.filter(p => p.status === t.filtro).length);
+  TABS.forEach(t => counts[t.id] = todos.filter(p => t.filtro.includes(p.status)).length);
+  const pede = (tipo, p) => setConfirm({
+    tipo,
+    p,
+    ...CONFIRMA[tipo](p)
+  });
   return /*#__PURE__*/React.createElement("div", {
     style: {
       position: "relative",
@@ -4213,7 +4803,7 @@ function Pedidos({
       label: t.label,
       count: counts[t.id]
     }))
-  }), compact ? null : /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "flex-end"
@@ -4252,12 +4842,12 @@ function Pedidos({
     }, "Detalhes"), p.status === "Aguardando confirmação" ? /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       icon: "check",
-      onClick: () => setConfirm(p)
+      onClick: () => pede("estoque", p)
     }, "Confirmar estoque") : p.status === "Confirmado — Esperando pagamento" ? /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       tone: "chargeEntry",
       icon: "link",
-      onClick: () => showToast("Link de cobrança enviado")
+      onClick: () => pede("entrada", p)
     }, "Cobrar entrada") : p.status === "Pago — Em produção" ? /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       tone: "delivered",
@@ -4267,13 +4857,13 @@ function Pedidos({
       size: "sm",
       tone: "chargeAll",
       icon: "banknote",
-      onClick: () => showToast("Cobrança do restante enviada")
-    }, "Cobrar restante") : /*#__PURE__*/React.createElement(Button, {
+      onClick: () => pede("restante", p)
+    }, "Cobrar restante") : p.status === "Finalizado" ? /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       variant: "outline",
       icon: "printer",
       onClick: () => showToast("Recibo gerado")
-    }, "Recibo"), /*#__PURE__*/React.createElement(DropdownMenu, {
+    }, "Recibo") : null, /*#__PURE__*/React.createElement(DropdownMenu, {
       trigger: /*#__PURE__*/React.createElement(IconButton, {
         icon: "menu",
         label: "Mais a\xE7\xF5es"
@@ -4285,24 +4875,22 @@ function Pedidos({
       }, {
         label: "Marcar como pago",
         icon: "badge-check",
-        onClick: () => showToast("Pagamento registrado")
+        onClick: () => pede("pago", p)
       }, {
         label: "Notificar alterações",
         icon: "bell-ring",
         onClick: () => showToast("Cliente avisado no WhatsApp")
       }, {
         label: "Imprimir recibo",
-        icon: "printer"
+        icon: "printer",
+        onClick: () => showToast("Recibo enviado para impressão")
       }, {
         divider: true
       }, {
         label: "Apagar pedido",
         icon: "trash-2",
         tone: "danger",
-        onClick: () => setConfirm({
-          ...p,
-          apagar: true
-        })
+        onClick: () => pede("apagar", p)
       }]
     }))
   }))) : /*#__PURE__*/React.createElement(Card, {
@@ -4316,19 +4904,21 @@ function Pedidos({
     onClose: () => setDetalhe(null),
     onToast: showToast
   }) : null, manual ? /*#__PURE__*/React.createElement(ManualModal, {
+    compact: compact,
     onClose: () => setManual(false),
     onToast: showToast
   }) : null, confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
-    tone: confirm.apagar ? "danger" : "accent",
-    icon: confirm.apagar ? "trash-2" : "circle-check",
-    title: confirm.apagar ? "Apagar pedido?" : "Confirmar estoque?",
-    message: confirm.apagar ? "O pedido sai da fila e do Coda. Não dá pra desfazer." : "O cliente recebe o link de pagamento da entrada e o pedido entra na fila da cozinha.",
-    confirmLabel: confirm.apagar ? "Sim, apagar" : "Sim, confirmar",
+    tone: confirm.tone,
+    icon: confirm.icon,
+    title: confirm.title,
+    message: confirm.message,
+    confirmLabel: confirm.confirmLabel,
+    cancelLabel: "Voltar",
     onCancel: () => setConfirm(null),
     onConfirm: () => {
-      const a = confirm.apagar;
+      const t = confirm.toast;
       setConfirm(null);
-      showToast(a ? "Pedido apagado" : "Estoque confirmado");
+      showToast(t);
     }
   }) : null, toast ? /*#__PURE__*/React.createElement(Toast, {
     tone: "success",
@@ -4367,6 +4957,7 @@ function EntradaToggle({
     type: "button",
     role: "switch",
     "aria-checked": cheio,
+    "aria-label": "Cobrar 100% agora",
     onClick: () => onChange(cheio ? 50 : 100),
     style: {
       position: "relative",
@@ -4388,12 +4979,13 @@ function EntradaToggle({
       position: "absolute",
       top: 3,
       bottom: 3,
-      left: cheio ? "50%" : 3,
+      left: 3,
       width: "calc(50% - 3px)",
       borderRadius: "var(--radius-pill)",
-      background: "var(--color-accent)",
+      background: "var(--color-accent-strong)",
       boxShadow: "0 1px 3px rgba(40,24,16,.18)",
-      transition: "left var(--dur-base) var(--ease-standard)"
+      transform: cheio ? "translateX(100%)" : "none",
+      transition: "transform var(--dur-move) var(--ease-standard)"
     }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
@@ -4435,14 +5027,16 @@ function Anexo({
     }
   }, arquivo));
   return /*#__PURE__*/React.createElement("label", {
+    "data-target": true,
     style: {
       display: "inline-flex",
       alignItems: "center",
       gap: 6,
+      minHeight: 32,
       cursor: "pointer",
       fontSize: "var(--fs-tiny)",
       fontWeight: "var(--fw-semibold)",
-      color: "var(--color-accent)"
+      color: "var(--text-accent)"
     }
   }, /*#__PURE__*/React.createElement(PM.Icon, {
     name: "upload",
@@ -4454,7 +5048,7 @@ function Anexo({
     onChange: e => e.target.files[0] && onFile(e.target.files[0].name)
   }));
 }
-const PG_COLS = "minmax(0,1fr) minmax(0,.8fr) minmax(0,1.4fr) 32px";
+const PG_COLS = "minmax(0,1fr) minmax(0,.8fr) minmax(0,1.4fr) 40px";
 function PagamentosModal({
   lista,
   onChange,
@@ -4463,6 +5057,7 @@ function PagamentosModal({
 }) {
   const [valor, setValor] = React.useState("");
   const [arquivo, setArquivo] = React.useState(null);
+  const [remover, setRemover] = React.useState(null);
   const total = lista.reduce((s, p) => s + p.valor, 0);
   const cab = {
     fontSize: "var(--fs-caption)",
@@ -4484,7 +5079,7 @@ function PagamentosModal({
     setArquivo(null);
     onToast("Pagamento registrado");
   };
-  return /*#__PURE__*/React.createElement(PM.Modal, {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PM.Modal, {
     width: 600,
     title: "Pagamentos",
     onClose: onClose,
@@ -4535,12 +5130,12 @@ function PagamentosModal({
       color: "var(--text-body)",
       whiteSpace: "nowrap"
     }
-  }, p.quando), /*#__PURE__*/React.createElement("span", {
+  }, p.quando || (p.origem === "site" ? "Pelo site" : "Manual")), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: "var(--fs-tiny)",
       color: "var(--text-muted)"
     }
-  }, p.origem === "site" ? "Pelo site · " + (p.meio || "Pix") : "Manual")), /*#__PURE__*/React.createElement("span", {
+  }, p.origem === "site" ? (p.quando ? "Pelo site · " : "") + (p.meio || "Pix") : "Manual")), /*#__PURE__*/React.createElement("span", {
     style: {
       textAlign: "right",
       fontWeight: "var(--fw-semibold)",
@@ -4564,31 +5159,12 @@ function PagamentosModal({
       ...x,
       arquivo: n
     } : x))
-  }), p.origem === "site" ? /*#__PURE__*/React.createElement("span", null) : /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    "aria-label": "Remover pagamento",
-    title: "Remover pagamento",
-    onClick: () => {
-      onChange(lista.filter((_, j) => j !== i));
-      onToast("Pagamento removido");
-    },
-    style: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: 32,
-      height: 32,
-      padding: 0,
-      border: "none",
-      borderRadius: "var(--radius-sm)",
-      background: "transparent",
-      color: "var(--text-muted)",
-      cursor: "pointer"
-    }
-  }, /*#__PURE__*/React.createElement(PM.Icon, {
-    name: "trash",
-    size: 16
-  })))) : /*#__PURE__*/React.createElement("div", {
+  }), p.origem === "site" ? /*#__PURE__*/React.createElement("span", null) : /*#__PURE__*/React.createElement(PM.IconButton, {
+    icon: "trash-2",
+    label: "Remover pagamento",
+    size: 36,
+    onClick: () => setRemover(i)
+  }))) : /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "14px",
       borderTop: "var(--border-hairline) solid var(--color-border)",
@@ -4644,10 +5220,23 @@ function PagamentosModal({
     arquivo: arquivo,
     onFile: setArquivo
   })), /*#__PURE__*/React.createElement(PM.Button, {
-    tone: "warn",
+    tone: "success",
     icon: "plus",
     onClick: registrar
-  }, "Registrar")));
+  }, "Registrar"))), remover != null ? /*#__PURE__*/React.createElement(PM.ConfirmDialog, {
+    tone: "danger",
+    icon: "trash-2",
+    title: "Remover pagamento?",
+    message: `O registro de ${brl(lista[remover].valor)} sai da lista. Não dá pra desfazer.`,
+    confirmLabel: "Sim, remover",
+    cancelLabel: "Voltar",
+    onCancel: () => setRemover(null),
+    onConfirm: () => {
+      onChange(lista.filter((_, j) => j !== remover));
+      setRemover(null);
+      onToast("Pagamento removido");
+    }
+  }) : null);
 }
 const novoRascunho = n => ({
   uid: Date.now() + n,
@@ -4667,13 +5256,27 @@ const novoRascunho = n => ({
   }]
 });
 const totalRascunho = r => r.itens.reduce((s, it) => s + (Number(it.qtd) || 0) * (parseFloat(String(it.preco).replace(",", ".")) || 0), 0);
-const ITEM_COLS = "minmax(0,1fr) 80px 130px 40px";
+const ITEM_COLS = "minmax(0,1fr) 80px 130px 44px";
+
+/* What Criar pedido needs before it can write to Coda: the required fields plus one priced item. */
+const faltas = r => {
+  const f = {};
+  if (!r.cliente.trim()) f.cliente = "Preencha o nome do cliente";
+  if (!r.tel.trim()) f.tel = "Preencha o WhatsApp";
+  if (!r.data) f.data = "Escolha a data de entrega";
+  if (!r.itens.some(it => it.nome.trim() && parseFloat(String(it.preco).replace(",", ".")) > 0)) f.itens = "Adicione pelo menos um produto com preço";
+  return f;
+};
+const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.itens.some(it => it.nome || it.preco));
 function ManualModal({
+  compact,
   onClose,
   onToast
 }) {
   const [lista, setLista] = React.useState([novoRascunho(0)]);
   const [ativo, setAtivo] = React.useState(0);
+  const [tentou, setTentou] = React.useState(false);
+  const [sair, setSair] = React.useState(false);
   const r = lista[ativo];
   const set = (k, v) => setLista(l => l.map((x, i) => i === ativo ? {
     ...x,
@@ -4698,22 +5301,94 @@ function ManualModal({
   });
   const n = lista.length;
   const geral = lista.reduce((s, x) => s + totalRascunho(x), 0);
-  return /*#__PURE__*/React.createElement(PM.Modal, {
+  const erros = tentou ? faltas(r) : {};
+  const fechar = () => lista.some(preenchido) ? setSair(true) : onClose();
+  const criar = () => {
+    const i = lista.findIndex(x => Object.keys(faltas(x)).length);
+    if (i >= 0) {
+      setTentou(true);
+      setAtivo(i);
+      return;
+    }
+    onClose();
+    onToast(n > 1 ? `${n} pedidos criados` : "Pedido criado");
+  };
+  const item = (it, j) => {
+    const campos = [/*#__PURE__*/React.createElement(PM.Input, {
+      key: "n",
+      size: "sm",
+      "aria-label": "Produto",
+      placeholder: "Ex.: Bolo de chocolate 2kg",
+      value: it.nome,
+      onChange: e => setItem(j, "nome", e.target.value)
+    }), /*#__PURE__*/React.createElement(PM.Input, {
+      key: "q",
+      size: "sm",
+      "aria-label": "Quantidade",
+      type: "number",
+      min: "1",
+      value: it.qtd,
+      onChange: e => setItem(j, "qtd", e.target.value)
+    }), /*#__PURE__*/React.createElement(PM.Input, {
+      key: "p",
+      size: "sm",
+      "aria-label": "Pre\xE7o unit\xE1rio",
+      type: "number",
+      prefix: "R$",
+      step: "0.01",
+      placeholder: "0,00",
+      value: it.preco,
+      onChange: e => setItem(j, "preco", e.target.value)
+    }), /*#__PURE__*/React.createElement(PM.IconButton, {
+      key: "x",
+      icon: "trash-2",
+      label: "Remover item",
+      disabled: r.itens.length === 1,
+      style: r.itens.length === 1 ? {
+        opacity: "var(--disabled-opacity)",
+        cursor: "not-allowed"
+      } : undefined,
+      onClick: () => r.itens.length > 1 && set("itens", r.itens.filter((_, i) => i !== j))
+    })];
+    return compact ? /*#__PURE__*/React.createElement("div", {
+      key: j,
+      style: {
+        display: "grid",
+        gridTemplateColumns: "72px minmax(0,1fr) 44px",
+        gap: 8,
+        alignItems: "center",
+        padding: "10px 12px",
+        borderTop: j ? "var(--border-hairline) solid var(--color-border)" : "none"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        gridColumn: "1 / -1"
+      }
+    }, campos[0]), campos[1], campos[2], campos[3]) : /*#__PURE__*/React.createElement("div", {
+      key: j,
+      style: {
+        display: "grid",
+        gridTemplateColumns: ITEM_COLS,
+        gap: 10,
+        alignItems: "center",
+        padding: "8px 12px",
+        borderTop: "var(--border-hairline) solid var(--color-border)"
+      }
+    }, campos);
+  };
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PM.Modal, {
     width: 860,
-    title: "Pedidos manuais",
-    onClose: onClose,
+    title: n > 1 ? "Pedidos manuais" : "Pedido manual",
+    onClose: fechar,
     subtitle: "Mesmo fluxo do site: registra no Coda, notifica o Telegram (Confirmar Estoque) e segue o ciclo normal \u2014 cobran\xE7a, fila da cozinha, avisos no WhatsApp do cliente.",
     footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PM.Button, {
       variant: "ghost",
       block: true,
-      onClick: onClose
+      onClick: fechar
     }, "Cancelar"), /*#__PURE__*/React.createElement(PM.Button, {
       block: true,
       icon: "check",
-      onClick: () => {
-        onClose();
-        onToast(n > 1 ? `${n} pedidos criados` : "Pedido criado");
-      }
+      onClick: criar
     }, n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : "Criar pedido"))
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4727,24 +5402,31 @@ function ManualModal({
     }
   }, lista.map((x, i) => {
     const on = i === ativo;
+    const comErro = tentou && Object.keys(faltas(x)).length > 0;
     return /*#__PURE__*/React.createElement("div", {
       key: x.uid,
-      onClick: () => setAtivo(i),
       style: {
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "6px 8px 6px 12px",
-        cursor: "pointer",
         borderRadius: "var(--radius-md)",
-        border: "var(--border-hairline) solid " + (on ? "var(--color-accent)" : "var(--color-border)"),
+        border: "var(--border-hairline) solid " + (comErro ? "var(--action-danger)" : on ? "var(--color-accent)" : "var(--color-border)"),
         background: on ? "var(--color-accent-soft)" : "var(--color-surface)"
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      "aria-pressed": on,
+      onClick: () => setAtivo(i),
       style: {
         display: "flex",
         flexDirection: "column",
-        lineHeight: 1.25
+        alignItems: "flex-start",
+        lineHeight: 1.25,
+        padding: "6px 8px 6px 12px",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        fontFamily: "var(--font-ui)",
+        borderRadius: "var(--radius-md)"
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
@@ -4759,18 +5441,20 @@ function ManualModal({
     }, x.cliente || `Pedido ${i + 1}`), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: "var(--fs-tiny)",
-        color: "var(--text-muted)"
+        color: "var(--text-body)"
       }
     }, brl(totalRascunho(x)))), n > 1 ? /*#__PURE__*/React.createElement("button", {
       type: "button",
-      "aria-label": "Remover pedido",
-      onClick: e => {
-        e.stopPropagation();
-        remover(i);
-      },
+      "aria-label": `Remover ${x.cliente || `pedido ${i + 1}`}`,
+      onClick: () => remover(i),
       style: {
         display: "flex",
-        padding: 4,
+        alignItems: "center",
+        justifyContent: "center",
+        width: 32,
+        height: 32,
+        marginRight: 4,
+        padding: 0,
         border: "none",
         background: "transparent",
         color: "var(--text-muted)",
@@ -4789,28 +5473,34 @@ function ManualModal({
   }, "Novo pedido")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+      gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
       gap: "10px 12px"
     }
   }, /*#__PURE__*/React.createElement(PM.Field, {
     label: "Cliente",
-    required: true
+    required: true,
+    error: erros.cliente
   }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    placeholder: "Nome do cliente"
+    placeholder: "Nome do cliente",
+    invalid: !!erros.cliente
   }, ctl("cliente")))), /*#__PURE__*/React.createElement(PM.Field, {
     label: "WhatsApp",
-    required: true
+    required: true,
+    error: erros.tel
   }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    placeholder: "(38) 99999-9999"
+    placeholder: "(38) 99999-9999",
+    invalid: !!erros.tel
   }, ctl("tel")))), /*#__PURE__*/React.createElement(PM.Field, {
     label: "Tipo de cliente"
   }, /*#__PURE__*/React.createElement(PM.Select, _extends({
     options: ["Pessoa física", "Empresa", "Festa"]
   }, ctl("tipo")))), /*#__PURE__*/React.createElement(PM.Field, {
     label: "Data de entrega",
-    required: true
+    required: true,
+    error: erros.data
   }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    type: "date"
+    type: "date",
+    invalid: !!erros.data
   }, ctl("data")))), /*#__PURE__*/React.createElement(PM.Field, {
     label: "Hora"
   }, /*#__PURE__*/React.createElement(PM.Input, _extends({
@@ -4836,11 +5526,11 @@ function ManualModal({
   }, ctl("obs"))))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 18,
-      border: "var(--border-hairline) solid var(--color-border)",
+      border: "var(--border-hairline) solid " + (erros.itens ? "var(--action-danger)" : "var(--color-border)"),
       borderRadius: "var(--radius-sm)",
       overflow: "hidden"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, compact ? null : /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: ITEM_COLS,
@@ -4852,44 +5542,12 @@ function ManualModal({
       textTransform: "uppercase",
       letterSpacing: "var(--ls-label)"
     }
-  }, /*#__PURE__*/React.createElement("span", null, "Produto"), /*#__PURE__*/React.createElement("span", null, "Qtd"), /*#__PURE__*/React.createElement("span", null, "Pre\xE7o un."), /*#__PURE__*/React.createElement("span", null)), r.itens.map((it, j) => /*#__PURE__*/React.createElement("div", {
-    key: j,
-    style: {
-      display: "grid",
-      gridTemplateColumns: ITEM_COLS,
-      gap: 10,
-      alignItems: "center",
-      padding: "8px 12px",
-      borderTop: "var(--border-hairline) solid var(--color-border)"
-    }
-  }, /*#__PURE__*/React.createElement(PM.Input, {
-    size: "sm",
-    placeholder: "Ex.: Bolo de chocolate 2kg",
-    value: it.nome,
-    onChange: e => setItem(j, "nome", e.target.value)
-  }), /*#__PURE__*/React.createElement(PM.Input, {
-    size: "sm",
-    type: "number",
-    min: "1",
-    value: it.qtd,
-    onChange: e => setItem(j, "qtd", e.target.value)
-  }), /*#__PURE__*/React.createElement(PM.Input, {
-    size: "sm",
-    type: "number",
-    prefix: "R$",
-    step: "0.01",
-    placeholder: "0,00",
-    value: it.preco,
-    onChange: e => setItem(j, "preco", e.target.value)
-  }), /*#__PURE__*/React.createElement(PM.IconButton, {
-    icon: "trash-2",
-    label: "Remover item",
-    onClick: () => r.itens.length > 1 && set("itens", r.itens.filter((_, i) => i !== j))
-  }))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Produto"), /*#__PURE__*/React.createElement("span", null, "Qtd"), /*#__PURE__*/React.createElement("span", null, "Pre\xE7o un."), /*#__PURE__*/React.createElement("span", null)), r.itens.map(item), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
       justifyContent: "space-between",
+      flexWrap: "wrap",
       gap: 12,
       padding: "10px 12px",
       borderTop: "var(--border-hairline) solid var(--color-border)"
@@ -4918,7 +5576,25 @@ function ManualModal({
     style: {
       fontSize: "var(--fs-subhead)"
     }
-  }, brl(totalRascunho(r)))))));
+  }, brl(totalRascunho(r)))))), erros.itens ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      fontSize: "var(--fs-tiny)",
+      color: "var(--action-danger)"
+    }
+  }, erros.itens) : null), sair ? /*#__PURE__*/React.createElement(PM.ConfirmDialog, {
+    tone: "danger",
+    icon: "trash-2",
+    title: n > 1 ? "Descartar pedidos?" : "Descartar pedido?",
+    message: "O que foi preenchido aqui se perde.",
+    confirmLabel: "Sim, descartar",
+    cancelLabel: "Voltar",
+    onCancel: () => setSair(false),
+    onConfirm: () => {
+      setSair(false);
+      onClose();
+    }
+  }) : null);
 }
 Object.assign(window, {
   ManualModal,
@@ -4942,30 +5618,37 @@ const {
   ListRow,
   EmptyState
 } = window.DLuhFestasDesignSystem_c861a2;
-const NAV = [{
-  id: "visao",
-  label: "Visão geral",
-  icon: "layout-dashboard"
-}, {
-  id: "pedidos",
-  label: "Pedidos",
-  icon: "receipt-text",
-  count: 7
-}, {
-  id: "agenda",
-  label: "Agenda",
-  icon: "calendar-days",
-  count: 3
-}, {
-  id: "cozinha",
-  label: "Cozinha",
-  icon: "chef-hat",
-  count: 4
-}, {
-  id: "financeiro",
-  label: "Financeiro",
-  icon: "wallet"
-}];
+
+/* Rail counts are derived, never typed in: open orders (not Finalizado or Cancelado),
+   commitments on the shop day, and the kitchen queue. */
+const FECHADOS = ["Finalizado", "Cancelado"];
+const navItems = () => {
+  const d = window.DLUH;
+  return [{
+    id: "visao",
+    label: "Visão geral",
+    icon: "layout-dashboard"
+  }, {
+    id: "pedidos",
+    label: "Pedidos",
+    icon: "receipt-text",
+    count: d.pedidos.filter(p => !FECHADOS.includes(p.status)).length
+  }, {
+    id: "agenda",
+    label: "Agenda",
+    icon: "calendar-days",
+    count: d.agenda.filter(x => x.data === d.hoje).length
+  }, {
+    id: "cozinha",
+    label: "Cozinha",
+    icon: "chef-hat",
+    count: d.fila.length
+  }, {
+    id: "financeiro",
+    label: "Financeiro",
+    icon: "wallet"
+  }];
+};
 function RailItem({
   icon,
   label,
@@ -4973,6 +5656,7 @@ function RailItem({
   active,
   badge,
   open,
+  instant,
   onClick
 }) {
   const [h, setH] = React.useState(false);
@@ -4994,7 +5678,7 @@ function RailItem({
       cursor: "pointer",
       position: "relative",
       border: "var(--border-hairline) solid " + (active ? "transparent" : "var(--color-border-soft)"),
-      background: active ? "var(--color-accent)" : h ? "var(--color-accent-soft)" : "transparent",
+      background: active ? "var(--color-accent-strong)" : h ? "var(--color-accent-soft)" : "transparent",
       color: active ? "var(--color-accent-contrast)" : "var(--text-body)",
       fontFamily: "var(--font-ui)",
       fontSize: "var(--fs-body-s)",
@@ -5017,7 +5701,7 @@ function RailItem({
       flex: 1,
       textAlign: "left",
       opacity: open ? 1 : 0,
-      transition: "opacity var(--dur-base) var(--ease-standard)"
+      transition: instant ? "none" : "opacity var(--dur-fast) var(--ease-out)"
     }
   }, label), count ? /*#__PURE__*/React.createElement("span", {
     style: {
@@ -5028,8 +5712,8 @@ function RailItem({
       height: 18,
       padding: "0 5px",
       borderRadius: "var(--radius-pill)",
-      background: active ? "rgba(255,255,255,.28)" : "var(--color-accent)",
-      color: "var(--color-accent-contrast)",
+      background: active ? "var(--color-accent-contrast)" : "var(--color-accent-strong)",
+      color: active ? "var(--color-accent-strong)" : "var(--color-accent-contrast)",
       fontSize: "var(--fs-micro)",
       fontWeight: "var(--fw-bold)",
       display: "flex",
@@ -5057,6 +5741,14 @@ function Sidebar({
   hasNotif
 }) {
   const [open, setOpen] = React.useState(false);
+  const [viaTeclado, setViaTeclado] = React.useState(false);
+  /* The rail opens for keyboard focus as well as hover, so labels are never mouse-only. Opened
+     from the keyboard it snaps open: Tab runs through it many times a day and should never wait
+     on an animation. The hover expand keeps its documented 250ms. */
+  const abrir = teclado => {
+    setViaTeclado(teclado);
+    setOpen(true);
+  };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       width: "var(--rail-w)",
@@ -5065,8 +5757,15 @@ function Sidebar({
       zIndex: 20
     }
   }, /*#__PURE__*/React.createElement("nav", {
-    onMouseEnter: () => setOpen(true),
+    "aria-label": "Principal",
+    onMouseEnter: () => abrir(false),
     onMouseLeave: () => setOpen(false),
+    onFocus: e => {
+      if (!open) abrir(e.target.matches(":focus-visible"));
+    },
+    onBlur: e => {
+      if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
+    },
     style: {
       position: "absolute",
       top: 0,
@@ -5082,7 +5781,7 @@ function Sidebar({
       borderRight: "var(--border-hairline) solid var(--color-border)",
       boxShadow: open ? "0 12px 40px rgba(40,24,16,.16)" : "none",
       overflow: "hidden",
-      transition: "width var(--dur-base) var(--ease-standard), box-shadow var(--dur-base) var(--ease-standard)"
+      transition: viaTeclado ? "none" : "width var(--dur-move) var(--ease-out), box-shadow var(--dur-base) var(--ease-out)"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -5099,10 +5798,11 @@ function Sidebar({
       objectFit: "contain",
       marginLeft: 2
     }
-  })), NAV.map(it => /*#__PURE__*/React.createElement(RailItem, _extends({
+  })), navItems().map(it => /*#__PURE__*/React.createElement(RailItem, _extends({
     key: it.id
   }, it, {
     open: open,
+    instant: viaTeclado,
     active: it.id === view,
     onClick: () => onView(it.id)
   }))), /*#__PURE__*/React.createElement("div", {
@@ -5114,11 +5814,13 @@ function Sidebar({
     label: "Notifica\xE7\xF5es",
     badge: hasNotif,
     open: open,
+    instant: viaTeclado,
     onClick: onNotif
   }), /*#__PURE__*/React.createElement(RailItem, {
     icon: "settings",
     label: "Configura\xE7\xF5es",
     open: open,
+    instant: viaTeclado,
     onClick: onSettings
   }), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -5130,7 +5832,7 @@ function Sidebar({
     }
   }, /*#__PURE__*/React.createElement(UserChip, {
     name: "Luciana",
-    role: "Gerente",
+    role: "Dona",
     compact: !open
   }))));
 }
@@ -5139,6 +5841,7 @@ function BottomNav({
   onChange
 }) {
   return /*#__PURE__*/React.createElement("nav", {
+    "aria-label": "Principal",
     style: {
       display: "flex",
       borderTop: "1px solid var(--color-border)",
@@ -5147,12 +5850,13 @@ function BottomNav({
       gap: 2,
       flex: "0 0 auto"
     }
-  }, NAV.map(it => {
+  }, navItems().map(it => {
     const active = it.id === value;
     return /*#__PURE__*/React.createElement("button", {
       key: it.id,
       type: "button",
       onClick: () => onChange(it.id),
+      "aria-current": active ? "page" : undefined,
       style: {
         flex: 1,
         minHeight: "var(--tap-min)",
@@ -5164,7 +5868,7 @@ function BottomNav({
         border: "none",
         background: "transparent",
         cursor: "pointer",
-        color: active ? "var(--color-accent)" : "var(--text-muted)",
+        color: active ? "var(--text-accent)" : "var(--text-muted)",
         fontFamily: "var(--font-ui)",
         fontSize: "var(--fs-micro)",
         fontWeight: "var(--fw-semibold)",
@@ -5183,9 +5887,9 @@ function BottomNav({
         height: 16,
         padding: "0 4px",
         borderRadius: "var(--radius-pill)",
-        background: "var(--color-accent)",
+        background: "var(--color-accent-strong)",
         color: "var(--color-accent-contrast)",
-        fontSize: 9.5,
+        fontSize: "var(--fs-micro)",
         fontWeight: "var(--fw-bold)",
         display: "flex",
         alignItems: "center",
@@ -5215,6 +5919,7 @@ function Shell({
   return /*#__PURE__*/React.createElement("div", {
     "data-theme": theme,
     style: {
+      "--toast-offset": compact ? "64px" : "0px",
       display: "flex",
       height: "100%",
       position: "relative",
@@ -5241,8 +5946,7 @@ function Shell({
       display: "flex",
       alignItems: "center",
       gap: 8,
-      padding: compact ? "12px" : "var(--pad-page)",
-      paddingBottom: 0
+      padding: compact ? "12px 12px 0" : "var(--space-10) var(--space-11) 0"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -5255,10 +5959,24 @@ function Shell({
     label: "Notifica\xE7\xF5es",
     badge: notifs.length > 0,
     onClick: () => setNotif(true)
-  }), /*#__PURE__*/React.createElement(UserChip, {
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    "aria-label": "Configura\xE7\xF5es",
+    onClick: () => setCfg(true),
+    style: {
+      padding: 0,
+      border: "none",
+      background: "transparent",
+      cursor: "pointer",
+      borderRadius: "var(--radius-md)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, /*#__PURE__*/React.createElement(UserChip, {
     name: "Luciana",
     compact: true
-  })) : null), /*#__PURE__*/React.createElement("main", {
+  }))) : null), /*#__PURE__*/React.createElement("main", {
     style: {
       flex: 1,
       overflowY: "auto",
@@ -5367,7 +6085,7 @@ function Shell({
 Object.assign(window, {
   Shell,
   BottomNav,
-  NAV
+  navItems
 });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/admin/Shell.jsx", error: String((e && e.message) || e) }); }
 
@@ -5375,15 +6093,13 @@ Object.assign(window, {
 try { (() => {
 const {
   Card,
-  StatCard,
-  Sparkline,
   ListRow,
-  DataTable,
   StatusBadge,
   Button,
   IconButton,
   Badge,
-  Icon
+  Icon,
+  EmptyState
 } = window.DLuhFestasDesignSystem_c861a2;
 function ChartCard({
   compact
@@ -5432,8 +6148,8 @@ function ChartCard({
       width: "100%",
       height: v / max * 104,
       borderRadius: "var(--radius-xs)",
-      background: i === serie.length - 2 ? "var(--color-accent)" : "var(--color-accent-soft)",
-      border: "1px solid " + (i === serie.length - 2 ? "transparent" : "var(--terracotta-200)")
+      background: "var(--color-accent-soft)",
+      border: "1px solid var(--color-accent)"
     }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
@@ -5454,38 +6170,18 @@ function VisaoGeral({
       flexDirection: "column",
       gap: "var(--gap-section)"
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: compact ? "1fr 1fr" : "repeat(4, 1fr)",
-      gap: 12
-    }
-  }, /*#__PURE__*/React.createElement(StatCard, {
-    icon: "receipt-text",
-    label: "Pedidos hoje",
-    value: "14",
-    delta: 8,
-    deltaLabel: "vs. ontem"
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    tone: "accent",
-    icon: "wallet",
-    label: "A receber",
-    value: "R$ 3.420,00",
-    chart: /*#__PURE__*/React.createElement(Sparkline, {
-      data: d.serieReceita,
-      height: 30
-    })
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    icon: "chef-hat",
-    label: "Na fila",
-    value: "4",
-    unit: "pedidos"
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    icon: "cake-slice",
-    label: "Ticket m\xE9dio",
-    value: "R$ 244",
-    delta: -3,
-    deltaLabel: "na semana"
+  }, /*#__PURE__*/React.createElement(Card, {
+    padded: false,
+    header: /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: "var(--fs-title)",
+        fontWeight: "var(--fw-semibold)"
+      }
+    }, "Indicadores")
+  }, /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "chart-no-axes-column",
+    title: "Sem dados para os indicadores ainda",
+    description: "Pedidos do dia, valor a receber, fila da cozinha e ticket m\xE9dio aparecem aqui quando houver uma fonte de dados ligada."
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
@@ -5532,7 +6228,7 @@ function VisaoGeral({
         color: "var(--text-muted)",
         marginTop: 2
       }
-    }, "5 de 6.244 no total")), /*#__PURE__*/React.createElement(Button, {
+    }, "Os ", d.recentes.length, " mais recentes")), /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       variant: "ghost",
       iconRight: "arrow-right",
@@ -6042,8 +6738,13 @@ window.DLUH_CONTRATOS = {
 // ui_kits/admin/data.js
 try { (() => {
 window.DLUH = {
+  /* The shop day the fake rows are built around. Agenda opens on it and the rail counts it. */
+  hoje: "2026-06-12",
   pedidos: [{
     id: "PED-2291",
+    data: "2026-06-12",
+    hora: "15:00",
+    modo: "Entrega em endereço",
     cliente: "Maria Helena",
     status: "Pago — Em produção",
     tel: "(38) 99812-4410",
@@ -6072,6 +6773,9 @@ window.DLUH = {
     }]
   }, {
     id: "PED-2290",
+    data: "2026-06-13",
+    hora: "11:00",
+    modo: "Retirada no local",
     cliente: "Willian Bicalho",
     status: "Confirmado — Esperando pagamento",
     tel: "(38) 99114-2087",
@@ -6094,6 +6798,9 @@ window.DLUH = {
     }]
   }, {
     id: "PED-2289",
+    data: "2026-06-14",
+    hora: "07:00",
+    modo: "Entrega em endereço",
     cliente: "Padaria Central",
     status: "Aguardando confirmação",
     tel: "(38) 3221-9080",
@@ -6111,6 +6818,9 @@ window.DLUH = {
     }]
   }, {
     id: "PED-2288",
+    data: "2026-06-10",
+    hora: "18:00",
+    modo: "Retirada no local",
     cliente: "Ana Cláudia",
     status: "Entregue — Esperando restante",
     tel: "(38) 99701-3322",
@@ -6129,6 +6839,9 @@ window.DLUH = {
     }]
   }, {
     id: "PED-2287",
+    data: "2026-06-09",
+    hora: "16:00",
+    modo: "Retirada no local",
     cliente: "João Vitor",
     status: "Finalizado",
     tel: "(38) 99455-1190",
