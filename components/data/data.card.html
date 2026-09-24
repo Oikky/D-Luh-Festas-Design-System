@@ -1,0 +1,45 @@
+<!-- @dsCard group="Components" viewport="700x400" name="Data" subtitle="StatCard, Sparkline, ListRow, DataTable, OrderCard, UserChip" -->
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Data</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>*{box-sizing:border-box}body{margin:0;padding:18px 20px;background:var(--color-bg);font-family:var(--font-ui);color:var(--text-strong)}.lbl{font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px}.grp{margin-bottom:16px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}a{color:var(--color-accent)}a:hover{color:var(--color-accent-hover)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const DS = window.DLuhFestasDesignSystem_c861a2;
+
+const {StatCard,Sparkline,ListRow,DataTable,OrderCard,UserChip,Button,IconButton,StatusBadge,Badge} = DS;
+const serie=[12,18,15,24,22,31,28,34,30,38];
+function Demo(){return <>
+<div className="grp"><div className="lbl">StatCard + Sparkline</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+<StatCard icon="receipt-text" label="Pedidos hoje" value="14" delta={8} deltaLabel="vs. ontem"/>
+<StatCard tone="accent" icon="wallet" label="A receber" value="R$ 3.420,00" chart={<Sparkline data={serie} height={34}/>}/>
+<StatCard icon="cake-slice" label="Ticket médio" value="R$ 244" delta={-3} deltaLabel="na semana"/>
+</div></div>
+<div className="grp"><div className="lbl">ListRow · UserChip</div>
+<div style={{display:"flex",flexDirection:"column",gap:6,maxWidth:420}}>
+<ListRow icon="cake-slice" title="Bolo Vulcão 2kg" subtitle="Maria Helena · 14:30" value="+ R$ 240,00" tone="in"/>
+<ListRow icon="truck" title="Taxa de entrega" subtitle="Centro · 3,2 km" value="+ R$ 12,00" tone="in"/>
+<ListRow avatar="J" title="João Vitor" subtitle="Reembolso de cancelamento" value="− R$ 88,00" tone="out"/>
+</div>
+<div className="row" style={{marginTop:10}}><UserChip name="Luciana" role="Gerente"/><UserChip name="Cozinha" role="Turno da tarde"/><UserChip name="Ana" compact/></div>
+</div>
+<div className="grp"><div className="lbl">DataTable</div>
+<DataTable columns={[{key:"nome",label:"Cliente",strong:true},{key:"cat",label:"Categoria"},{key:"status",label:"Status",render:r=><StatusBadge status={r.status} short/>},{key:"total",label:"Total",align:"right",strong:true},{key:"data",label:"Entrega",align:"right"}]}
+ rows={[{id:1,nome:"Maria Helena",cat:"Bolo",status:"Pago — Em produção",total:"R$ 480,00",data:"12/06"},{id:2,nome:"Willian Bicalho",cat:"Salgados",status:"Confirmado — Esperando pagamento",total:"R$ 740,00",data:"13/06"},{id:3,nome:"Padaria Central",cat:"Empresa",status:"Finalizado",total:"R$ 1.240,00",data:"09/06"}]}/>
+</div>
+<div className="grp"><div className="lbl">OrderCard</div>
+<OrderCard id="PED-2291" customer="Maria Helena" status="Pago — Em produção"
+ meta={["Entrega 12/06 · 15h","(38) 99812-4410","Pix"]} badges={<Badge tone="accent" icon="building-2">Empresa</Badge>}
+ items={[{qty:1,name:"Bolo Vulcão 2kg",note:"Recheio: ninho com nutella",topper:"Topo: “Ana faz 5”",price:"R$ 240,00"},{qty:100,name:"Salgados sortidos",note:"Coxinha, risoles, quibe",price:"R$ 228,00"}]}
+ total="R$ 480,00" paid="R$ 240,00" due="R$ 240,00"
+ actions={<><Button size="sm" variant="ghost" icon="file-text">Detalhes</Button><Button size="sm" tone="chargeEntry" icon="link">Cobrar restante</Button><IconButton icon="menu" label="Mais ações"/></>}/>
+</div>
+</>}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script></body></html>

@@ -1,0 +1,46 @@
+:root{
+/* ── Brand — sampled from the D'Luh Festas logo ── */
+--dluh-cream:#fff1e2;--dluh-orange:#f07a28;--dluh-brick:#cb4234;--dluh-chocolate:#6b2e12;
+
+/* ── Terracotta — the product accent already in production (admin.css --accent) ── */
+--terracotta-50:#fdf3f0;--terracotta-100:#f7e3dc;--terracotta-200:#eecabd;--terracotta-300:#dfa893;
+--terracotta-400:#cf8b70;--terracotta-500:#c0725a;--terracotta-600:#a85f49;--terracotta-700:#8c4d3a;
+--terracotta-800:#6d3b2c;--terracotta-900:#4d2a1f;
+
+/* ── Neutrals — warm, from the live admin ── */
+--sand-0:#ffffff;--sand-50:#f9f7f5;--sand-100:#f3ede7;--sand-200:#e8e0d8;--sand-300:#d6cabe;
+--ink-400:#999999;--ink-600:#555555;--ink-800:#333333;--ink-900:#1a1a1a;
+
+/* ── Dark ink — from the 2026 admin concept boards ── */
+--night-950:#080910;--night-900:#101018;--night-850:#161622;--night-800:#1c1c2b;
+--night-700:#232334;--night-600:#343434;
+
+/* ── Semantic surfaces & text (light theme = default) ── */
+--color-bg:var(--sand-50);--color-surface:var(--sand-0);--color-surface-2:var(--sand-50);
+--color-surface-3:var(--sand-100);--color-surface-inset:var(--terracotta-50);
+--color-border:var(--sand-200);--color-border-soft:var(--sand-100);--color-border-strong:var(--sand-300);
+--text-strong:var(--ink-900);--text-body:var(--ink-600);--text-muted:var(--ink-400);
+--text-inverse:#ffffff;--text-accent:var(--terracotta-500);
+--color-accent:var(--terracotta-500);--color-accent-hover:var(--terracotta-600);
+--color-accent-soft:var(--terracotta-50);--color-accent-contrast:#ffffff;
+--focus-ring:0 0 0 3px rgba(192,114,90,.32);
+--overlay-scrim:rgba(0,0,0,.45);
+
+/* ── Order status — exact values from the live admin (sc-badge) ── */
+--status-aguardando-bg:#fff3cd;--status-aguardando-fg:#856404;
+--status-confirmado-bg:#d1ecf1;--status-confirmado-fg:#0c5460;
+--status-preparo-bg:#fde2ff;--status-preparo-fg:#6a0080;
+--status-pronto-bg:#cce5ff;--status-pronto-fg:#004085;
+--status-saiu-bg:#d4edda;--status-saiu-fg:#155724;
+--status-entregue-bg:#e2e3e5;--status-entregue-fg:#383d41;
+--status-cancelado-bg:#f8d7da;--status-cancelado-fg:#721c24;
+
+/* ── Action colours — one hue per money/operation action, from the live admin ── */
+--action-success:#2e7d32;--action-success-hover:#1b5e20;
+--action-paid:#047857;--action-paid-line:#10b981;--action-paid-bg:#ecfdf5;
+--action-charge-total:#6c4a9e;--action-charge-total-hover:#563b7e;
+--action-charge-entry:#2563a8;--action-charge-entry-hover:#1d4f87;
+--action-delivered:#0f766e;--action-delivered-hover:#0c5d56;
+--action-warn:#b45309;--action-warn-line:#f59e0b;--action-warn-bg:#fef3c7;--action-warn-tint:#fffaf0;
+--action-danger:#c0392b;--action-danger-hover:#a33224;
+}

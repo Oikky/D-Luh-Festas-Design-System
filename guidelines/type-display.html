@@ -1,0 +1,5 @@
+<!-- @dsCard group="Type" viewport="700x150" name="Display — Playfair" subtitle="Brand headings only: page titles, modal titles" -->
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Display</title><link rel="stylesheet" href="../styles.css"><style>*{box-sizing:border-box}body{margin:0;padding:18px 20px;background:var(--color-bg);font-family:var(--font-ui);color:var(--text-strong)}.row{display:flex;gap:10px;flex-wrap:wrap}.lbl{font-size:10.5px;font-weight:600;color:var(--text-muted);letter-spacing:.4px;text-transform:uppercase}.mono{font-family:var(--font-ui);font-variant-numeric:tabular-nums}</style></head><body><div style="font-family:var(--font-display);color:var(--text-strong)">
+<div style="font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1.15">Pedidos da semana</div>
+<div style="font-size:20px;font-weight:600;margin-top:8px">Detalhes do pedido</div>
+</div><div style="margin-top:10px;font-size:11px;color:var(--text-muted)">Playfair Display 500/600/700 · never below 16px · never for body copy or UI labels</div></body></html>

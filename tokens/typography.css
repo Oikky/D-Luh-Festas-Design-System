@@ -1,0 +1,23 @@
+:root{
+--font-ui:"Urbanist",system-ui,-apple-system,"Segoe UI",sans-serif;
+--font-display:"Playfair Display",Georgia,serif;
+--font-mono:"Courier New",ui-monospace,monospace; /* thermal receipt only */
+
+--fw-light:300;/* @kind font */
+--fw-regular:400;/* @kind font */
+--fw-medium:500;/* @kind font */
+--fw-semibold:600;/* @kind font */
+--fw-bold:700;/* @kind font */
+
+--fs-micro:10.5px;--fs-caption:11px;--fs-tiny:12px;--fs-small:12.5px;--fs-body-s:13px;
+--fs-body:13.5px;--fs-body-l:14px;--fs-subhead:15px;--fs-title:16px;--fs-heading:20px;
+--fs-display-s:26px;--fs-display:34px;--fs-display-l:44px;
+
+--lh-tight:1.15;/* @kind font */
+--lh-snug:1.35;/* @kind font */
+--lh-normal:1.5;/* @kind font */
+--lh-relaxed:1.6;/* @kind font */
+--ls-label:.4px;/* @kind font */
+--ls-caps:.5px;/* @kind font */
+--ls-display:-.02em;/* @kind font */
+}

@@ -1,0 +1,174 @@
+const DS = window.DLuhFestasDesignSystem_c861a2;
+const { Tabs, FilterPill, OrderCard, Button, IconButton, DropdownMenu, Badge, EmptyState,
+        Modal, ConfirmDialog, Toast, Field, Input, Select, Card, StatusBadge, DataTable } = DS;
+
+const TABS = [
+  { id: "estoque", label: "Estoque pendente", filtro: "Aguardando confirmação" },
+  { id: "pagamento", label: "Esperando pagamento", filtro: "Confirmado — Esperando pagamento" },
+  { id: "producao", label: "Em produção", filtro: "Pago — Em produção" },
+  { id: "restante", label: "Esperando restante", filtro: "Entregue — Esperando restante" },
+  { id: "final", label: "Finalizados", filtro: "Finalizado" }
+];
+
+function DetalhesModal({ pedido, onClose, onToast }) {
+  if (!pedido) return null;
+  return (
+    <Modal width={620} title="Detalhes do pedido" onClose={onClose}
+      subtitle="Edite o que precisar — produtos, quantidades, valores, dados do cliente, entrega, pagamento e observações."
+      footer={<>
+        <Button variant="ghost" block onClick={onClose}>Fechar</Button>
+        <Button variant="ghost" block icon="printer">Imprimir</Button>
+        <Button block icon="save" onClick={() => { onClose(); onToast("Pedido atualizado"); }}>Salvar</Button>
+      </>}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <span style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--color-accent)", letterSpacing: "var(--ls-caps)" }}>{pedido.id}</span>
+        <StatusBadge status={pedido.status} />
+        {pedido.tipo ? <Badge tone="accent" icon="building-2">{pedido.tipo}</Badge> : null}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px 12px" }}>
+        <Field label="Cliente" required><Input defaultValue={pedido.cliente} /></Field>
+        <Field label="WhatsApp" required><Input defaultValue={pedido.tel} /></Field>
+        <Field label="Entrega"><Select options={["Retirada no local", "Entrega em endereço"]} /></Field>
+        <Field label="Data"><Input type="date" defaultValue="2026-06-12" /></Field>
+        <Field label="Hora"><Input type="time" defaultValue="15:00" /></Field>
+        <Field label="Pagamento"><Select options={["Pix", "Cartão", "Dinheiro"]} defaultValue={pedido.pgto} /></Field>
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <DataTable rows={pedido.itens.map((it, i) => ({ id: i, ...it }))} columns={[
+          { key: "name", label: "Produto", strong: true, wrap: true },
+          { key: "qty", label: "Qtd", align: "center", width: 60 },
+          { key: "price", label: "Subtotal", align: "right", width: 100, strong: true }
+        ]} />
+      </div>
+      <div style={{
+        marginTop: 16, padding: "12px 14px", borderRadius: "var(--radius-sm)",
+        border: "1px solid var(--action-warn-line)", background: "var(--action-warn-tint)"
+      }}>
+        <div style={{ fontSize: "var(--fs-small)", fontWeight: "var(--fw-bold)", color: "var(--action-warn)" }}>Pagamento por fora</div>
+        <div style={{ fontSize: "var(--fs-caption)", color: "var(--action-warn)", opacity: .85, lineHeight: "var(--lh-normal)", margin: "4px 0 10px" }}>
+          Registro manual de um Pix recebido fora do sistema. Não gera cobrança nem avisa o cliente.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr", gap: 10, alignItems: "end" }}>
+          <Field label="Total"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{pedido.total}</div></Field>
+          <Field label="Valor recebido"><Input type="number" prefix="R$" defaultValue="240.00" step="0.01" /></Field>
+          <Button tone="warn" size="sm" block>Registrar</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ManualModal({ onClose, onToast }) {
+  return (
+    <Modal width={620} title="Pedido manual" onClose={onClose}
+      subtitle="Mesmo fluxo do site: registra no Coda, notifica o Telegram (Confirmar Estoque) e segue o ciclo normal — cobrança, fila da cozinha, avisos no WhatsApp do cliente."
+      footer={<>
+        <Button variant="ghost" block onClick={onClose}>Cancelar</Button>
+        <Button block onClick={() => { onClose(); onToast("Pedido criado"); }}>Criar pedido</Button>
+      </>}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
+        <Field label="Cliente" required><Input placeholder="Nome do cliente" /></Field>
+        <Field label="WhatsApp" required><Input placeholder="(38) 99999-9999" /></Field>
+        <Field label="Data de entrega" required><Input type="date" /></Field>
+        <Field label="Hora"><Input type="time" /></Field>
+        <Field label="Entrega"><Select options={["Retirada no local", "Entrega em endereço"]} /></Field>
+        <Field label="Pagamento"><Select options={["Pix", "Cartão", "Dinheiro"]} /></Field>
+        <Field label="Entrada" hint="Percentual cobrado agora"><Input type="number" suffix="%" defaultValue="50" /></Field>
+        <Field label="Tipo de cliente"><Select options={["Pessoa física", "Empresa", "Festa"]} /></Field>
+        <Field label="Observações" span={2}><Input placeholder="Opcional" /></Field>
+      </div>
+      <div style={{ marginTop: 14, padding: "12px 14px", border: "1px dashed var(--color-border-strong)", borderRadius: "var(--radius-sm)", textAlign: "center" }}>
+        <Button variant="quiet" size="sm" icon="plus" block>Adicionar item</Button>
+      </div>
+      <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span style={{ fontSize: "var(--fs-body-l)" }}>Total</span>
+        <b style={{ fontSize: "var(--fs-subhead)" }}>R$ 0,00</b>
+      </div>
+    </Modal>
+  );
+}
+
+function Pedidos({ compact, q }) {
+  const [tab, setTab] = React.useState("estoque");
+  const [detalhe, setDetalhe] = React.useState(null);
+  const [manual, setManual] = React.useState(false);
+  const [confirm, setConfirm] = React.useState(null);
+  const [toast, setToast] = React.useState(null);
+  const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 2600); };
+
+  const filtro = (TABS.find(t => t.id === tab) || TABS[0]).filtro;
+  const lista = window.DLUH.pedidos
+    .filter(p => p.status === filtro)
+    .filter(p => !q || p.cliente.toLowerCase().includes(q.toLowerCase()) || p.id.toLowerCase().includes(q.toLowerCase()));
+
+  const counts = {};
+  TABS.forEach(t => counts[t.id] = window.DLUH.pedidos.filter(p => p.status === t.filtro).length);
+
+  return (
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", maxWidth: "var(--content-max)", minHeight: "100%" }}>
+      <Tabs value={tab} onChange={setTab} items={TABS.map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} />
+
+      <div style={{ display: "flex", gap: "var(--gap-inline)", flexWrap: "wrap", alignItems: "center" }}>
+        <FilterPill icon="sliders-horizontal" trailingIcon={null}>Filtro</FilterPill>
+        <FilterPill icon="calendar-days">Data</FilterPill>
+        <FilterPill icon="banknote">Valor</FilterPill>
+        <FilterPill active>Hoje, 12 de junho</FilterPill>
+        <div style={{ flex: 1 }} />
+        {compact ? null : <Button size="sm" icon="plus" onClick={() => setManual(true)}>Pedido manual</Button>}
+      </div>
+
+      {lista.length ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
+          {lista.map(p => (
+            <OrderCard key={p.id} id={p.id} customer={p.cliente} status={p.status}
+              meta={[p.entrega, p.tel, p.pgto].filter(Boolean)}
+              badges={<>
+                {p.tipo ? <Badge tone="accent" icon="building-2">{p.tipo}</Badge> : null}
+                {p.falta ? <Badge tone="warn">Falta {p.falta}</Badge> : null}
+              </>}
+              items={p.itens} total={p.total} paid={p.pago} due={p.falta}
+              actions={<>
+                <Button size="sm" variant="ghost" icon="file-text" onClick={() => setDetalhe(p)}>Detalhes</Button>
+                {p.status === "Aguardando confirmação"
+                  ? <Button size="sm" icon="check" onClick={() => setConfirm(p)}>Confirmar estoque</Button>
+                  : p.status === "Confirmado — Esperando pagamento"
+                  ? <Button size="sm" tone="chargeEntry" icon="link" onClick={() => showToast("Link de cobrança enviado")}>Cobrar entrada</Button>
+                  : p.status === "Pago — Em produção"
+                  ? <Button size="sm" tone="delivered" icon="truck" onClick={() => showToast("Pedido marcado como entregue")}>Marcar entregue</Button>
+                  : p.status === "Entregue — Esperando restante"
+                  ? <Button size="sm" tone="chargeAll" icon="banknote" onClick={() => showToast("Cobrança do restante enviada")}>Cobrar restante</Button>
+                  : <Button size="sm" variant="outline" icon="printer">Recibo</Button>}
+                <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
+                  { label: "Copiar dados do pedido", icon: "copy", onClick: () => showToast("Dados copiados") },
+                  { label: "Marcar como pago", icon: "badge-check", onClick: () => showToast("Pagamento registrado") },
+                  { label: "Notificar alterações", icon: "bell-ring", onClick: () => showToast("Cliente avisado no WhatsApp") },
+                  { label: "Imprimir recibo", icon: "printer" },
+                  { divider: true },
+                  { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => setConfirm({ ...p, apagar: true }) }
+                ]} />
+              </>} />
+          ))}
+        </div>
+      ) : (
+        <Card padded={false}><EmptyState icon="party-popper" title="Nenhum pedido nesta aba"
+          description="Assim que um pedido entrar nesse status ele aparece aqui automaticamente." /></Card>
+      )}
+
+      {detalhe ? <DetalhesModal pedido={detalhe} onClose={() => setDetalhe(null)} onToast={showToast} /> : null}
+      {manual ? <ManualModal onClose={() => setManual(false)} onToast={showToast} /> : null}
+      {confirm ? <ConfirmDialog
+        tone={confirm.apagar ? "danger" : "accent"}
+        icon={confirm.apagar ? "trash-2" : "circle-check"}
+        title={confirm.apagar ? "Apagar pedido?" : "Confirmar estoque?"}
+        message={confirm.apagar
+          ? "O pedido sai da fila e do Coda. Não dá pra desfazer."
+          : "O cliente recebe o link de pagamento da entrada e o pedido entra na fila da cozinha."}
+        confirmLabel={confirm.apagar ? "Sim, apagar" : "Sim, confirmar"}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => { const a = confirm.apagar; setConfirm(null); showToast(a ? "Pedido apagado" : "Estoque confirmado"); }} /> : null}
+      {toast ? <Toast tone="success" icon="check">{toast}</Toast> : null}
+    </div>
+  );
+}
+
+Object.assign(window, { Pedidos, DetalhesModal, ManualModal });

@@ -1,0 +1,35 @@
+<!-- @dsCard group="Components" viewport="700x280" name="Forms" subtitle="Field, Input, Select, SearchInput" -->
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Forms</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>*{box-sizing:border-box}body{margin:0;padding:18px 20px;background:var(--color-bg);font-family:var(--font-ui);color:var(--text-strong)}.lbl{font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px}.grp{margin-bottom:16px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}a{color:var(--color-accent)}a:hover{color:var(--color-accent-hover)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const DS = window.DLuhFestasDesignSystem_c861a2;
+
+const {Field,Input,Select,SearchInput} = DS;
+const {Icon} = DS;
+function Demo(){
+const [q,setQ]=React.useState("Maria");
+return <>
+<div className="grp"><div className="lbl">SearchInput</div><SearchInput value={q} onChange={e=>setQ(e.target.value)} onClear={()=>setQ("")}/></div>
+<div className="grp"><div className="lbl">Field + Input + Select</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px 12px"}}>
+<Field label="Cliente" required><Input placeholder="Nome do cliente" defaultValue="Maria Helena"/></Field>
+<Field label="WhatsApp" required><Input placeholder="(38) 99999-9999"/></Field>
+<Field label="Data de entrega" required><Input type="date" defaultValue="2026-06-12"/></Field>
+<Field label="Entrega"><Select options={["Retirada no local","Entrega em endereço"]}/></Field>
+<Field label="Pagamento"><Select options={["Pix","Cartão","Dinheiro"]}/></Field>
+<Field label="Taxa de entrega" hint="Somada ao total"><Input type="number" prefix="R$" defaultValue="12.00" step="0.01"/></Field>
+<Field label="Entrada" span={1}><Input type="number" suffix="%" defaultValue="50"/></Field>
+<Field label="Telefone" error="Número incompleto"><Input invalid defaultValue="(38) 9981"/></Field>
+<Field label="Status do pedido" span={1}><Select accent options={["Aguardando confirmação","Confirmado — Esperando pagamento","Pago — Em produção"]} defaultValue="Pago — Em produção"/></Field>
+</div></div>
+</>}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo/>);
+</script></body></html>

@@ -1,0 +1,7 @@
+<!-- @dsCard group="Type" viewport="700x170" name="Money & numerals" subtitle="pt-BR formatting, tabular alignment" -->
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Numerals</title><link rel="stylesheet" href="../styles.css"><style>*{box-sizing:border-box}body{margin:0;padding:18px 20px;background:var(--color-bg);font-family:var(--font-ui);color:var(--text-strong)}.row{display:flex;gap:10px;flex-wrap:wrap}.lbl{font-size:10.5px;font-weight:600;color:var(--text-muted);letter-spacing:.4px;text-transform:uppercase}.mono{font-family:var(--font-ui);font-variant-numeric:tabular-nums}</style></head><body><div style="display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap">
+<div><div class="lbl">Valor destaque</div><div style="font-size:34px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums">R$ 14.448,00</div></div>
+<div><div class="lbl">Total do card</div><div style="font-size:15px;font-weight:700;font-variant-numeric:tabular-nums">R$ 480,00</div></div>
+<div><div class="lbl">Falta</div><div style="font-size:12.5px;font-weight:700;color:var(--action-warn)">R$ 240,00</div></div>
+<div><div class="lbl">Data</div><div style="font-size:13.5px;font-weight:500">12/06 · 15h</div></div>
+</div><div style="margin-top:14px;font-size:11px;color:var(--text-muted)">Always <b>R$&nbsp;</b> with a non-breaking space, comma decimals, dot thousands. Tabular figures in any column of numbers.</div></body></html>

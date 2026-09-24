@@ -1,0 +1,20 @@
+import * as React from "react";
+/** The exact Status strings written to the Coda "Status" column. */
+export type DluhStatus =
+  | "Aguardando confirmação"
+  | "Verificando Estoque"
+  | "Confirmado — Esperando pagamento"
+  | "Pago — Em produção"
+  | "Pronto"
+  | "Entregue — Esperando restante"
+  | "Finalizado"
+  | "Cancelado";
+export interface StatusBadgeProps {
+  status: DluhStatus | string;
+  /** Show the shortened label ("Em produção" instead of "Pago — Em produção"). */
+  short?: boolean;
+  dot?: boolean;
+  style?: React.CSSProperties;
+}
+export declare function StatusBadge(props: StatusBadgeProps): JSX.Element;
+export declare const STATUS: Record<string, { key: string; short: string }>;
