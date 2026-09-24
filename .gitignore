@@ -1,0 +1,11 @@
+# Fonte das skills = .agents/skills/. A pasta .claude/skills/ é derivada (symlinks que o
+# Git no Windows resolve em cópias) — regenere com os comandos documentados no CLAUDE.md:
+#   npx skills@latest add emilkowalski/skills
+#   npx impeccable install
+.claude/skills/
+
+# Binários da engine do impeccable (~15 MB, reinstaláveis)
+.agents/skills/impeccable/scripts/bin/
+
+# Configuração local do Claude Code (específica da máquina)
+.claude/settings.local.json
