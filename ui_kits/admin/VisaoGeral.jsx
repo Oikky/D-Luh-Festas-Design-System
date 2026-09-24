@@ -1,4 +1,4 @@
-const { Card, StatCard, Sparkline, ListRow, DataTable, StatusBadge, Button, FilterPill, Badge, Icon } = window.DLuhFestasDesignSystem_c861a2;
+const { Card, StatCard, Sparkline, ListRow, DataTable, StatusBadge, Button, IconButton, Badge, Icon } = window.DLuhFestasDesignSystem_c861a2;
 
 function ChartCard({ compact }) {
   const serie = window.DLUH.serieReceita;
@@ -10,7 +10,6 @@ function ChartCard({ compact }) {
         <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Receita da semana</div>
         <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>08 – 14 de junho</div>
       </div>
-      <FilterPill icon="calendar-days">Últimos 7 dias</FilterPill>
     </>}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: compact ? 6 : 12, height: 150 }}>
         {serie.map((v, i) => (
@@ -33,10 +32,10 @@ function ChartCard({ compact }) {
 
 const RECENT_COLS = "minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr)";
 
-function VisaoGeral({ compact }) {
+function VisaoGeral({ compact, onView }) {
   const d = window.DLUH;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-section)", maxWidth: "var(--content-max)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-section)" }}>
       <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12 }}>
         <StatCard icon="receipt-text" label="Pedidos hoje" value="14" delta={8} deltaLabel="vs. ontem" />
         <StatCard tone="accent" icon="wallet" label="A receber" value="R$ 3.420,00" chart={<Sparkline data={d.serieReceita} height={30} />} />
@@ -48,7 +47,7 @@ function VisaoGeral({ compact }) {
         <ChartCard compact={compact} />
         <Card header={<>
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Pagamentos recentes</div>
-          <Icon name="arrow-up-right" size={18} style={{ color: "var(--text-muted)" }} />
+          <IconButton icon="arrow-up-right" label="Abrir financeiro" size={32} onClick={() => onView("financeiro")} />
         </>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {d.pagamentos.map((p, i) => <ListRow key={i} icon={p.icon} title={p.title} subtitle={p.sub} value={p.value} tone={p.tone} />)}
         </Card>
@@ -59,7 +58,7 @@ function VisaoGeral({ compact }) {
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Últimos pedidos</div>
           <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>5 de 6.244 no total</div>
         </div>
-        <Button size="sm" variant="ghost" iconRight="arrow-right">Ver todos</Button>
+        <Button size="sm" variant="ghost" iconRight="arrow-right" onClick={() => onView("pedidos")}>Ver todos</Button>
       </>}>
         <div style={{ padding: compact ? "4px 0" : "8px 0" }}>
           {compact ? null : <div style={{ display: "grid", gridTemplateColumns: RECENT_COLS, gap: 12, padding: "4px 18px 8px", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)" }}>

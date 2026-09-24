@@ -126,7 +126,7 @@ function Agenda({ compact }) {
   const contagem = t => todos.filter(x => x.tipo === t && x.data.slice(0, 7) === ano + "-" + String(mes + 1).padStart(2, "0")).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)", maxWidth: "var(--content-max)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
       <div style={{ display: "flex", gap: "var(--gap-inline)", flexWrap: "wrap", alignItems: "center" }}>
         <FilterPill active={filtro === "tudo"} trailingIcon={null} onClick={() => setFiltro("tudo")}>Tudo</FilterPill>
         {Object.keys(TIPOS).map(k => (
@@ -136,7 +136,6 @@ function Agenda({ compact }) {
         ))}
         <div style={{ flex: 1 }} />
         <Badge tone="warn" icon="receipt">A pagar no mês: R$ {aPagar.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</Badge>
-        {compact ? null : <Button size="sm" icon="plus">Novo compromisso</Button>}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1.35fr 1fr", gap: 12, alignItems: "start" }}>
@@ -167,7 +166,6 @@ function Agenda({ compact }) {
                 {doDia.length ? doDia.length + (doDia.length === 1 ? " compromisso" : " compromissos") : "Dia livre"}
               </div>
             </div>
-            <IconButton icon="plus" label="Adicionar no dia" size={32} />
           </>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 8 }} padded={doDia.length > 0}>
             {doDia.length
               ? doDia.map((x, i) => <ItemAgenda key={i} x={x} />)

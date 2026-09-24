@@ -12,14 +12,14 @@ function useCompact() {
 function App() {
   const [view, setView] = React.useState("visao");
   const compact = useCompact();
-  const [theme, setTheme] = React.useState("light");
+  const [theme, setTheme] = React.useState("dark");
   const [q, setQ] = React.useState("");
-  const Screen = { visao: window.VisaoGeral, pedidos: window.Pedidos, agenda: window.Agenda, cozinha: window.Cozinha, contratos: window.Contratos }[view];
+  const Screen = { visao: window.VisaoGeral, pedidos: window.Pedidos, agenda: window.Agenda, cozinha: window.Cozinha, financeiro: window.Financeiro }[view];
   return (
     <div style={{ height: "100dvh" }}>
       <window.Shell view={view} onView={setView} compact={compact} theme={theme}
         onTheme={() => setTheme(theme === "dark" ? "light" : "dark")} q={q} onQ={setQ}>
-        {Screen ? <Screen compact={compact} q={q} /> : null}
+        {Screen ? <Screen compact={compact} q={q} onView={setView} /> : null}
       </window.Shell>
     </div>
   );

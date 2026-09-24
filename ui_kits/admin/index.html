@@ -1,4 +1,4 @@
-<!-- @dsCard group="Admin" viewport="1280x820" name="D'Luh Admin" subtitle="Painel de pedidos — visão geral, pedidos, agenda, cozinha e contratos; desktop e mobile" -->
+<!-- @dsCard group="Admin" viewport="1280x820" name="D'Luh Admin" subtitle="Painel de pedidos — visão geral, pedidos, agenda, cozinha e financeiro; desktop e mobile" -->
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>D'Luh Admin — UI kit</title>
 <link rel="stylesheet" href="../../styles.css">
@@ -9,13 +9,17 @@
 <script src="../../_ds_bundle.js"></script>
 <script src="data.js"></script>
 <script src="contratos-data.js"></script>
-<style>*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}body{font-family:var(--font-ui)}a{color:var(--color-accent)}a:hover{color:var(--color-accent-hover)}</style>
+<style>*{box-sizing:border-box;scrollbar-width:none}*::-webkit-scrollbar{display:none}html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}body{font-family:var(--font-ui)}a{color:var(--color-accent)}a:hover{color:var(--color-accent-hover)}</style>
 </head><body><div id="root"></div>
+<script type="text/babel" src="Busca.jsx"></script>
+<script type="text/babel" src="Notificacoes.jsx"></script>
 <script type="text/babel" src="Shell.jsx"></script>
 <script type="text/babel" src="VisaoGeral.jsx"></script>
+<script type="text/babel" src="PedidosModais.jsx"></script>
 <script type="text/babel" src="Pedidos.jsx"></script>
 <script type="text/babel" src="Agenda.jsx"></script>
 <script type="text/babel" src="Contratos.jsx"></script>
+<script type="text/babel" src="Financeiro.jsx"></script>
 <script type="text/babel" src="Cozinha.jsx"></script>
 <script type="text/babel" src="App.jsx"></script>
 </body></html>

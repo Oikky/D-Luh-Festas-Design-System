@@ -28,11 +28,12 @@ function Cozinha({ compact }) {
   const [feature, setFeature] = React.useState(0);
   const [confirm, setConfirm] = React.useState(null);
   const [toast, setToast] = React.useState(null);
+  const [som, setSom] = React.useState(true);
   const p = fila[feature];
   const showToast = m => { setToast(m); setTimeout(() => setToast(null), 2400); };
 
   return (
-    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", maxWidth: "var(--content-max)", minHeight: "100%" }}>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", minHeight: "100%" }}>
       <div style={{
         borderRadius: "var(--radius-xl)", padding: compact ? "18px" : "24px 28px",
         background: "var(--color-accent)", color: "var(--color-accent-contrast)",
@@ -65,8 +66,8 @@ function Cozinha({ compact }) {
           <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)" }}>Fila de hoje</div>
           <Badge>{fila.length} pedidos</Badge>
           <div style={{ flex: 1 }} />
-          <FilterPill icon="volume-2" trailingIcon={null}>Alerta sonoro</FilterPill>
-          <FilterPill icon="printer" trailingIcon={null}>Imprimir fila</FilterPill>
+          <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
+          <FilterPill icon="printer" trailingIcon={null} onClick={() => showToast("Fila enviada para impressão")}>Imprimir fila</FilterPill>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
           {fila.map(x => <FilaCard key={x.id} p={x} onEntregar={setConfirm} />)}

@@ -11,13 +11,16 @@ const TABS = [
 ];
 
 function DetalhesModal({ pedido, onClose, onToast }) {
+  const [pgtos, setPgtos] = React.useState([{ quando: "10/06 · 14:32", valor: 240, origem: "site", meio: "Pix" }]);
+  const [verPgtos, setVerPgtos] = React.useState(false);
   if (!pedido) return null;
-  return (
+  const recebido = pgtos.reduce((s, p) => s + p.valor, 0);
+  return (<>
     <Modal width={620} title="Detalhes do pedido" onClose={onClose}
       subtitle="Edite o que precisar — produtos, quantidades, valores, dados do cliente, entrega, pagamento e observações."
       footer={<>
         <Button variant="ghost" block onClick={onClose}>Fechar</Button>
-        <Button variant="ghost" block icon="printer">Imprimir</Button>
+        <Button variant="ghost" block icon="printer" onClick={() => onToast("Pedido enviado para impressão")}>Imprimir</Button>
         <Button block icon="save" onClick={() => { onClose(); onToast("Pedido atualizado"); }}>Salvar</Button>
       </>}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
@@ -40,52 +43,14 @@ function DetalhesModal({ pedido, onClose, onToast }) {
           { key: "price", label: "Subtotal", align: "right", width: 100, strong: true }
         ]} />
       </div>
-      <div style={{
-        marginTop: 16, padding: "12px 14px", borderRadius: "var(--radius-sm)",
-        border: "1px solid var(--action-warn-line)", background: "var(--action-warn-tint)"
-      }}>
-        <div style={{ fontSize: "var(--fs-small)", fontWeight: "var(--fw-bold)", color: "var(--action-warn)" }}>Pagamento por fora</div>
-        <div style={{ fontSize: "var(--fs-caption)", color: "var(--action-warn)", opacity: .85, lineHeight: "var(--lh-normal)", margin: "4px 0 10px" }}>
-          Registro manual de um Pix recebido fora do sistema. Não gera cobrança nem avisa o cliente.
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr", gap: 10, alignItems: "end" }}>
-          <Field label="Total"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{pedido.total}</div></Field>
-          <Field label="Valor recebido"><Input type="number" prefix="R$" defaultValue="240.00" step="0.01" /></Field>
-          <Button tone="warn" size="sm" block>Registrar</Button>
-        </div>
+      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "var(--border-hairline) solid var(--color-border)" }}>
+        <Field label="Valor recebido"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{window.brl(recebido)}</div></Field>
+        <div style={{ flex: 1 }} />
+        <Button size="sm" variant="outline" icon="list" onClick={() => setVerPgtos(true)}>Pagamentos ({pgtos.length})</Button>
       </div>
     </Modal>
-  );
-}
-
-function ManualModal({ onClose, onToast }) {
-  return (
-    <Modal width={620} title="Pedido manual" onClose={onClose}
-      subtitle="Mesmo fluxo do site: registra no Coda, notifica o Telegram (Confirmar Estoque) e segue o ciclo normal — cobrança, fila da cozinha, avisos no WhatsApp do cliente."
-      footer={<>
-        <Button variant="ghost" block onClick={onClose}>Cancelar</Button>
-        <Button block onClick={() => { onClose(); onToast("Pedido criado"); }}>Criar pedido</Button>
-      </>}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 12px" }}>
-        <Field label="Cliente" required><Input placeholder="Nome do cliente" /></Field>
-        <Field label="WhatsApp" required><Input placeholder="(38) 99999-9999" /></Field>
-        <Field label="Data de entrega" required><Input type="date" /></Field>
-        <Field label="Hora"><Input type="time" /></Field>
-        <Field label="Entrega"><Select options={["Retirada no local", "Entrega em endereço"]} /></Field>
-        <Field label="Pagamento"><Select options={["Pix", "Cartão", "Dinheiro"]} /></Field>
-        <Field label="Entrada" hint="Percentual cobrado agora"><Input type="number" suffix="%" defaultValue="50" /></Field>
-        <Field label="Tipo de cliente"><Select options={["Pessoa física", "Empresa", "Festa"]} /></Field>
-        <Field label="Observações" span={2}><Input placeholder="Opcional" /></Field>
-      </div>
-      <div style={{ marginTop: 14, padding: "12px 14px", border: "1px dashed var(--color-border-strong)", borderRadius: "var(--radius-sm)", textAlign: "center" }}>
-        <Button variant="quiet" size="sm" icon="plus" block>Adicionar item</Button>
-      </div>
-      <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontSize: "var(--fs-body-l)" }}>Total</span>
-        <b style={{ fontSize: "var(--fs-subhead)" }}>R$ 0,00</b>
-      </div>
-    </Modal>
-  );
+    {verPgtos ? <PagamentosModal lista={pgtos} onChange={setPgtos} onClose={() => setVerPgtos(false)} onToast={onToast} /> : null}
+  </>);
 }
 
 function Pedidos({ compact, q }) {
@@ -105,17 +70,12 @@ function Pedidos({ compact, q }) {
   TABS.forEach(t => counts[t.id] = window.DLUH.pedidos.filter(p => p.status === t.filtro).length);
 
   return (
-    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", maxWidth: "var(--content-max)", minHeight: "100%" }}>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", minHeight: "100%" }}>
       <Tabs value={tab} onChange={setTab} items={TABS.map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} />
 
-      <div style={{ display: "flex", gap: "var(--gap-inline)", flexWrap: "wrap", alignItems: "center" }}>
-        <FilterPill icon="sliders-horizontal" trailingIcon={null}>Filtro</FilterPill>
-        <FilterPill icon="calendar-days">Data</FilterPill>
-        <FilterPill icon="banknote">Valor</FilterPill>
-        <FilterPill active>Hoje, 12 de junho</FilterPill>
-        <div style={{ flex: 1 }} />
-        {compact ? null : <Button size="sm" icon="plus" onClick={() => setManual(true)}>Pedido manual</Button>}
-      </div>
+      {compact ? null : <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button size="sm" icon="plus" onClick={() => setManual(true)}>Pedido manual</Button>
+      </div>}
 
       {lista.length ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
@@ -137,7 +97,7 @@ function Pedidos({ compact, q }) {
                   ? <Button size="sm" tone="delivered" icon="truck" onClick={() => showToast("Pedido marcado como entregue")}>Marcar entregue</Button>
                   : p.status === "Entregue — Esperando restante"
                   ? <Button size="sm" tone="chargeAll" icon="banknote" onClick={() => showToast("Cobrança do restante enviada")}>Cobrar restante</Button>
-                  : <Button size="sm" variant="outline" icon="printer">Recibo</Button>}
+                  : <Button size="sm" variant="outline" icon="printer" onClick={() => showToast("Recibo gerado")}>Recibo</Button>}
                 <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
                   { label: "Copiar dados do pedido", icon: "copy", onClick: () => showToast("Dados copiados") },
                   { label: "Marcar como pago", icon: "badge-check", onClick: () => showToast("Pagamento registrado") },
@@ -171,4 +131,4 @@ function Pedidos({ compact, q }) {
   );
 }
 
-Object.assign(window, { Pedidos, DetalhesModal, ManualModal });
+Object.assign(window, { Pedidos, DetalhesModal });

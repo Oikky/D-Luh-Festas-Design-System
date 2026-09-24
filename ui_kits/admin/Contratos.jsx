@@ -99,20 +99,18 @@ function Previa({ modelo, vals }) {
   );
 }
 
-function Contratos({ compact }) {
-  const MODELOS = [window.DLUH_CONTRATOS.buffet, window.DLUH_CONTRATOS.salao];
-  const [tipo, setTipo] = React.useState("buffet");
-  const modelo = MODELOS.find(m => m.id === tipo);
-  const [dados, setDados] = React.useState(() => {
-    const d = { buffet: {}, salao: {} };
-    MODELOS.forEach(m => m.grupos.flatMap(g => g.campos).forEach(c => { if (c.def) d[m.id][c.id] = c.def; }));
-    return d;
-  });
+const CT_KEY = "dluh-admin-contratos";
+const ctAgora = () => { const d = new Date(), p = x => String(x).padStart(2, "0"); return p(d.getDate()) + "/" + p(d.getMonth() + 1) + " · " + p(d.getHours()) + ":" + p(d.getMinutes()); };
+const ctPadrao = modelos => { const d = {}; modelos.forEach(m => { d[m.id] = {}; m.grupos.flatMap(g => g.campos).forEach(c => { if (c.def) d[m.id][c.id] = c.def; }); }); return d; };
+const ctCliente = c => (c.dados[c.tipo] || {}).contratante_nome || (c.dados[c.tipo] || {}).nome || "Sem nome";
+const ctValor = c => { const v = (c.dados[c.tipo] || {}).valor_total; return v ? "R$ " + fmtMoeda(v) : "—"; };
+
+function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast }) {
+  const tipo = contrato.tipo;
+  const modelo = modelos.find(m => m.id === tipo);
+  const vals = contrato.dados[tipo];
   const [verPrevia, setVerPrevia] = React.useState(!compact);
-  const [toast, setToast] = React.useState(null);
-  const vals = dados[tipo];
-  const set = (id, v) => setDados(s => ({ ...s, [tipo]: { ...s[tipo], [id]: v } }));
-  const showToast = m => { setToast(m); setTimeout(() => setToast(null), 2400); };
+  const set = (id, v) => onChange({ dados: { ...contrato.dados, [tipo]: { ...contrato.dados[tipo], [id]: v } } });
 
   React.useEffect(() => {
     if (tipo !== "salao") return;
@@ -125,71 +123,117 @@ function Contratos({ compact }) {
 
   const campos = modelo.grupos.flatMap(g => g.campos);
   const faltando = campos.filter(c => c.req && !vals[c.id]).length;
+  const final = contrato.status === "Finalizado";
+
+  return (<>
+    <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
+      <Button size="sm" variant="ghost" icon="arrow-left" onClick={onBack}>Contratos</Button>
+      <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{ctCliente(contrato)}</div>
+      <Badge tone={final ? "success" : "neutral"} icon={final ? "circle-check" : "pencil"}>{final ? "Finalizado" : "Rascunho"}</Badge>
+      <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Salvo automaticamente · {contrato.atualizado}</span>
+    </div>
+
+    <EscolhaTipo modelos={modelos} valor={tipo} onChange={t => onChange({ tipo: t })} />
+
+    <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
+      <Badge tone={faltando ? "warn" : "success"} icon={faltando ? "circle-alert" : "circle-check"}>
+        {faltando ? faltando + " campo(s) obrigatório(s) em falta" : "Pronto para gerar"}
+      </Badge>
+      <div style={{ flex: 1 }} />
+      {compact ? <FilterPill trailingIcon={null} icon={verPrevia ? "pencil" : "eye"} active onClick={() => setVerPrevia(!verPrevia)}>
+        {verPrevia ? "Editar dados" : "Ver prévia"}
+      </FilterPill> : null}
+      <Button size="sm" variant="ghost" icon="printer" onClick={() => onToast("Contrato enviado para impressão")}>Imprimir</Button>
+      <Button size="sm" variant="ghost" icon="download" onClick={() => onToast("PDF gerado")}>PDF</Button>
+      {final ? null : <Button size="sm" icon="check" onClick={() => { onChange({ status: "Finalizado" }); onToast("Contrato finalizado"); }}>Finalizar</Button>}
+    </div>
+
+    <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1.05fr)", gap: 12, alignItems: "start" }}>
+      {(!compact || !verPrevia) ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {modelo.grupos.map(g => (
+            <Card key={g.titulo} header={<div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>{g.titulo}</div>}>
+              <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "repeat(2, minmax(0,1fr))", gap: "10px 12px" }}>
+                {g.campos.map(c => (
+                  <Field key={c.id} label={c.rot} required={c.req} span={c.span}
+                    style={{ gridColumn: c.span && !compact ? "span " + Math.min(c.span, 2) : undefined }}>
+                    {c.tipo === "opcao"
+                      ? <Select options={c.opcoes} value={vals[c.id] || ""} onChange={e => set(c.id, e.target.value)} />
+                      : <Input type={c.tipo === "date" ? "date" : c.tipo === "time" ? "time" : c.tipo === "number" || c.tipo === "dinheiro" ? "number" : "text"}
+                          step={c.tipo === "dinheiro" ? "0.01" : undefined}
+                          prefix={c.tipo === "dinheiro" ? "R$" : undefined}
+                          placeholder={c.ph} readOnly={c.auto}
+                          value={vals[c.id] || ""} onChange={e => set(c.id, e.target.value)} />}
+                  </Field>
+                ))}
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+      {(!compact || verPrevia) ? (
+        <div style={{ position: compact ? "static" : "sticky", top: 0 }}>
+          <Card padded={false} header={<>
+            <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Prévia</div>
+            <Badge>{modelo.clausulas.length} cláusulas</Badge>
+          </>} bodyStyle={{ background: "var(--color-surface-3)", padding: 14, maxHeight: compact ? "none" : 620, overflowY: "auto" }}>
+            <Previa modelo={modelo} vals={vals} />
+          </Card>
+        </div>
+      ) : null}
+    </div>
+  </>);
+}
+
+function Contratos({ compact }) {
+  const MODELOS = [window.DLUH_CONTRATOS.buffet, window.DLUH_CONTRATOS.salao];
+  const [salvos, setSalvos] = React.useState(() => {
+    try { const r = JSON.parse(localStorage.getItem(CT_KEY)); if (Array.isArray(r)) return r; } catch (e) {}
+    return window.DLUH.contratos.map((c, i) => {
+      const d = ctPadrao(MODELOS), v = String(c.valor).replace(/[^\d,]/g, "").replace(",", ".");
+      d[c.tipo] = { ...d[c.tipo], [c.tipo === "buffet" ? "contratante_nome" : "nome"]: c.cliente, valor_total: v };
+      return { uid: "seed-" + i, tipo: c.tipo, dados: d, status: i === 1 ? "Rascunho" : "Finalizado", atualizado: c.data.slice(0, 5) };
+    });
+  });
+  const [aberto, setAberto] = React.useState(null);
+  const [apagar, setApagar] = React.useState(null);
+  const [toast, setToast] = React.useState(null);
+  const showToast = m => { setToast(m); setTimeout(() => setToast(null), 2400); };
+  React.useEffect(() => { try { localStorage.setItem(CT_KEY, JSON.stringify(salvos)); } catch (e) {} }, [salvos]);
+
+  const atual = salvos.find(c => c.uid === aberto);
+  const upd = patch => setSalvos(l => l.map(c => c.uid === aberto ? { ...c, ...patch, atualizado: ctAgora() } : c));
+  const criar = () => {
+    const c = { uid: "c" + Date.now(), tipo: "buffet", dados: ctPadrao(MODELOS), status: "Rascunho", atualizado: ctAgora() };
+    setSalvos(l => [c, ...l]); setAberto(c.uid);
+  };
+  const rascunhos = salvos.filter(c => c.status !== "Finalizado").length;
 
   return (
-    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", maxWidth: "var(--content-max)", minHeight: "100%" }}>
-      <EscolhaTipo modelos={MODELOS} valor={tipo} onChange={setTipo} />
-
-      <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
-        <Badge tone={faltando ? "warn" : "success"} icon={faltando ? "circle-alert" : "circle-check"}>
-          {faltando ? faltando + " campo(s) obrigatório(s) em falta" : "Pronto para gerar"}
-        </Badge>
-        <div style={{ flex: 1 }} />
-        {compact ? <FilterPill trailingIcon={null} icon={verPrevia ? "pencil" : "eye"} active onClick={() => setVerPrevia(!verPrevia)}>
-          {verPrevia ? "Editar dados" : "Ver prévia"}
-        </FilterPill> : null}
-        <Button size="sm" variant="ghost" icon="printer" onClick={() => showToast("Contrato enviado para impressão")}>Imprimir</Button>
-        <Button size="sm" variant="ghost" icon="download" onClick={() => showToast("PDF gerado")}>PDF</Button>
-        <Button size="sm" icon="save" onClick={() => showToast("Contrato salvo no histórico")}>Salvar</Button>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1.05fr)", gap: 12, alignItems: "start" }}>
-        {(!compact || !verPrevia) ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {modelo.grupos.map(g => (
-              <Card key={g.titulo} header={<div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>{g.titulo}</div>}>
-                <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "repeat(2, minmax(0,1fr))", gap: "10px 12px" }}>
-                  {g.campos.map(c => (
-                    <Field key={c.id} label={c.rot} required={c.req} span={c.span}
-                      style={{ gridColumn: c.span && !compact ? "span " + Math.min(c.span, 2) : undefined }}>
-                      {c.tipo === "opcao"
-                        ? <Select options={c.opcoes} value={vals[c.id] || ""} onChange={e => set(c.id, e.target.value)} />
-                        : <Input type={c.tipo === "date" ? "date" : c.tipo === "time" ? "time" : c.tipo === "number" || c.tipo === "dinheiro" ? "number" : "text"}
-                            step={c.tipo === "dinheiro" ? "0.01" : undefined}
-                            prefix={c.tipo === "dinheiro" ? "R$" : undefined}
-                            placeholder={c.ph} readOnly={c.auto}
-                            value={vals[c.id] || ""} onChange={e => set(c.id, e.target.value)} />}
-                    </Field>
-                  ))}
-                </div>
-              </Card>
-            ))}
-          </div>
-        ) : null}
-
-        {(!compact || verPrevia) ? (
-          <div style={{ position: compact ? "static" : "sticky", top: 0 }}>
-            <Card padded={false} header={<>
-              <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Prévia</div>
-              <Badge>{modelo.clausulas.length} cláusulas</Badge>
-            </>} bodyStyle={{ background: "var(--color-surface-3)", padding: 14, maxHeight: compact ? "none" : 620, overflowY: "auto" }}>
-              <Previa modelo={modelo} vals={vals} />
-            </Card>
-          </div>
-        ) : null}
-      </div>
-
-      <Card header={<>
-        <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Contratos recentes</div>
-        <Button size="sm" variant="ghost" iconRight="arrow-right">Ver histórico</Button>
-      </>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {window.DLUH.contratos.map((c, i) => (
-          <ListRow key={i} icon={c.tipo === "buffet" ? "chef-hat" : "party-popper"} title={c.cliente}
-            subtitle={(c.tipo === "buffet" ? "Buffet" : "Locação do salão") + " · " + c.data}
-            value={c.valor} trailing={<IconButton icon="download" label="Baixar" size={32} style={{ marginLeft: 10 }} />} />
-        ))}
-      </Card>
-
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", minHeight: "100%" }}>
+      {atual ? <ContratoEditor contrato={atual} modelos={MODELOS} compact={compact} onChange={upd} onBack={() => setAberto(null)} onToast={showToast} /> : <>
+        <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
+          {rascunhos ? <Badge tone="warn" icon="pencil">{rascunhos} rascunho(s) em andamento</Badge> : null}
+          <div style={{ flex: 1 }} />
+          <Button size="sm" icon="plus" onClick={criar}>Novo contrato</Button>
+        </div>
+        <Card header={<div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Histórico de contratos</div>}
+          bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {salvos.length ? salvos.map(c => (
+            <ListRow key={c.uid} icon={c.tipo === "buffet" ? "chef-hat" : "party-popper"} title={ctCliente(c)}
+              subtitle={(c.tipo === "buffet" ? "Buffet" : "Locação do salão") + " · " + (c.status === "Finalizado" ? "Finalizado" : "Rascunho") + " · " + c.atualizado}
+              value={ctValor(c)}
+              trailing={<div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 10 }}>
+                <Button size="sm" variant={c.status === "Finalizado" ? "ghost" : "outline"} icon={c.status === "Finalizado" ? "eye" : "pencil"} onClick={() => setAberto(c.uid)}>{c.status === "Finalizado" ? "Abrir" : "Continuar"}</Button>
+                <IconButton icon="download" label="Baixar PDF" size={32} onClick={() => showToast("PDF gerado")} />
+                <IconButton icon="trash" label="Apagar" size={32} onClick={() => setApagar(c)} />
+              </div>} />
+          )) : <DS.EmptyState icon="file-text" title="Nenhum contrato ainda" description="Crie o primeiro pelo botão Novo contrato." />}
+        </Card>
+      </>}
+      {apagar ? <DS.ConfirmDialog tone="danger" icon="trash" title="Apagar contrato?" message={"O contrato de " + ctCliente(apagar) + " sai do histórico. Não dá pra desfazer."}
+        confirmLabel="Sim, apagar" onCancel={() => setApagar(null)}
+        onConfirm={() => { setSalvos(l => l.filter(x => x.uid !== apagar.uid)); setApagar(null); showToast("Contrato apagado"); }} /> : null}
       {toast ? <Toast tone="success" icon="check">{toast}</Toast> : null}
     </div>
   );

@@ -50,6 +50,23 @@ window.DLUH = {
     { cliente: "Tiago Meireles", tipo: "salao", data: "28/05/2026", valor: "R$ 1.800,00" },
     { cliente: "Colégio São José", tipo: "buffet", data: "21/05/2026", valor: "R$ 14.200,00" }
   ],
+  financeiro: {
+    transacoes: [
+      { desc: "Maria Helena · entrada PED-2291", tipo: "Entrada", meio: "Pix", data: "12/06", valor: 240 },
+      { desc: "Atacadão · farinha e açúcar", tipo: "Saída", meio: "Cartão", data: "11/06", valor: 612.4 },
+      { desc: "Rafaela Prates · PED-2293", tipo: "Entrada", meio: "Cartão", data: "11/06", valor: 352 },
+      { desc: "Gás de cozinha", tipo: "Saída", meio: "Dinheiro", data: "10/06", valor: 130 }
+    ],
+    boletos: [
+      { desc: "Cemig · energia", venc: "15/06", valor: 486.9, status: "Em aberto" },
+      { desc: "Embalagens Norte", venc: "20/06", valor: 740, status: "Em aberto" },
+      { desc: "Aluguel do salão", venc: "05/06", valor: 2200, status: "Pago" }
+    ],
+    cartoes: [
+      { nome: "Nubank Empresa", final: "4821", bandeira: "Mastercard", limite: 8000, fatura: 1942.3, venc: "10" },
+      { nome: "Sicoob", final: "0377", bandeira: "Visa", limite: 5000, fatura: 612.4, venc: "25" }
+    ]
+  },
   serieSemana: [8, 11, 9, 14, 12, 19, 14],
   serieReceita: [1200, 1680, 1440, 2100, 1980, 2740, 2320],
   recentes: [

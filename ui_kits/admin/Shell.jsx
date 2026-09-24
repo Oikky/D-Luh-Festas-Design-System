@@ -1,11 +1,11 @@
-const { SearchInput, IconButton, UserChip, Icon } = window.DLuhFestasDesignSystem_c861a2;
+const { SearchInput, IconButton, UserChip, Icon, Modal, FilterPill, Button, ListRow, EmptyState } = window.DLuhFestasDesignSystem_c861a2;
 
 const NAV = [
   { id: "visao", label: "Visão geral", icon: "layout-dashboard" },
   { id: "pedidos", label: "Pedidos", icon: "receipt-text", count: 7 },
   { id: "agenda", label: "Agenda", icon: "calendar-days", count: 3 },
   { id: "cozinha", label: "Cozinha", icon: "chef-hat", count: 4 },
-  { id: "contratos", label: "Contratos", icon: "file-signature" }
+  { id: "financeiro", label: "Financeiro", icon: "wallet" }
 ];
 
 function RailItem({ icon, label, count, active, badge, open, onClick }) {
@@ -38,7 +38,7 @@ function RailItem({ icon, label, count, active, badge, open, onClick }) {
   );
 }
 
-function Sidebar({ view, onView, theme, onTheme }) {
+function Sidebar({ view, onView, onSettings, onNotif, hasNotif }) {
   const [open, setOpen] = React.useState(false);
   return (
     <div style={{ width: "var(--rail-w)", flex: "0 0 auto", position: "relative", zIndex: 20 }}>
@@ -55,13 +55,10 @@ function Sidebar({ view, onView, theme, onTheme }) {
         </div>
         {NAV.map(it => <RailItem key={it.id} {...it} open={open} active={it.id === view} onClick={() => onView(it.id)} />)}
         <div style={{ flex: 1 }} />
-        <RailItem icon="bell" label="Notificações" badge open={open} />
-        <RailItem icon="message-square-more" label="Mensagens" open={open} />
-        <RailItem icon={theme === "dark" ? "sun" : "moon"} label={theme === "dark" ? "Tema claro" : "Tema escuro"} open={open} onClick={onTheme} />
-        <RailItem icon="settings" label="Configurações" open={open} />
-        <RailItem icon="log-out" label="Sair" open={open} />
+        <RailItem icon="bell" label="Notificações" badge={hasNotif} open={open} onClick={onNotif} />
+        <RailItem icon="settings" label="Configurações" open={open} onClick={onSettings} />
         <div style={{ borderTop: "var(--border-hairline) solid var(--color-border)", margin: "var(--space-2) 0 0", paddingTop: "var(--space-4)", paddingLeft: 3, whiteSpace: "nowrap" }}>
-          <UserChip name="Luciana" role="Gerente" />
+          <UserChip name="Luciana" role="Gerente" compact={!open} />
         </div>
       </nav>
     </div>
@@ -99,21 +96,44 @@ function BottomNav({ value, onChange }) {
 }
 
 function Shell({ view, onView, compact, theme, onTheme, children, q, onQ }) {
-  const search = <SearchInput value={q} onChange={e => onQ(e.target.value)} onClear={() => onQ("")} placeholder="Buscar pedido, cliente…" style={{ width: "100%", maxWidth: "none" }} />;
+  const [cfg, setCfg] = React.useState(false);
+  const [notif, setNotif] = React.useState(false);
+  const [notifs, setNotifs] = React.useState(() => [...(window.NOTIF_DEMO || [])]);
+  const search = <window.GlobalSearch q={q} onQ={onQ} onView={onView} />;
   return (
     <div data-theme={theme} style={{
-      display: "flex", height: "100%", background: "var(--color-bg)",
+      display: "flex", height: "100%", position: "relative", background: "var(--color-bg)",
       fontFamily: "var(--font-ui)", color: "var(--text-strong)", overflow: "hidden"
     }}>
-      {compact ? null : <Sidebar view={view} onView={onView} theme={theme} onTheme={onTheme} />}
+      {compact ? null : <Sidebar view={view} onView={onView} onSettings={() => setCfg(true)} onNotif={() => setNotif(true)} hasNotif={notifs.length > 0} />}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: compact ? "12px 12px 0" : "var(--pad-page) var(--pad-page) 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: compact ? "12px" : "var(--pad-page)", paddingBottom: 0 }}>
           <div style={{ flex: 1, minWidth: 0, display: "flex" }}>{search}</div>
-          {compact ? <><IconButton icon="bell" label="Notificações" badge /><UserChip name="Luciana" compact /></> : null}
+          {compact ? <><IconButton icon="bell" label="Notificações" badge={notifs.length > 0} onClick={() => setNotif(true)} /><UserChip name="Luciana" compact /></> : null}
         </div>
         <main style={{ flex: 1, overflowY: "auto", overscrollBehavior: "none", padding: compact ? "12px" : "var(--pad-page)" }}>{children}</main>
         {compact ? <BottomNav value={view} onChange={onView} /> : null}
       </div>
+      <window.Notificacoes onView={onView} compact={compact} />
+      <Modal open={notif} onClose={() => setNotif(false)} title="Notificações" width={440}>
+        {notifs.length ? <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}><Button size="sm" variant="ghost" icon="check-check" onClick={() => setNotifs([])}>Limpar todas</Button></div>
+          {notifs.map((n, i) => <ListRow key={n.title + n.sub} icon={n.icon} title={n.title} subtitle={n.sub} onClick={() => { setNotif(false); onView(n.view); }}
+            trailing={<IconButton icon="x" label="Limpar notificação" size={32} style={{ marginLeft: 10 }} onClick={e => { e.stopPropagation(); setNotifs(l => l.filter((_, j) => j !== i)); }} />} />)}
+        </div> : <EmptyState icon="bell-off" title="Nenhuma notificação" description="Novos pedidos, pagamentos e vencimentos aparecem aqui." />}
+      </Modal>
+      <Modal open={cfg} onClose={() => setCfg(false)} title="Configurações" width={420}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span style={{ fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-medium)", color: "var(--text-strong)" }}>Tema</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <FilterPill icon="sun" trailingIcon={null} active={theme !== "dark"} onClick={() => theme === "dark" && onTheme()}>Claro</FilterPill>
+            <FilterPill icon="moon" trailingIcon={null} active={theme === "dark"} onClick={() => theme !== "dark" && onTheme()}>Escuro</FilterPill>
+          </div>
+        </div>
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "var(--border-hairline) solid var(--color-border)" }}>
+          <Button variant="ghost" block icon="log-out" onClick={() => setCfg(false)}>Sair da conta</Button>
+        </div>
+      </Modal>
     </div>
   );
 }
