@@ -53,11 +53,11 @@ window.DLUH = {
   serieSemana: [8, 11, 9, 14, 12, 19, 14],
   serieReceita: [1200, 1680, 1440, 2100, 1980, 2740, 2320],
   recentes: [
-    { id: 1, nome: "Maria Helena", cat: "Bolo", status: "Pago — Em produção", total: "R$ 480,00", data: "12/06" },
-    { id: 2, nome: "Willian Bicalho", cat: "Docinhos", status: "Confirmado — Esperando pagamento", total: "R$ 740,00", data: "13/06" },
-    { id: 3, nome: "Padaria Central", cat: "Empresa", status: "Aguardando confirmação", total: "R$ 1.240,00", data: "14/06" },
-    { id: 4, nome: "Ana Cláudia", cat: "Bolo de festa", status: "Entregue — Esperando restante", total: "R$ 320,00", data: "10/06" },
-    { id: 5, nome: "João Vitor", cat: "Torta", status: "Finalizado", total: "R$ 188,00", data: "09/06" }
+    { id: 1, nome: "Maria Helena", cat: "Bolo", status: "Pago — Em produção", total: "R$ 480,00", data: "12/06", hora: "14:00" },
+    { id: 2, nome: "Willian Bicalho", cat: "Docinhos", status: "Confirmado — Esperando pagamento", total: "R$ 740,00", data: "13/06", hora: "10:30" },
+    { id: 3, nome: "Padaria Central", cat: "Empresa", status: "Aguardando confirmação", total: "R$ 1.240,00", data: "14/06", hora: "08:00" },
+    { id: 4, nome: "Ana Cláudia", cat: "Bolo de festa", status: "Entregue — Esperando restante", total: "R$ 320,00", data: "10/06", hora: "16:00" },
+    { id: 5, nome: "João Vitor", cat: "Torta", status: "Finalizado", total: "R$ 188,00", data: "09/06", hora: "11:00" }
   ],
   pagamentos: [
     { icon: "cake-slice", title: "Maria Helena", sub: "Entrada 50% · Pix", value: "+ R$ 240,00", tone: "in" },
