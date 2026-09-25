@@ -48,3 +48,7 @@ Pacote de 13 skills de "taste" visual. **A maioria não deve ser usada em trabal
 - `brandkit` — boards de identidade e apresentação de marca
 
 **Utilitária, neutra:** `full-output-enforcement` — proíbe truncamento e placeholder na saída de código.
+
+## Bundle dos componentes
+O admin e os cards de `guidelines/` carregam os componentes de `_ds_bundle.js`, não dos `.jsx`. Depois de editar qualquer arquivo em `components/` (ou em `ui_kits/admin/`), regenere o trecho dele:
+`node tools/regen-bundle.js <arquivos editados>` (ou `--all`). Não é build step — é manutenção pontual; o admin continua rodando sem build.

@@ -1,15 +1,15 @@
 const BX = window.DLuhFestasDesignSystem_c861a2;
 
 const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const dataBR = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+const dataBR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "sem data";
 
 function indiceBusca() {
   const d = window.DLUH, ag = d.agenda;
   return [
     { id: "pedidos", label: "Pedidos", icon: "receipt-text", view: "pedidos",
-      itens: d.pedidos.map(p => ({ title: p.cliente, sub: p.id + " · " + p.status, value: p.total, busca: [p.cliente, p.id, p.tel, p.status, ...p.itens.map(i => i.name)], q: p.id })) },
+      itens: d.pedidos.map(p => ({ title: p.cliente, sub: p.id + " · " + (p.status || "sem status"), value: p.total, busca: [p.cliente, p.id, p.tel, p.status, ...(p.itens || []).map(i => i.name)], q: p.id })) },
     { id: "eventos", label: "Eventos", icon: "party-popper", view: "agenda",
-      itens: ag.filter(e => e.tipo === "buffet" || e.tipo === "festa").map(e => ({ title: e.titulo, sub: e.cliente + " · " + dataBR(e.data) + " " + e.hora + (e.local ? " · " + e.local : ""), value: e.valor, busca: [e.titulo, e.cliente, e.local] })) },
+      itens: ag.filter(e => e.tipo === "buffet" || e.tipo === "festa").map(e => ({ title: e.titulo, sub: [e.cliente, e.data ? dataBR(e.data) + (e.hora ? " " + e.hora : "") : null, e.local].filter(Boolean).join(" · "), value: e.valor, busca: [e.titulo, e.cliente, e.local] })) },
     { id: "pagamentos", label: "Pagamentos", icon: "wallet", view: "visao",
       itens: d.pagamentos.map(p => ({ title: p.title, sub: p.sub, value: p.value, tone: p.tone, busca: [p.title, p.sub] })) },
     { id: "boletos", label: "Boletos", icon: "file-text", view: "agenda",
@@ -87,7 +87,7 @@ function GlobalSearch({ q, onQ, onView }) {
               {g.achados.slice(0, 5).map((it, i) => { n++; const k = n; return <ResultadoRow key={i} id={"busca-op-" + k} ativo={k === ativo} onHover={() => setAtivo(k)} grupo={g} it={it} onPick={pick} />; })}
             </div>
           )) : (
-            <div style={{ padding: "18px 10px", fontSize: "var(--fs-body-s)", color: "var(--text-muted)", textAlign: "center" }}>Nada encontrado para “{q}”.</div>
+            <div style={{ padding: "18px 10px", fontSize: "var(--fs-body-s)", color: "var(--text-muted)", textAlign: "center" }}>Nada encontrado para “{q}”.<br />Busque pelo nome do cliente, número do pedido (PED-…), telefone, evento ou fornecedor.</div>
           )}
         </div>
       ) : null}

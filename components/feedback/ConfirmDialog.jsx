@@ -17,10 +17,12 @@ export function ConfirmDialog({ open = true, ...props }) {
   return open ? <ConfirmPanel {...props} /> : null;
 }
 
-function ConfirmPanel({ icon = "circle-check", tone = "accent", title, message, confirmLabel = "Confirmar", cancelLabel = "Cancelar", onConfirm, onCancel }) {
+/* While `pending` the confirm button spins and nothing can close the dialog, so a write in flight
+   is never abandoned half-way or sent twice. */
+function ConfirmPanel({ icon = "circle-check", tone = "accent", title, message, confirmLabel = "Confirmar", cancelLabel = "Cancelar", pending = false, onConfirm, onCancel }) {
   const panel = React.useRef(null);
   const [ids] = React.useState(() => { const n = ++seq; return { t: "dluh-confirm-t" + n, m: "dluh-confirm-m" + n }; });
-  useDialogFocus(panel, onCancel);
+  useDialogFocus(panel, pending ? null : onCancel);
   const entrada = useEntrada();
   return (
     <div style={{
@@ -37,9 +39,9 @@ function ConfirmPanel({ icon = "circle-check", tone = "accent", title, message, 
         }}><Icon name={icon} size={25} /></div>
         <div id={ids.t} style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-title)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)", marginBottom: 6 }}>{title}</div>
         {message ? <div id={ids.m} style={{ fontSize: "var(--fs-body-s)", color: "var(--text-body)", lineHeight: "var(--lh-normal)", marginBottom: "var(--space-9)" }}>{message}</div> : null}
-        <div style={{ display: "flex", gap: "var(--space-5)" }}>
-          <Button variant="ghost" block onClick={onCancel} data-autofocus>{cancelLabel}</Button>
-          <Button block tone={HUE[tone] ? tone : "accent"} onClick={onConfirm}>{confirmLabel}</Button>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-5)" }}>
+          <Button variant="ghost" block onClick={onCancel} disabled={pending} data-autofocus>{cancelLabel}</Button>
+          <Button block tone={HUE[tone] ? tone : "accent"} onClick={onConfirm} loading={pending}>{confirmLabel}</Button>
         </div>
       </div>
     </div>

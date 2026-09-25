@@ -13,12 +13,16 @@ const TIPOS = {
   boleto:    { rot: "Boleto",    ...CONTA, icone: "barcode", fin: true },
   cartao:    { rot: "Cartão",    ...CONTA, icone: "credit-card", fin: true }
 };
+/* A row whose tipo is not one of the five still shows, as a neutral "Outro", instead of breaking
+   the calendar. */
+const OUTRO = { rot: "Outro", cor: "var(--text-muted)", texto: "var(--text-body)", tint: "var(--color-surface-3)", icone: "circle-help" };
+const tipoDe = x => TIPOS[x.tipo] || OUTRO;
 const SITUACAO = { "A vencer": "warn", "Vence hoje": "warn", "Vencido": "danger", "Pago": "success" };
 const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 function TipoDot({ tipo, size = 7 }) {
-  return <span style={{ width: size, height: size, borderRadius: "var(--radius-pill)", background: TIPOS[tipo].cor, flex: "0 0 auto" }} />;
+  return <span style={{ width: size, height: size, borderRadius: "var(--radius-pill)", background: (TIPOS[tipo] || OUTRO).cor, flex: "0 0 auto" }} />;
 }
 
 function Calendario({ ano, mes, sel, onSel, itens, compact, hoje }) {
@@ -63,8 +67,8 @@ function Calendario({ ano, mes, sel, onSel, itens, compact, hoje }) {
                     {doDia.slice(0, 2).map((x, k) => (
                       <span key={k} style={{
                         display: "flex", alignItems: "center", gap: 4, padding: "2px 5px",
-                        borderRadius: 4, background: ativo ? "transparent" : TIPOS[x.tipo].tint,
-                        color: ativo ? "inherit" : TIPOS[x.tipo].texto,
+                        borderRadius: 4, background: ativo ? "transparent" : tipoDe(x).tint,
+                        color: ativo ? "inherit" : tipoDe(x).texto,
                         fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                       }}>{x.hora ? x.hora + " " : ""}{x.cliente.split(" ")[0]}</span>
@@ -80,7 +84,7 @@ function Calendario({ ano, mes, sel, onSel, itens, compact, hoje }) {
 }
 
 function ItemAgenda({ x }) {
-  const t = TIPOS[x.tipo];
+  const t = tipoDe(x);
   return (
     <div style={{
       display: "flex", gap: 12, padding: "12px 13px", borderRadius: "var(--radius-sm)",
@@ -93,10 +97,10 @@ function ItemAgenda({ x }) {
       }}><Icon name={t.icone} size={19} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-semibold)" }}>{x.cliente}</span>
+          <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-semibold)", overflowWrap: "anywhere", minWidth: 0 }}>{x.cliente || "Sem nome"}</span>
           <span style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: t.texto }}>{t.rot}</span>
         </div>
-        <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 3, lineHeight: "var(--lh-snug)" }}>{x.titulo}</div>
+        {x.titulo ? <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 3, lineHeight: "var(--lh-snug)", overflowWrap: "anywhere" }}>{x.titulo}</div> : null}
         <div style={{ display: "flex", gap: 12, marginTop: 7, flexWrap: "wrap", fontSize: "var(--fs-tiny)", color: "var(--text-body)" }}>
           {x.hora ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Icon name="clock" size={13} />{x.hora}</span> : null}
           {x.forma ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Icon name="wallet" size={13} />{x.forma}</span> : null}
@@ -106,8 +110,8 @@ function ItemAgenda({ x }) {
         </div>
       </div>
       <div style={{ textAlign: "right", flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-        <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", whiteSpace: "nowrap", color: "var(--text-strong)" }}>{t.fin ? "− " + x.valor : x.valor}</span>
-        {t.fin ? <Badge tone={SITUACAO[x.situacao] || "neutral"}>{x.situacao}</Badge> : <StatusBadge status={x.status} short />}
+        <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", whiteSpace: "nowrap", color: "var(--text-strong)" }}>{x.valor ? (t.fin ? "− " + x.valor : x.valor) : "—"}</span>
+        {t.fin ? (x.situacao ? <Badge tone={SITUACAO[x.situacao] || "neutral"}>{x.situacao}</Badge> : null) : <StatusBadge status={x.status} short />}
       </div>
     </div>
   );
@@ -115,6 +119,7 @@ function ItemAgenda({ x }) {
 
 function Agenda({ compact }) {
   const hoje = window.DLUH.hoje;
+  const carga = useCarga(() => window.DLUH_API.carregar("agenda"));
   const [filtro, setFiltro] = React.useState("tudo");
   const [sel, setSel] = React.useState(hoje);
   const [cursor, setCursor] = React.useState(() => ({ ano: Number(hoje.slice(0, 4)), mes: Number(hoje.slice(5, 7)) - 1 }));
@@ -129,7 +134,8 @@ function Agenda({ compact }) {
   };
   const escolher = chave => { setSel(chave); setCursor({ ano: Number(chave.slice(0, 4)), mes: Number(chave.slice(5, 7)) - 1 }); };
 
-  const todos = window.DLUH.agenda;
+  /* Rows with no date cannot sit on a calendar; they are left out rather than breaking the grid. */
+  const todos = (carga.dados || []).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
   const itens = filtro === "tudo" ? todos : todos.filter(x => x.tipo === filtro);
   const doDia = itens.filter(x => x.data === sel).sort((a, b) => (a.hora || "00:00").localeCompare(b.hora || "00:00"));
   const proximos = itens.filter(x => x.data > sel).sort((a, b) => (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || ""))).slice(0, 4);
@@ -137,8 +143,12 @@ function Agenda({ compact }) {
   const [aa, mm, dd] = sel.split("-");
   const dataLonga = Number(dd) + " de " + MESES[Number(mm) - 1];
   const mesChave = ano + "-" + String(mes + 1).padStart(2, "0");
-  const aPagar = todos.filter(x => TIPOS[x.tipo].fin && x.situacao !== "Pago" && x.data.slice(0, 7) === mesChave)
-    .reduce((s, x) => s + Number(x.valor.replace(/[^\d,]/g, "").replace(",", ".")), 0);
+  const aPagar = todos.filter(x => tipoDe(x).fin && x.situacao !== "Pago" && x.data.slice(0, 7) === mesChave)
+    .reduce((s, x) => s + (Number(String(x.valor || "").replace(/[^\d,]/g, "").replace(",", ".")) || 0), 0);
+  const doMes = itens.filter(x => x.data.slice(0, 7) === mesChave).length;
+
+  if (carga.estado === "erro" && !carga.dados) return <ErroCarga erro={carga.erro} oque="a agenda" onTentar={carga.tentar} />;
+  if (!carga.dados) return <Carregando oque="a agenda" />;
   const contagem = t => todos.filter(x => x.tipo === t && x.data.slice(0, 7) === ano + "-" + String(mes + 1).padStart(2, "0")).length;
 
   return (
@@ -165,6 +175,10 @@ function Agenda({ compact }) {
           </div>
         </>}>
           <Calendario ano={ano} mes={mes} sel={sel} onSel={escolher} itens={itens} compact={compact} hoje={hoje} />
+          {doMes ? null : <div role="status" style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "10px 12px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-2)", fontSize: "var(--fs-body-s)", color: "var(--text-body)" }}>
+            <Icon name="calendar-x" size={16} style={{ color: "var(--text-muted)" }} />
+            {filtro === "tudo" ? `Nenhum compromisso em ${MESES[mes]}.` : `Nenhum item de ${tipoDe({ tipo: filtro }).rot.toLowerCase()} em ${MESES[mes]}.`}
+          </div>}
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 12 }}>
             {[["encomenda", "Encomendas e eventos"], ["boleto", "Contas"]].map(([k, rot]) => (
               <span key={k} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>
@@ -193,9 +207,9 @@ function Agenda({ compact }) {
             <Card header={<div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Próximos</div>}
               bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {proximos.map((x, i) => (
-                <ListRow key={i} icon={TIPOS[x.tipo].icone} title={x.cliente}
-                  subtitle={TIPOS[x.tipo].rot + " · " + x.data.split("-").reverse().slice(0, 2).join("/") + (x.hora ? " · " + x.hora : "")}
-                  value={TIPOS[x.tipo].fin ? "− " + x.valor : x.valor} tone={TIPOS[x.tipo].fin ? "out" : "neutral"} onClick={() => escolher(x.data)} />
+                <ListRow key={i} icon={tipoDe(x).icone} title={x.cliente}
+                  subtitle={tipoDe(x).rot + " · " + x.data.split("-").reverse().slice(0, 2).join("/") + (x.hora ? " · " + x.hora : "")}
+                  value={tipoDe(x).fin ? "− " + x.valor : x.valor} tone={tipoDe(x).fin ? "out" : "neutral"} onClick={() => escolher(x.data)} />
               ))}
             </Card>
           ) : null}

@@ -106,7 +106,7 @@ const ctPadrao = modelos => { const d = {}; modelos.forEach(m => { d[m.id] = {};
 const ctCliente = c => (c.dados[c.tipo] || {}).contratante_nome || (c.dados[c.tipo] || {}).nome || "Sem nome";
 const ctValor = c => { const v = (c.dados[c.tipo] || {}).valor_total; return v ? "R$ " + fmtMoeda(v) : "—"; };
 
-function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast }) {
+function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast, naoSalvo }) {
   const tipo = contrato.tipo;
   const modelo = modelos.find(m => m.id === tipo);
   const [verPrevia, setVerPrevia] = React.useState(!compact);
@@ -132,7 +132,9 @@ function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast 
       <Button size="sm" variant="ghost" icon="arrow-left" onClick={onBack}>Contratos</Button>
       <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{ctCliente(contrato)}</div>
       <Badge tone={final ? "success" : "neutral"} icon={final ? "circle-check" : "pencil"}>{final ? "Finalizado" : "Rascunho"}</Badge>
-      <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Salvo automaticamente · {contrato.atualizado}</span>
+      {naoSalvo
+        ? <span title="O armazenamento do navegador recusou a gravação (cheio ou em modo privado)."><Badge tone="danger" icon="circle-alert">Não salvo neste aparelho</Badge></span>
+        : <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Salvo automaticamente · {contrato.atualizado}</span>}
     </div>
 
     <EscolhaTipo modelos={modelos} valor={tipo} travado={final} onChange={t => !final && onChange({ tipo: t })} />
@@ -203,9 +205,14 @@ function Contratos({ compact }) {
   });
   const [aberto, setAberto] = React.useState(null);
   const [apagar, setApagar] = React.useState(null);
-  const [toast, setToast] = React.useState(null);
-  const showToast = m => { setToast(m); setTimeout(() => setToast(null), 2400); };
-  React.useEffect(() => { try { localStorage.setItem(CT_KEY, JSON.stringify(salvos)); } catch (e) {} }, [salvos]);
+  const [toastNode, showToast] = useToast();
+  /* Contracts autosave to this browser. If storage refuses (full, private mode), the editor says
+     so instead of claiming "Salvo automaticamente". */
+  const [naoSalvo, setNaoSalvo] = React.useState(false);
+  React.useEffect(() => {
+    try { localStorage.setItem(CT_KEY, JSON.stringify(salvos)); setNaoSalvo(false); }
+    catch (e) { setNaoSalvo(true); }
+  }, [salvos]);
 
   const atual = salvos.find(c => c.uid === aberto);
   const upd = patch => setSalvos(l => l.map(c => c.uid === aberto ? { ...c, ...patch, atualizado: ctAgora() } : c));
@@ -217,7 +224,7 @@ function Contratos({ compact }) {
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", minHeight: "100%" }}>
-      {atual ? <ContratoEditor contrato={atual} modelos={MODELOS} compact={compact} onChange={upd} onBack={() => setAberto(null)} onToast={showToast} /> : <>
+      {atual ? <ContratoEditor contrato={atual} modelos={MODELOS} compact={compact} onChange={upd} onBack={() => setAberto(null)} onToast={showToast} naoSalvo={naoSalvo} /> : <>
         <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
           {rascunhos ? <Badge tone="warn" icon="pencil">{rascunhos === 1 ? "1 rascunho em andamento" : rascunhos + " rascunhos em andamento"}</Badge> : null}
           <div style={{ flex: 1 }} />
@@ -240,7 +247,7 @@ function Contratos({ compact }) {
       {apagar ? <DS.ConfirmDialog tone="danger" icon="trash-2" title="Apagar contrato?" cancelLabel="Voltar" message={"O contrato de " + ctCliente(apagar) + " sai do histórico. Não dá pra desfazer."}
         confirmLabel="Sim, apagar" onCancel={() => setApagar(null)}
         onConfirm={() => { setSalvos(l => l.filter(x => x.uid !== apagar.uid)); setApagar(null); showToast("Contrato apagado"); }} /> : null}
-      {toast ? <Toast tone="success" icon="check">{toast}</Toast> : null}
+      {toastNode}
     </div>
   );
 }

@@ -41,6 +41,23 @@ both.
 
 ## Data
 
+**Every read and write goes through `api.js`** (`window.DLUH_API.carregar` / `.escrever`). Today it
+answers from the fake rows; wiring Coda, InfinitePay and the rest means changing that one file.
+`Estados.jsx` holds what every screen shares on top of it: the loading spinner (shown after 300ms,
+so fast answers never flash), the load-error card with **Tentar de novo**, the one-at-a-time write
+(`useAcao`: the button spins, a second tap does nothing, success toasts in past tense, failure
+toasts the cause and leaves the data untouched) and the screen toast.
+
+URL switches exercise those states with no backend:
+
+| Switch | What it shows |
+| --- | --- |
+| `?latencia=1500` | Every call waits 1.5s — loading states and pending buttons |
+| `?falha=carregar` | Reads fail — the load-error card on each screen |
+| `?falha=escrever` | Writes are refused — error toasts; nothing changes on screen |
+| `?falha=timeout&timeout=3000` | Calls never answer and give up after 3s |
+| `?dados=extremos` | `data-extremos.js`: a 60-character name, 7-digit totals, null money fields, an order with no items, the Verificando Estoque and Cancelado statuses, one Status **not** in the Coda list (shown in its own "fora do padrão" card), an empty Cartões tab |
+
 `data.js` and `contratos-data.js` are **fake**. They are shaped like real Coda rows, which makes
 them useful for building against, and every value in them is invented — clientes, totals, dates,
 revenue, boletos. Do not quote them as real numbers or use them as evidence of volume.

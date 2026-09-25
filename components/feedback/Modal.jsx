@@ -74,7 +74,7 @@ function ModalPanel({ title, subtitle, children, footer, onClose, dismissible = 
             <Icon name="x" size={19} /></button> : null}
         </div>
         <div style={{ marginTop: "var(--space-7)" }}>{children}</div>
-        {footer ? <div style={{ display: "flex", gap: "var(--space-5)", marginTop: "var(--space-8)" }}>{footer}</div> : null}
+        {footer ? <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-5)", marginTop: "var(--space-8)" }}>{footer}</div> : null}
       </div>
     </div>
   );

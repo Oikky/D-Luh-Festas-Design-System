@@ -1,9 +1,8 @@
 const { Card, ListRow, StatusBadge, Button, IconButton, Badge, Icon, EmptyState } = window.DLuhFestasDesignSystem_c861a2;
 
-function ChartCard({ compact }) {
-  const serie = window.DLUH.serieReceita;
+function ChartCard({ compact, serie }) {
   const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  const max = Math.max(...serie);
+  const max = Math.max(1, ...serie);
   return (
     <Card header={<>
       <div>
@@ -11,6 +10,7 @@ function ChartCard({ compact }) {
         <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>08 – 14 de junho</div>
       </div>
     </>}>
+      {!serie.length || !serie.some(v => v > 0) ? <EmptyState icon="chart-no-axes-column" title="Sem receita registrada nesta semana" /> :
       <div style={{ display: "flex", alignItems: "flex-end", gap: compact ? 6 : 12, height: 150 }}>
         {serie.map((v, i) => (
           <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7, minWidth: 0 }}>
@@ -24,7 +24,7 @@ function ChartCard({ compact }) {
             <span style={{ fontSize: "var(--fs-micro)", color: "var(--text-muted)" }}>{dias[i]}</span>
           </div>
         ))}
-      </div>
+      </div>}
     </Card>
   );
 }
@@ -32,7 +32,10 @@ function ChartCard({ compact }) {
 const RECENT_COLS = "minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr)";
 
 function VisaoGeral({ compact, onView }) {
-  const d = window.DLUH;
+  const carga = useCarga(() => window.DLUH_API.carregar());
+  if (carga.estado === "erro" && !carga.dados) return <ErroCarga erro={carga.erro} oque="a visão geral" onTentar={carga.tentar} />;
+  if (!carga.dados) return <Carregando oque="a visão geral" />;
+  const d = { ...carga.dados, pagamentos: carga.dados.pagamentos || [], recentes: carga.dados.recentes || [], serieReceita: carga.dados.serieReceita || [] };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-section)" }}>
       {/* The indicators have no data source yet. Until one exists they say so, instead of
@@ -43,19 +46,20 @@ function VisaoGeral({ compact, onView }) {
       </Card>
 
       <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
-        <ChartCard compact={compact} />
+        <ChartCard compact={compact} serie={d.serieReceita} />
         <Card header={<>
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Pagamentos recentes</div>
           <IconButton icon="arrow-up-right" label="Abrir financeiro" size={32} onClick={() => onView("financeiro")} />
         </>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {d.pagamentos.map((p, i) => <ListRow key={i} icon={p.icon} title={p.title} subtitle={p.sub} value={p.value} tone={p.tone} />)}
+          {d.pagamentos.length ? d.pagamentos.map((p, i) => <ListRow key={i} icon={p.icon} title={p.title} subtitle={p.sub} value={p.value} tone={p.tone} />)
+            : <EmptyState icon="wallet" title="Nenhum pagamento recente" />}
         </Card>
       </div>
 
       <Card padded={false} header={<>
         <div>
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Últimos pedidos</div>
-          <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>Os {d.recentes.length} mais recentes</div>
+          <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>{d.recentes.length === 1 ? "O mais recente" : `Os ${d.recentes.length} mais recentes`}</div>
         </div>
         <Button size="sm" variant="ghost" iconRight="arrow-right" onClick={() => onView("pedidos")}>Ver todos</Button>
       </>}>
@@ -63,10 +67,10 @@ function VisaoGeral({ compact, onView }) {
           {compact ? null : <div style={{ display: "grid", gridTemplateColumns: RECENT_COLS, gap: 12, padding: "4px 18px 8px", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)" }}>
             <span>Cliente</span><span>Status</span><span>Entrega</span><span style={{ textAlign: "right" }}>Total</span>
           </div>}
-          {d.recentes.map(r => compact ? (
+          {!d.recentes.length ? <EmptyState icon="receipt-text" title="Nenhum pedido ainda" /> : d.recentes.map(r => compact ? (
             <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "12px 16px", borderTop: "var(--border-hairline) solid var(--color-border)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{r.nome}</span>
+                <span style={{ fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", minWidth: 0, overflowWrap: "anywhere" }}>{r.nome || "Cliente sem nome"}</span>
                 <span style={{ fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", whiteSpace: "nowrap" }}>{r.total}</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
@@ -77,7 +81,7 @@ function VisaoGeral({ compact, onView }) {
           ) : (
             <div key={r.id} style={{ display: "grid", gridTemplateColumns: RECENT_COLS, gap: 12, alignItems: "center", padding: "11px 18px", borderTop: "var(--border-hairline) solid var(--color-border)", fontSize: "var(--fs-body-s)" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{r.nome}</div>
+                <div style={{ fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.nome}>{r.nome || "Cliente sem nome"}</div>
                 <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>{r.cat}</div>
               </div>
               <div style={{ minWidth: 0 }}><StatusBadge status={r.status} short /></div>

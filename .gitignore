@@ -9,3 +9,9 @@
 
 # Configuração local do Claude Code (específica da máquina)
 .claude/settings.local.json
+
+# Cache do Babel usado por tools/regen-bundle.js (baixado sob demanda)
+tools/.cache/
+
+# Artefatos do plugin do Playwright (logs de console, snapshots)
+.playwright-mcp/

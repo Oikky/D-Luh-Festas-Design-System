@@ -17,7 +17,7 @@ export function Badge({ children, tone = "neutral", icon, outline = true, style 
       borderRadius: "var(--radius-pill)", background: t.bg, color: t.fg,
       border: outline ? `var(--border-hairline) solid ${t.line}` : "none",
       fontFamily: "var(--font-ui)", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)",
-      lineHeight: 1.6, whiteSpace: "nowrap", ...style
-    }}>{icon ? <Icon name={icon} size={12} /> : null}{children}</span>
+      lineHeight: 1.6, whiteSpace: "nowrap", maxWidth: "100%", minWidth: 0, ...style
+    }}>{icon ? <Icon name={icon} size={12} style={{ flex: "0 0 auto" }} /> : null}<span style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{children}</span></span>
   );
 }

@@ -3,6 +3,10 @@
 async (page) => {
   const OUT = "C:/Users/ikkys/Downloads/D'Luh Festas Design System/tests/visual/admin/";
   const URL = 'http://127.0.0.1:8765/ui_kits/admin/index.html';
+  /* The static server sends no cache headers; without this a regenerated _ds_bundle.js can be
+     served stale and the goldens show old components. */
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Network.setCacheDisabled", { cacheDisabled: true });
   await page.addInitScript(() => {
     const st = window.setTimeout, si = window.setInterval;
     window.setTimeout = (f, d, ...a) => d === 2500 ? 0 : st(f, d, ...a);
@@ -11,9 +15,9 @@ async (page) => {
   const BP = { desktop: [1280, 820], mobile: [390, 844] };
   const settle = (ms = 450) => page.waitForTimeout(ms);
   let bpNow;
-  async function fresh(theme, bp) {
+  async function fresh(theme, bp, qs = '') {
     await page.setViewportSize({ width: 1280, height: 820 });
-    await page.goto(URL);
+    await page.goto(URL + qs);
     await page.waitForFunction(() => document.querySelector('#root nav svg'));
     await page.evaluate(() => document.fonts.ready);
     if (theme === 'light') {
@@ -28,7 +32,7 @@ async (page) => {
   }
   async function go(name) {
     await page.locator('nav').getByRole('button', { name: new RegExp('^' + name) }).first().click();
-    await page.mouse.move(bpNow === 'desktop' ? 900 : 200, 500);
+    await page.mouse.move(bpNow === 'desktop' ? 900 : 200, 700);
     await settle();
   }
   const done = [];
@@ -56,29 +60,30 @@ async (page) => {
       await page.mouse.move(900, 500); await settle();
       await shot(p + '08-notificacoes');
       await fresh(theme, bp);
-      if (bp === 'desktop') {
-        await page.locator('nav').getByRole('button', { name: /^Configurações/ }).click(); await page.mouse.move(900, 500); await settle();
-        await shot(p + '09-configuracoes');
-        await fresh(theme, bp);
-      }
+      await (bp === 'desktop' ? page.locator('nav').getByRole('button', { name: /^Configurações/ }) : page.getByRole('button', { name: 'Configurações' })).first().click();
+      await page.mouse.move(900, 500); await settle();
+      await shot(p + '09-configuracoes');
+      await fresh(theme, bp);
       await go('Pedidos');
       await page.getByRole('button', { name: 'Mais ações' }).first().click(); await settle();
       await shot(p + '10-pedidos-menu');
       await page.getByRole('menuitem', { name: 'Apagar pedido' }).click(); await settle();
       await shot(p + '11-pedidos-apagar');
-      await page.getByRole('button', { name: 'Cancelar' }).click(); await settle();
+      await page.getByRole('button', { name: 'Voltar' }).click(); await settle();
       await page.getByRole('button', { name: 'Detalhes' }).first().click(); await settle();
       await shot(p + '12-pedidos-detalhes');
       await page.getByRole('button', { name: /^Pagamentos/ }).click(); await settle();
       await shot(p + '13-pedidos-pagamentos');
-      if (bp === 'desktop') {
-        await fresh(theme, bp); await go('Pedidos');
-        await page.getByRole('button', { name: 'Pedido manual' }).click(); await settle();
-        await shot(p + '14-pedidos-manual');
-      }
+      await fresh(theme, bp); await go('Pedidos');
+      await page.getByRole('button', { name: 'Pedido manual' }).click(); await settle();
+      await shot(p + '14-pedidos-manual');
       await fresh(theme, bp); await go('Cozinha');
       await page.getByRole('button', { name: 'Feito' }).first().click(); await settle();
       await shot(p + '15-cozinha-confirmar');
+      await fresh(theme, bp, '?falha=carregar'); await go('Cozinha');
+      await shot(p + '16-erro-carga');
+      await fresh(theme, bp, '?dados=extremos'); await go('Pedidos');
+      await shot(p + '17-pedidos-extremos');
     }
   }
   return done.length + ' shots';

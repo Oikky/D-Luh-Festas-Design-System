@@ -40,17 +40,21 @@ function Anexo({ arquivo, onFile }) {
 
 const PG_COLS = "minmax(0,1fr) minmax(0,.8fr) minmax(0,1.4fr) 40px";
 
-function PagamentosModal({ lista, onChange, onClose, onToast }) {
+function PagamentosModal({ lista, onChange, onClose, onToast, acao, pendente }) {
   const [valor, setValor] = React.useState("");
   const [arquivo, setArquivo] = React.useState(null);
   const [remover, setRemover] = React.useState(null);
+  const [erroValor, setErroValor] = React.useState(null);
   const total = lista.reduce((s, p) => s + p.valor, 0);
   const cab = { fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)" };
-  const registrar = () => {
+  /* The amount is checked here; the record only joins the list once the server accepted it. */
+  const registrar = async () => {
     const v = parseFloat(String(valor).replace(",", "."));
-    if (!v) return;
-    onChange([...lista, { quando: agora(), valor: v, arquivo, origem: "manual" }]);
-    setValor(""); setArquivo(null); onToast("Pagamento registrado");
+    if (!(v > 0)) { setErroValor("Digite um valor maior que zero"); return; }
+    setErroValor(null);
+    const ok = await acao("registrar-pagamento", { ok: "Pagamento registrado", falhou: "Não deu pra registrar o pagamento" },
+      () => onChange([...lista, { quando: agora(), valor: v, arquivo, origem: "manual" }]));
+    if (ok) { setValor(""); setArquivo(null); }
   };
   return (<>
     <PM.Modal width={600} title="Pagamentos" onClose={onClose}
@@ -79,16 +83,20 @@ function PagamentosModal({ lista, onChange, onClose, onToast }) {
           <span /><span />
         </div>
       </div>
-      <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "minmax(0,1fr) auto auto", gap: 12, alignItems: "end" }}>
-        <PM.Field label="Novo pagamento"><PM.Input type="number" prefix="R$" step="0.01" placeholder="0,00" value={valor} onChange={e => setValor(e.target.value)} /></PM.Field>
-        <div style={{ height: 40, display: "flex", alignItems: "center" }}><Anexo arquivo={arquivo} onFile={setArquivo} /></div>
-        <PM.Button tone="success" icon="plus" onClick={registrar}>Registrar</PM.Button>
+      <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "minmax(0,1fr) auto auto", gap: 12, alignItems: "start" }}>
+        <PM.Field label="Novo pagamento" error={erroValor}><PM.Input type="number" prefix="R$" step="0.01" min="0" placeholder="0,00" invalid={!!erroValor} value={valor} onChange={e => { setValor(e.target.value); setErroValor(null); }} /></PM.Field>
+        <div style={{ height: 40, marginTop: 21, display: "flex", alignItems: "center" }}><Anexo arquivo={arquivo} onFile={setArquivo} /></div>
+        <PM.Button tone="success" icon="plus" loading={pendente === "registrar-pagamento"} onClick={registrar} style={{ marginTop: 21 }}>Registrar</PM.Button>
       </div>
     </PM.Modal>
     {remover != null ? <PM.ConfirmDialog tone="danger" icon="trash-2" title="Remover pagamento?"
       message={`O registro de ${brl(lista[remover].valor)} sai da lista. Não dá pra desfazer.`}
-      confirmLabel="Sim, remover" cancelLabel="Voltar" onCancel={() => setRemover(null)}
-      onConfirm={() => { onChange(lista.filter((_, j) => j !== remover)); setRemover(null); onToast("Pagamento removido"); }} /> : null}
+      confirmLabel="Sim, remover" cancelLabel="Voltar" pending={pendente === "remover-pagamento"} onCancel={() => setRemover(null)}
+      onConfirm={async () => {
+        const i = remover;
+        await acao("remover-pagamento", { ok: "Pagamento removido", falhou: "Não deu pra remover o pagamento" }, () => onChange(lista.filter((_, j) => j !== i)));
+        setRemover(null);
+      }} /> : null}
   </>);
 }
 
@@ -107,7 +115,7 @@ const faltas = r => {
 };
 const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.itens.some(it => it.nome || it.preco));
 
-function ManualModal({ compact, onClose, onToast }) {
+function ManualModal({ compact, onClose, onToast, acao, pendente }) {
   const [lista, setLista] = React.useState([novoRascunho(0)]);
   const [ativo, setAtivo] = React.useState(0);
   const [tentou, setTentou] = React.useState(false);
@@ -121,11 +129,13 @@ function ManualModal({ compact, onClose, onToast }) {
   const n = lista.length;
   const geral = lista.reduce((s, x) => s + totalRascunho(x), 0);
   const erros = tentou ? faltas(r) : {};
-  const fechar = () => lista.some(preenchido) ? setSair(true) : onClose();
-  const criar = () => {
+  const fechar = () => pendente === "criar-pedido" ? null : lista.some(preenchido) ? setSair(true) : onClose();
+  /* Drafts stay on screen until the server confirms; a failed write keeps everything typed. */
+  const criar = async () => {
     const i = lista.findIndex(x => Object.keys(faltas(x)).length);
     if (i >= 0) { setTentou(true); setAtivo(i); return; }
-    onClose(); onToast(n > 1 ? `${n} pedidos criados` : "Pedido criado");
+    const ok = await acao("criar-pedido", { ok: n > 1 ? `${n} pedidos criados` : "Pedido criado", falhou: n > 1 ? "Não deu pra criar os pedidos" : "Não deu pra criar o pedido" });
+    if (ok) onClose();
   };
   const item = (it, j) => {
     const campos = [
@@ -147,7 +157,7 @@ function ManualModal({ compact, onClose, onToast }) {
       subtitle="Mesmo fluxo do site: registra no Coda, notifica o Telegram (Confirmar Estoque) e segue o ciclo normal — cobrança, fila da cozinha, avisos no WhatsApp do cliente."
       footer={<>
         <PM.Button variant="ghost" block onClick={fechar}>Cancelar</PM.Button>
-        <PM.Button block icon="check" onClick={criar}>{n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : "Criar pedido"}</PM.Button>
+        <PM.Button block icon="check" loading={pendente === "criar-pedido"} onClick={criar}>{n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : "Criar pedido"}</PM.Button>
       </>}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingBottom: 14, marginBottom: 16, borderBottom: "var(--border-hairline) solid var(--color-border)" }}>
         {lista.map((x, i) => {

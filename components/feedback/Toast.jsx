@@ -8,7 +8,7 @@ export function Toast({ children, tone = "neutral", icon, visible = true, style 
   visible = visible && montado;
   const fg = tone === "success" ? "var(--action-paid-line)" : tone === "danger" ? "var(--action-danger)" : "#fff";
   return (
-    <div role="status" style={{
+    <div role={tone === "danger" ? "alert" : "status"} style={{
       /* Fixed to the viewport, above the modal layer: a toast confirms the action that just
          happened, even when that action came from inside a dialog or a scrolled list. The shell
          sets --toast-offset to clear the mobile bottom bar. */
@@ -17,10 +17,12 @@ export function Toast({ children, tone = "neutral", icon, visible = true, style 
       opacity: visible ? 1 : 0, transition: "opacity var(--dur-base) var(--ease-out), transform var(--dur-move) var(--ease-out)",
       display: "inline-flex", alignItems: "center", gap: 9, padding: "12px 20px",
       background: "#222", color: "#fff", borderRadius: "var(--radius-sm)",
-      fontFamily: "var(--font-ui)", fontSize: "var(--fs-body-l)", whiteSpace: "nowrap",
+      fontFamily: "var(--font-ui)", fontSize: "var(--fs-body-l)", lineHeight: "var(--lh-snug)",
+      /* Shrink-wraps short messages; long pt-BR ones wrap inside the viewport instead of running off it. */
+      width: "max-content", maxWidth: "calc(100vw - 32px)",
       pointerEvents: "none", zIndex: 1100, ...style
     }}>
-      {icon ? <Icon name={icon} size={17} style={{ color: fg }} /> : null}{children}
+      {icon ? <Icon name={icon} size={17} style={{ color: fg, flex: "0 0 auto" }} /> : null}<span style={{ minWidth: 0 }}>{children}</span>
     </div>
   );
 }

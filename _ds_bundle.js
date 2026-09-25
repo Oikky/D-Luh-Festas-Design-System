@@ -184,14 +184,27 @@ function Badge({
       fontWeight: "var(--fw-semibold)",
       lineHeight: 1.6,
       whiteSpace: "nowrap",
+      maxWidth: "100%",
+      minWidth: 0,
       ...style
     }
   }, icon ? /*#__PURE__*/React.createElement(__ds_scope.Icon, {
     name: icon,
-    size: 12
-  }) : null, children);
+    size: 12,
+    style: {
+      flex: "0 0 auto"
+    }
+  }) : null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      minWidth: 0
+    }
+  }, children));
 }
-Object.assign(__ds_scope, { Badge });
+Object.assign(__ds_scope, {
+  Badge
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/core/Badge.jsx", error: String((e && e.message) || e) }); }
 
 // components/core/EmptyState.jsx
@@ -439,6 +452,9 @@ function Button({
     style: {
       display: block ? "flex" : "inline-flex",
       width: block ? "100%" : "auto",
+      /* In a row of block buttons they share the width equally, and a button that no longer fits
+         its words moves to the next line (the row wraps) instead of breaking a word in half. */
+      flex: block ? "1 1 0%" : undefined,
       alignItems: "center",
       justifyContent: "center",
       gap: s.gap,
@@ -447,11 +463,14 @@ function Button({
       fontSize: s.fontSize,
       fontFamily: "var(--font-ui)",
       fontWeight: "var(--fw-semibold)",
-      lineHeight: 1,
+      lineHeight: 1.2,
+      textAlign: "center",
       borderRadius: "var(--radius-sm)",
       cursor: off ? "not-allowed" : "pointer",
+      /* Labels wrap rather than overflow: pt-BR runs long, and a value in a label ("Criar 3 pedidos
+         · R$ 12.480,00") can outgrow a phone. */
       opacity: off ? "var(--disabled-opacity)" : undefined,
-      whiteSpace: "nowrap",
+      maxWidth: "100%",
       transition: "var(--transition-control)",
       ...skin,
       ...style
@@ -462,7 +481,11 @@ function Button({
   }) : icon ? /*#__PURE__*/React.createElement(__ds_scope.Icon, {
     name: icon,
     size: size === "sm" ? 15 : 17
-  }) : null, children, iconRight && !loading ? /*#__PURE__*/React.createElement(__ds_scope.Icon, {
+  }) : null, children != null ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      overflowWrap: "break-word"
+    }
+  }, children) : null, iconRight && !loading ? /*#__PURE__*/React.createElement(__ds_scope.Icon, {
     name: iconRight,
     size: size === "sm" ? 15 : 17
   }) : null);
@@ -509,16 +532,49 @@ const STATUS = {
     short: "Cancelado"
   }
 };
+
+/* A value Coda holds that is not in this list is shown as-is, never restyled as a known state: a
+   neutral pill with a dashed outline and an alert glyph, so a typo in the single-select is visible
+   instead of passing for "Finalizado". An empty value reads "Sem status". */
 function StatusBadge({
   status,
   short = false,
   dot = true,
   style
 }) {
-  const meta = STATUS[status] || {
-    key: "entregue",
-    short: status
-  };
+  const meta = STATUS[status];
+  if (!meta) return /*#__PURE__*/React.createElement("span", {
+    "data-status": "desconhecido",
+    title: "Status fora da lista do Coda",
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "3px 11px",
+      maxWidth: "100%",
+      borderRadius: "var(--radius-pill)",
+      border: "var(--border-hairline) dashed var(--color-border-strong)",
+      background: "var(--color-surface-3)",
+      color: "var(--text-body)",
+      fontFamily: "var(--font-ui)",
+      fontSize: "var(--fs-caption)",
+      fontWeight: "var(--fw-semibold)",
+      lineHeight: 1.6,
+      whiteSpace: "nowrap",
+      ...style
+    }
+  }, /*#__PURE__*/React.createElement(__ds_scope.Icon, {
+    name: "circle-alert",
+    size: 12,
+    style: {
+      flex: "0 0 auto"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      overflow: "hidden",
+      textOverflow: "ellipsis"
+    }
+  }, status ? status : "Sem status"));
   return /*#__PURE__*/React.createElement("span", {
     "data-status": meta.key,
     style: {
@@ -546,7 +602,10 @@ function StatusBadge({
     }
   }) : null, short ? meta.short : status);
 }
-Object.assign(__ds_scope, { STATUS, StatusBadge });
+Object.assign(__ds_scope, {
+  STATUS,
+  StatusBadge
+});
 })(); } catch (e) { __ds_ns.__errors.push({ path: "components/core/StatusBadge.jsx", error: String((e && e.message) || e) }); }
 
 // components/data/DataTable.jsx
@@ -765,9 +824,10 @@ function OrderCard({
       style: {
         fontSize: "var(--fs-title)",
         fontWeight: "var(--fw-semibold)",
-        color: "var(--text-strong)"
+        color: "var(--text-strong)",
+        overflowWrap: "anywhere"
       }
-    }, customer), meta.length ? /*#__PURE__*/React.createElement("div", {
+    }, customer || "Cliente sem nome"), meta.length ? /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: "var(--fs-body-s)",
         color: "var(--text-body)",
@@ -808,7 +868,7 @@ function OrderCard({
         fontWeight: "var(--fw-bold)",
         color: "var(--text-strong)"
       }
-    }, total), paid != null || due != null ? /*#__PURE__*/React.createElement("div", {
+    }, total == null || total === "" ? "—" : total), paid != null || due != null ? /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: "var(--fs-small)",
         fontWeight: "var(--fw-semibold)",
@@ -831,7 +891,13 @@ function OrderCard({
         flexWrap: "wrap"
       }
     }, actions))
-  }, items.length ? /*#__PURE__*/React.createElement("div", {
+  }, !items.length ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "var(--font-ui)",
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)"
+    }
+  }, "Nenhum item registrado neste pedido.") : null, items.length ? /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: "var(--font-ui)"
     }
@@ -856,7 +922,8 @@ function OrderCard({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      minWidth: 0
+      minWidth: 0,
+      overflowWrap: "anywhere"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1149,6 +1216,9 @@ function ConfirmDialog({
 }) {
   return open ? /*#__PURE__*/React.createElement(ConfirmPanel, props) : null;
 }
+
+/* While `pending` the confirm button spins and nothing can close the dialog, so a write in flight
+   is never abandoned half-way or sent twice. */
 function ConfirmPanel({
   icon = "circle-check",
   tone = "accent",
@@ -1156,6 +1226,7 @@ function ConfirmPanel({
   message,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
+  pending = false,
   onConfirm,
   onCancel
 }) {
@@ -1167,7 +1238,7 @@ function ConfirmPanel({
       m: "dluh-confirm-m" + n
     };
   });
-  __ds_scope.useDialogFocus(panel, onCancel);
+  __ds_scope.useDialogFocus(panel, pending ? null : onCancel);
   const entrada = __ds_scope.useEntrada();
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1235,17 +1306,20 @@ function ConfirmPanel({
   }, message) : null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
+      flexWrap: "wrap",
       gap: "var(--space-5)"
     }
   }, /*#__PURE__*/React.createElement(__ds_scope.Button, {
     variant: "ghost",
     block: true,
     onClick: onCancel,
+    disabled: pending,
     "data-autofocus": true
   }, cancelLabel), /*#__PURE__*/React.createElement(__ds_scope.Button, {
     block: true,
     tone: HUE[tone] ? tone : "accent",
-    onClick: onConfirm
+    onClick: onConfirm,
+    loading: pending
   }, confirmLabel))));
 }
 Object.assign(__ds_scope, {
@@ -1434,6 +1508,7 @@ function ModalPanel({
   }, children), footer ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
+      flexWrap: "wrap",
       gap: "var(--space-5)",
       marginTop: "var(--space-8)"
     }
@@ -1464,7 +1539,7 @@ function Toast({
   visible = visible && montado;
   const fg = tone === "success" ? "var(--action-paid-line)" : tone === "danger" ? "var(--action-danger)" : "#fff";
   return /*#__PURE__*/React.createElement("div", {
-    role: "status",
+    role: tone === "danger" ? "alert" : "status",
     style: {
       /* Fixed to the viewport, above the modal layer: a toast confirms the action that just
          happened, even when that action came from inside a dialog or a scrolled list. The shell
@@ -1484,7 +1559,10 @@ function Toast({
       borderRadius: "var(--radius-sm)",
       fontFamily: "var(--font-ui)",
       fontSize: "var(--fs-body-l)",
-      whiteSpace: "nowrap",
+      lineHeight: "var(--lh-snug)",
+      /* Shrink-wraps short messages; long pt-BR ones wrap inside the viewport instead of running off it. */
+      width: "max-content",
+      maxWidth: "calc(100vw - 32px)",
       pointerEvents: "none",
       zIndex: 1100,
       ...style
@@ -1493,9 +1571,14 @@ function Toast({
     name: icon,
     size: 17,
     style: {
-      color: fg
+      color: fg,
+      flex: "0 0 auto"
     }
-  }) : null, children);
+  }) : null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      minWidth: 0
+    }
+  }, children));
 }
 Object.assign(__ds_scope, {
   Toast
@@ -2293,6 +2376,16 @@ const TIPOS = {
     fin: true
   }
 };
+/* A row whose tipo is not one of the five still shows, as a neutral "Outro", instead of breaking
+   the calendar. */
+const OUTRO = {
+  rot: "Outro",
+  cor: "var(--text-muted)",
+  texto: "var(--text-body)",
+  tint: "var(--color-surface-3)",
+  icone: "circle-help"
+};
+const tipoDe = x => TIPOS[x.tipo] || OUTRO;
 const SITUACAO = {
   "A vencer": "warn",
   "Vence hoje": "warn",
@@ -2310,7 +2403,7 @@ function TipoDot({
       width: size,
       height: size,
       borderRadius: "var(--radius-pill)",
-      background: TIPOS[tipo].cor,
+      background: (TIPOS[tipo] || OUTRO).cor,
       flex: "0 0 auto"
     }
   });
@@ -2416,8 +2509,8 @@ function Calendario({
         gap: 4,
         padding: "2px 5px",
         borderRadius: 4,
-        background: ativo ? "transparent" : TIPOS[x.tipo].tint,
-        color: ativo ? "inherit" : TIPOS[x.tipo].texto,
+        background: ativo ? "transparent" : tipoDe(x).tint,
+        color: ativo ? "inherit" : tipoDe(x).texto,
         fontSize: "var(--fs-caption)",
         fontWeight: "var(--fw-semibold)",
         whiteSpace: "nowrap",
@@ -2436,7 +2529,7 @@ function Calendario({
 function ItemAgenda({
   x
 }) {
-  const t = TIPOS[x.tipo];
+  const t = tipoDe(x);
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -2477,22 +2570,25 @@ function ItemAgenda({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: "var(--fs-body-l)",
-      fontWeight: "var(--fw-semibold)"
+      fontWeight: "var(--fw-semibold)",
+      overflowWrap: "anywhere",
+      minWidth: 0
     }
-  }, x.cliente), /*#__PURE__*/React.createElement("span", {
+  }, x.cliente || "Sem nome"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: "var(--fs-caption)",
       fontWeight: "var(--fw-semibold)",
       color: t.texto
     }
-  }, t.rot)), /*#__PURE__*/React.createElement("div", {
+  }, t.rot)), x.titulo ? /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: "var(--fs-tiny)",
       color: "var(--text-muted)",
       marginTop: 3,
-      lineHeight: "var(--lh-snug)"
+      lineHeight: "var(--lh-snug)",
+      overflowWrap: "anywhere"
     }
-  }, x.titulo), /*#__PURE__*/React.createElement("div", {
+  }, x.titulo) : null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 12,
@@ -2562,9 +2658,9 @@ function ItemAgenda({
       whiteSpace: "nowrap",
       color: "var(--text-strong)"
     }
-  }, t.fin ? "− " + x.valor : x.valor), t.fin ? /*#__PURE__*/React.createElement(Badge, {
+  }, x.valor ? t.fin ? "− " + x.valor : x.valor : "—"), t.fin ? x.situacao ? /*#__PURE__*/React.createElement(Badge, {
     tone: SITUACAO[x.situacao] || "neutral"
-  }, x.situacao) : /*#__PURE__*/React.createElement(StatusBadge, {
+  }, x.situacao) : null : /*#__PURE__*/React.createElement(StatusBadge, {
     status: x.status,
     short: true
   })));
@@ -2573,6 +2669,7 @@ function Agenda({
   compact
 }) {
   const hoje = window.DLUH.hoje;
+  const carga = useCarga(() => window.DLUH_API.carregar("agenda"));
   const [filtro, setFiltro] = React.useState("tudo");
   const [sel, setSel] = React.useState(hoje);
   const [cursor, setCursor] = React.useState(() => ({
@@ -2603,14 +2700,25 @@ function Agenda({
       mes: Number(chave.slice(5, 7)) - 1
     });
   };
-  const todos = window.DLUH.agenda;
+
+  /* Rows with no date cannot sit on a calendar; they are left out rather than breaking the grid. */
+  const todos = (carga.dados || []).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
   const itens = filtro === "tudo" ? todos : todos.filter(x => x.tipo === filtro);
   const doDia = itens.filter(x => x.data === sel).sort((a, b) => (a.hora || "00:00").localeCompare(b.hora || "00:00"));
   const proximos = itens.filter(x => x.data > sel).sort((a, b) => (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || ""))).slice(0, 4);
   const [aa, mm, dd] = sel.split("-");
   const dataLonga = Number(dd) + " de " + MESES[Number(mm) - 1];
   const mesChave = ano + "-" + String(mes + 1).padStart(2, "0");
-  const aPagar = todos.filter(x => TIPOS[x.tipo].fin && x.situacao !== "Pago" && x.data.slice(0, 7) === mesChave).reduce((s, x) => s + Number(x.valor.replace(/[^\d,]/g, "").replace(",", ".")), 0);
+  const aPagar = todos.filter(x => tipoDe(x).fin && x.situacao !== "Pago" && x.data.slice(0, 7) === mesChave).reduce((s, x) => s + (Number(String(x.valor || "").replace(/[^\d,]/g, "").replace(",", ".")) || 0), 0);
+  const doMes = itens.filter(x => x.data.slice(0, 7) === mesChave).length;
+  if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
+    erro: carga.erro,
+    oque: "a agenda",
+    onTentar: carga.tentar
+  });
+  if (!carga.dados) return /*#__PURE__*/React.createElement(Carregando, {
+    oque: "a agenda"
+  });
   const contagem = t => todos.filter(x => x.tipo === t && x.data.slice(0, 7) === ano + "-" + String(mes + 1).padStart(2, "0")).length;
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2686,7 +2794,28 @@ function Agenda({
     itens: itens,
     compact: compact,
     hoje: hoje
-  }), /*#__PURE__*/React.createElement("div", {
+  }), doMes ? null : /*#__PURE__*/React.createElement("div", {
+    role: "status",
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      marginTop: 12,
+      padding: "10px 12px",
+      borderRadius: "var(--radius-sm)",
+      background: "var(--color-surface-2)",
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-body)"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "calendar-x",
+    size: 16,
+    style: {
+      color: "var(--text-muted)"
+    }
+  }), filtro === "tudo" ? `Nenhum compromisso em ${MESES[mes]}.` : `Nenhum item de ${tipoDe({
+    tipo: filtro
+  }).rot.toLowerCase()} em ${MESES[mes]}.`), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 16,
@@ -2750,11 +2879,11 @@ function Agenda({
     }
   }, proximos.map((x, i) => /*#__PURE__*/React.createElement(ListRow, {
     key: i,
-    icon: TIPOS[x.tipo].icone,
+    icon: tipoDe(x).icone,
     title: x.cliente,
-    subtitle: TIPOS[x.tipo].rot + " · " + x.data.split("-").reverse().slice(0, 2).join("/") + (x.hora ? " · " + x.hora : ""),
-    value: TIPOS[x.tipo].fin ? "− " + x.valor : x.valor,
-    tone: TIPOS[x.tipo].fin ? "out" : "neutral",
+    subtitle: tipoDe(x).rot + " · " + x.data.split("-").reverse().slice(0, 2).join("/") + (x.hora ? " · " + x.hora : ""),
+    value: tipoDe(x).fin ? "− " + x.valor : x.valor,
+    tone: tipoDe(x).fin ? "out" : "neutral",
     onClick: () => escolher(x.data)
   }))) : null)));
 }
@@ -2814,7 +2943,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.c
 try { (() => {
 const BX = window.DLuhFestasDesignSystem_c861a2;
 const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const dataBR = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+const dataBR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "sem data";
 function indiceBusca() {
   const d = window.DLUH,
     ag = d.agenda;
@@ -2825,9 +2954,9 @@ function indiceBusca() {
     view: "pedidos",
     itens: d.pedidos.map(p => ({
       title: p.cliente,
-      sub: p.id + " · " + p.status,
+      sub: p.id + " · " + (p.status || "sem status"),
       value: p.total,
-      busca: [p.cliente, p.id, p.tel, p.status, ...p.itens.map(i => i.name)],
+      busca: [p.cliente, p.id, p.tel, p.status, ...(p.itens || []).map(i => i.name)],
       q: p.id
     }))
   }, {
@@ -2837,7 +2966,7 @@ function indiceBusca() {
     view: "agenda",
     itens: ag.filter(e => e.tipo === "buffet" || e.tipo === "festa").map(e => ({
       title: e.titulo,
-      sub: e.cliente + " · " + dataBR(e.data) + " " + e.hora + (e.local ? " · " + e.local : ""),
+      sub: [e.cliente, e.data ? dataBR(e.data) + (e.hora ? " " + e.hora : "") : null, e.local].filter(Boolean).join(" · "),
       value: e.valor,
       busca: [e.titulo, e.cliente, e.local]
     }))
@@ -3095,7 +3224,7 @@ function GlobalSearch({
       color: "var(--text-muted)",
       textAlign: "center"
     }
-  }, "Nada encontrado para \u201C", q, "\u201D.")) : null);
+  }, "Nada encontrado para \u201C", q, "\u201D.", /*#__PURE__*/React.createElement("br", null), "Busque pelo nome do cliente, n\xFAmero do pedido (PED-\u2026), telefone, evento ou fornecedor.")) : null);
 }
 Object.assign(window, {
   GlobalSearch
@@ -3341,7 +3470,8 @@ function ContratoEditor({
   compact,
   onChange,
   onBack,
-  onToast
+  onToast,
+  naoSalvo
 }) {
   const tipo = contrato.tipo;
   const modelo = modelos.find(m => m.id === tipo);
@@ -3393,7 +3523,12 @@ function ContratoEditor({
   }, ctCliente(contrato)), /*#__PURE__*/React.createElement(Badge, {
     tone: final ? "success" : "neutral",
     icon: final ? "circle-check" : "pencil"
-  }, final ? "Finalizado" : "Rascunho"), /*#__PURE__*/React.createElement("span", {
+  }, final ? "Finalizado" : "Rascunho"), naoSalvo ? /*#__PURE__*/React.createElement("span", {
+    title: "O armazenamento do navegador recusou a grava\xE7\xE3o (cheio ou em modo privado)."
+  }, /*#__PURE__*/React.createElement(Badge, {
+    tone: "danger",
+    icon: "circle-alert"
+  }, "N\xE3o salvo neste aparelho")) : /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: "var(--fs-tiny)",
       color: "var(--text-muted)"
@@ -3554,15 +3689,17 @@ function Contratos({
   });
   const [aberto, setAberto] = React.useState(null);
   const [apagar, setApagar] = React.useState(null);
-  const [toast, setToast] = React.useState(null);
-  const showToast = m => {
-    setToast(m);
-    setTimeout(() => setToast(null), 2400);
-  };
+  const [toastNode, showToast] = useToast();
+  /* Contracts autosave to this browser. If storage refuses (full, private mode), the editor says
+     so instead of claiming "Salvo automaticamente". */
+  const [naoSalvo, setNaoSalvo] = React.useState(false);
   React.useEffect(() => {
     try {
       localStorage.setItem(CT_KEY, JSON.stringify(salvos));
-    } catch (e) {}
+      setNaoSalvo(false);
+    } catch (e) {
+      setNaoSalvo(true);
+    }
   }, [salvos]);
   const atual = salvos.find(c => c.uid === aberto);
   const upd = patch => setSalvos(l => l.map(c => c.uid === aberto ? {
@@ -3596,7 +3733,8 @@ function Contratos({
     compact: compact,
     onChange: upd,
     onBack: () => setAberto(null),
-    onToast: showToast
+    onToast: showToast,
+    naoSalvo: naoSalvo
   }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -3673,10 +3811,7 @@ function Contratos({
       setApagar(null);
       showToast("Contrato apagado");
     }
-  }) : null, toast ? /*#__PURE__*/React.createElement(Toast, {
-    tone: "success",
-    icon: "check"
-  }, toast) : null);
+  }) : null, toastNode);
 }
 Object.assign(window, {
   Contratos,
@@ -3709,7 +3844,8 @@ const PAGO_TONE = {
    darkest text on the card, and the one action is a full 44px target. */
 function FilaCard({
   p,
-  onEntregar
+  onEntregar,
+  pendente
 }) {
   return /*#__PURE__*/React.createElement(Card, {
     style: {
@@ -3731,19 +3867,29 @@ function FilaCard({
       style: {
         fontSize: "var(--fs-title)",
         fontWeight: "var(--fw-semibold)",
-        marginTop: 3
+        marginTop: 3,
+        overflowWrap: "anywhere"
       }
-    }, p.cliente)), /*#__PURE__*/React.createElement(Badge, {
-      tone: PAGO_TONE[p.pago]
-    }, p.pago))
-  }, /*#__PURE__*/React.createElement("div", {
+    }, p.cliente || "Cliente sem nome")), p.pago ? /*#__PURE__*/React.createElement(Badge, {
+      tone: PAGO_TONE[p.pago] || "neutral",
+      style: {
+        flex: "0 0 auto"
+      }
+    }, p.pago) : null)
+  }, p.itens ? /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: "var(--fs-subhead)",
       fontWeight: "var(--fw-medium)",
       color: "var(--text-strong)",
-      lineHeight: "var(--lh-snug)"
+      lineHeight: "var(--lh-snug)",
+      overflowWrap: "anywhere"
     }
-  }, p.itens), /*#__PURE__*/React.createElement("div", {
+  }, p.itens) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)"
+    }
+  }, "Itens n\xE3o informados. Confira o pedido antes de produzir."), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 8,
@@ -3760,6 +3906,7 @@ function FilaCard({
     size: "lg",
     tone: "delivered",
     icon: "check",
+    loading: pendente,
     onClick: () => onEntregar(p)
   }, "Feito")));
 }
@@ -3783,23 +3930,32 @@ const seta = {
 function Cozinha({
   compact
 }) {
-  const [fila, setFila] = React.useState(() => window.DLUH.fila);
+  const carga = useCarga(() => window.DLUH_API.carregar("fila"));
+  const fila = carga.dados || [];
   const [feature, setFeature] = React.useState(0);
   const [confirm, setConfirm] = React.useState(null);
-  const [toast, setToast] = React.useState(null);
+  const [toastNode, showToast] = useToast();
+  const [acao, pendente] = useAcao(showToast);
   const [som, setSom] = React.useState(true);
   const atual = Math.min(feature, Math.max(0, fila.length - 1));
   const p = fila[atual];
-  const showToast = m => {
-    setToast(m);
-    setTimeout(() => setToast(null), 2400);
-  };
-  /* The kitchen only confirms that an order is done; charging stays with atendimento in Pedidos. */
-  const feito = x => {
-    setFila(l => l.filter(y => y.id !== x.id));
+  /* The kitchen only confirms that an order is done; charging stays with atendimento in Pedidos.
+     The card leaves the queue only after the server accepted it. */
+  const feito = async x => {
+    await acao("feito-" + x.id, {
+      ok: "Pedido marcado como feito",
+      falhou: "Não deu pra marcar como feito"
+    }, () => carga.setDados(l => l.filter(y => y.id !== x.id)));
     setConfirm(null);
-    showToast("Pedido marcado como feito");
   };
+  if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
+    erro: carga.erro,
+    oque: "a fila da cozinha",
+    onTentar: carga.tentar
+  });
+  if (!carga.dados) return /*#__PURE__*/React.createElement(Carregando, {
+    oque: "a fila"
+  });
   return /*#__PURE__*/React.createElement("div", {
     style: {
       position: "relative",
@@ -3841,29 +3997,28 @@ function Cozinha({
       fontSize: compact ? "var(--fs-display-s)" : "var(--fs-display)",
       fontWeight: "var(--fw-bold)",
       lineHeight: "var(--lh-tight)",
-      marginTop: 8
+      marginTop: 8,
+      overflowWrap: "anywhere"
     }
-  }, p.cliente), /*#__PURE__*/React.createElement("div", {
+  }, p.cliente || "Cliente sem nome"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: "var(--fs-title)",
       fontWeight: "var(--fw-semibold)",
       marginTop: 8,
-      lineHeight: "var(--lh-snug)"
+      lineHeight: "var(--lh-snug)",
+      overflowWrap: "anywhere"
     }
-  }, p.itens), /*#__PURE__*/React.createElement("div", {
+  }, p.itens || "Itens não informados"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 8,
       marginTop: 14,
       flexWrap: "wrap"
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, [p.hora, p.entrega, p.pago].filter(Boolean).map(c => /*#__PURE__*/React.createElement("span", {
+    key: c,
     style: chip
-  }, p.hora), /*#__PURE__*/React.createElement("span", {
-    style: chip
-  }, p.entrega), /*#__PURE__*/React.createElement("span", {
-    style: chip
-  }, p.pago))), /*#__PURE__*/React.createElement("div", {
+  }, c)))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: compact ? "row" : "column",
@@ -3874,6 +4029,7 @@ function Cozinha({
   }, /*#__PURE__*/React.createElement(Button, {
     size: "lg",
     icon: "check",
+    loading: pendente === "feito-" + p.id,
     onClick: () => setConfirm(p),
     style: {
       background: "var(--color-accent-contrast)",
@@ -3934,7 +4090,8 @@ function Cozinha({
   }, fila.map(x => /*#__PURE__*/React.createElement(FilaCard, {
     key: x.id,
     p: x,
-    onEntregar: setConfirm
+    onEntregar: setConfirm,
+    pendente: pendente === "feito-" + x.id
   }))) : /*#__PURE__*/React.createElement(Card, {
     padded: false
   }, /*#__PURE__*/React.createElement(EmptyState, {
@@ -3945,15 +4102,13 @@ function Cozinha({
     tone: "delivered",
     icon: "check",
     title: "Marcar como feito?",
-    message: `${confirm.cliente} — ${confirm.entrega.toLowerCase()} às ${confirm.hora}. O pedido sai da fila de hoje.`,
+    message: [confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila de hoje.",
     cancelLabel: "Voltar",
     confirmLabel: "Sim, marcar feito",
+    pending: pendente === "feito-" + confirm.id,
     onCancel: () => setConfirm(null),
     onConfirm: () => feito(confirm)
-  }) : null, toast ? /*#__PURE__*/React.createElement(Toast, {
-    tone: "success",
-    icon: "check"
-  }, toast) : null);
+  }) : null, toastNode);
 }
 function Clientes() {
   return /*#__PURE__*/React.createElement(Card, {
@@ -3996,7 +4151,8 @@ const FIN_FORM = {
     campos: [{
       id: "desc",
       rot: "Descrição",
-      span: 2
+      span: 2,
+      req: true
     }, {
       id: "tipo",
       rot: "Tipo",
@@ -4012,7 +4168,8 @@ const FIN_FORM = {
     }, {
       id: "valor",
       rot: "Valor",
-      tipo: "dinheiro"
+      tipo: "dinheiro",
+      req: true
     }]
   },
   boletos: {
@@ -4020,15 +4177,18 @@ const FIN_FORM = {
     campos: [{
       id: "desc",
       rot: "Fornecedor / descrição",
-      span: 2
+      span: 2,
+      req: true
     }, {
       id: "venc",
       rot: "Vencimento",
-      tipo: "date"
+      tipo: "date",
+      req: true
     }, {
       id: "valor",
       rot: "Valor",
-      tipo: "dinheiro"
+      tipo: "dinheiro",
+      req: true
     }, {
       id: "codigo",
       rot: "Linha digitável",
@@ -4040,11 +4200,13 @@ const FIN_FORM = {
     campos: [{
       id: "nome",
       rot: "Nome do cartão",
-      span: 2
+      span: 2,
+      req: true
     }, {
       id: "final",
       rot: "Final",
-      ph: "0000"
+      ph: "0000",
+      req: true
     }, {
       id: "bandeira",
       rot: "Bandeira",
@@ -4060,27 +4222,65 @@ const FIN_FORM = {
     }]
   }
 };
+
+/* What each tab says when it has nothing yet, and the one action that fills it. */
+const FIN_VAZIO = {
+  transacoes: {
+    icone: "arrow-left-right",
+    titulo: "Nenhuma transação registrada",
+    texto: "Entradas e saídas do caixa aparecem aqui."
+  },
+  boletos: {
+    icone: "receipt",
+    titulo: "Nenhum boleto registrado",
+    texto: "Boletos a pagar aparecem aqui, com vencimento e valor."
+  },
+  cartoes: {
+    icone: "credit-card",
+    titulo: "Nenhum cartão cadastrado",
+    texto: "Cadastre os cartões da loja para acompanhar fatura, limite e vencimento."
+  }
+};
 const dataCurta = iso => iso ? iso.split("-").reverse().slice(0, 2).join("/") : "—";
+const num = v => Number(String(v || "").replace(",", ".")) || 0;
+const errosDe = (f, v) => {
+  const e = {};
+  f.campos.filter(c => c.req).forEach(c => {
+    if (c.tipo === "dinheiro" ? !(num(v[c.id]) > 0) : !String(v[c.id] || "").trim()) e[c.id] = c.tipo === "dinheiro" ? "Digite um valor maior que zero" : c.tipo === "date" ? "Escolha a data" : "Preencha este campo";
+  });
+  if (v.final && !/^\d{4}$/.test(v.final)) e.final = "Os 4 últimos números do cartão";
+  if (v.venc && f === FIN_FORM.cartoes && !(Number(v.venc) >= 1 && Number(v.venc) <= 31)) e.venc = "Um dia entre 1 e 31";
+  return e;
+};
 function FinRegistro({
   tab,
   onClose,
-  onSave
+  onSave,
+  salvando
 }) {
   const f = FIN_FORM[tab];
   const [v, setV] = React.useState(() => Object.fromEntries(f.campos.filter(c => c.opcoes).map(c => [c.id, c.opcoes[0]])));
+  const [tentou, setTentou] = React.useState(false);
+  const erros = tentou ? errosDe(f, v) : {};
+  const registrar = () => {
+    setTentou(true);
+    if (!Object.keys(errosDe(f, v)).length) onSave(v);
+  };
   return /*#__PURE__*/React.createElement(FN.Modal, {
     width: 480,
     title: f.titulo,
-    onClose: onClose,
+    onClose: salvando ? null : onClose,
     dismissible: false,
     footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FN.Button, {
       variant: "ghost",
       block: true,
+      disabled: salvando,
       onClick: onClose
     }, "Cancelar"), /*#__PURE__*/React.createElement(FN.Button, {
       block: true,
       icon: "check",
-      onClick: () => onSave(v)
+      loading: salvando,
+      onClick: registrar
     }, "Registrar"))
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4091,6 +4291,8 @@ function FinRegistro({
   }, f.campos.map(c => /*#__PURE__*/React.createElement(FN.Field, {
     key: c.id,
     label: c.rot,
+    required: c.req,
+    error: erros[c.id],
     style: {
       gridColumn: c.span ? "span 2" : undefined
     }
@@ -4104,8 +4306,12 @@ function FinRegistro({
   }) : /*#__PURE__*/React.createElement(FN.Input, {
     type: c.tipo === "date" ? "date" : c.tipo === "dinheiro" || c.tipo === "number" ? "number" : "text",
     step: c.tipo === "dinheiro" ? "0.01" : undefined,
+    min: c.tipo === "dinheiro" ? "0" : undefined,
+    inputMode: c.id === "final" ? "numeric" : undefined,
+    maxLength: c.id === "final" ? 4 : undefined,
     prefix: c.tipo === "dinheiro" ? "R$" : undefined,
     placeholder: c.ph,
+    invalid: !!erros[c.id],
     value: v[c.id] || "",
     onChange: e => setV({
       ...v,
@@ -4119,52 +4325,63 @@ function Financeiro({
   const [tab, setTab] = React.useState("transacoes");
   const [novo, setNovo] = React.useState(false);
   const [apagar, setApagar] = React.useState(null);
-  const [toast, setToast] = React.useState(null);
-  const [dados, setDados] = React.useState(() => ({
-    ...window.DLUH.financeiro
-  }));
-  const showToast = m => {
-    setToast(m);
-    setTimeout(() => setToast(null), 2400);
-  };
+  const [toastNode, showToast] = useToast();
+  const [acao, pendente] = useAcao(showToast);
+  const carga = useCarga(() => window.DLUH_API.carregar("financeiro"));
+  const dados = carga.dados || {};
   const t = FIN_TABS.find(x => x.id === tab);
-  const n = v => Number(String(v || "").replace(",", ".")) || 0;
-  const remover = i => {
-    setDados(d => ({
-      ...d,
-      [tab]: d[tab].filter((_, j) => j !== i)
-    }));
-    setApagar(null);
-    showToast("Registro removido");
-  };
   const nomeDe = x => x.desc || (x.nome ? x.nome + " · final " + x.final : "este registro");
-  const salvar = v => {
+  const muda = fn => carga.setDados(d => ({
+    ...d,
+    [tab]: fn(d[tab] || [])
+  }));
+  const remover = async i => {
+    await acao("remover", {
+      ok: "Registro removido",
+      falhou: "Não deu pra remover o registro"
+    }, () => muda(l => l.filter((_, j) => j !== i)));
+    setApagar(null);
+  };
+  const salvar = async v => {
     const item = tab === "transacoes" ? {
-      desc: v.desc || "Transação",
+      desc: v.desc.trim(),
       tipo: v.tipo,
       meio: v.meio,
       data: dataCurta(v.data),
-      valor: n(v.valor)
+      valor: num(v.valor)
     } : tab === "boletos" ? {
-      desc: v.desc || "Boleto",
+      desc: v.desc.trim(),
       venc: dataCurta(v.venc),
-      valor: n(v.valor),
+      valor: num(v.valor),
       status: "Em aberto"
     } : {
-      nome: v.nome || "Cartão",
-      final: v.final || "0000",
+      nome: v.nome.trim(),
+      final: v.final,
       bandeira: v.bandeira,
-      limite: n(v.limite),
+      limite: num(v.limite),
       fatura: 0,
       venc: v.venc || "—"
     };
-    setDados(d => ({
-      ...d,
-      [tab]: [item, ...d[tab]]
-    }));
-    setNovo(false);
-    showToast("Registro salvo");
+    if (await acao("salvar", {
+      ok: "Registro salvo",
+      falhou: "Não deu pra salvar o registro"
+    }, () => muda(l => [item, ...l]))) setNovo(false);
   };
+  const pagar = i => acao("pagar-" + i, {
+    ok: "Boleto marcado como pago",
+    falhou: "Não deu pra marcar o boleto como pago"
+  }, () => muda(l => l.map((b, j) => j === i ? {
+    ...b,
+    status: "Pago"
+  } : b)));
+  if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
+    erro: carga.erro,
+    oque: "o financeiro",
+    onTentar: carga.tentar
+  });
+  if (!carga.dados) return /*#__PURE__*/React.createElement(Carregando, {
+    oque: "o financeiro"
+  });
   const lixo = i => /*#__PURE__*/React.createElement(FN.IconButton, {
     icon: "trash-2",
     label: "Remover",
@@ -4174,12 +4391,17 @@ function Financeiro({
     },
     onClick: () => setApagar(i)
   });
-  const vazio = /*#__PURE__*/React.createElement(FN.EmptyState, {
-    icon: "wallet",
-    title: "Nada registrado ainda",
-    description: "Use o bot\xE3o acima para adicionar o primeiro registro."
-  });
   const lista = dados[tab] || [];
+  const vz = FIN_VAZIO[tab];
+  const vazio = vz ? /*#__PURE__*/React.createElement(FN.EmptyState, {
+    icon: vz.icone,
+    title: vz.titulo,
+    description: vz.texto,
+    action: /*#__PURE__*/React.createElement(FN.Button, {
+      icon: "plus",
+      onClick: () => setNovo(true)
+    }, t.acao)
+  }) : null;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       position: "relative",
@@ -4198,7 +4420,7 @@ function Financeiro({
     }))
   }), tab === "contratos" ? /*#__PURE__*/React.createElement(window.Contratos, {
     compact: compact
-  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }) : /*#__PURE__*/React.createElement(React.Fragment, null, lista.length ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: "var(--gap-inline)",
@@ -4208,12 +4430,12 @@ function Financeiro({
   }, tab === "transacoes" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FN.Badge, {
     tone: "success",
     icon: "arrow-down-left"
-  }, "Entradas ", window.brl(lista.filter(x => x.tipo === "Entrada").reduce((s, x) => s + x.valor, 0))), /*#__PURE__*/React.createElement(FN.Badge, {
+  }, "Entradas ", window.brl(lista.filter(x => x.tipo === "Entrada").reduce((s, x) => s + (x.valor || 0), 0))), /*#__PURE__*/React.createElement(FN.Badge, {
     icon: "arrow-up-right"
-  }, "Sa\xEDdas ", window.brl(lista.filter(x => x.tipo === "Saída").reduce((s, x) => s + x.valor, 0)))) : tab === "boletos" ? /*#__PURE__*/React.createElement(FN.Badge, {
+  }, "Sa\xEDdas ", window.brl(lista.filter(x => x.tipo === "Saída").reduce((s, x) => s + (x.valor || 0), 0)))) : tab === "boletos" ? /*#__PURE__*/React.createElement(FN.Badge, {
     tone: "warn",
     icon: "clock"
-  }, "Em aberto ", window.brl(lista.filter(x => x.status !== "Pago").reduce((s, x) => s + x.valor, 0))) : null, /*#__PURE__*/React.createElement("div", {
+  }, "Em aberto ", window.brl(lista.filter(x => x.status !== "Pago").reduce((s, x) => s + (x.valor || 0), 0))) : null, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -4221,7 +4443,7 @@ function Financeiro({
     size: "sm",
     icon: "plus",
     onClick: () => setNovo(true)
-  }, t.acao)), /*#__PURE__*/React.createElement(FN.Card, {
+  }, t.acao)) : null, /*#__PURE__*/React.createElement(FN.Card, {
     padded: !!lista.length,
     bodyStyle: {
       display: "flex",
@@ -4231,17 +4453,17 @@ function Financeiro({
   }, !lista.length ? vazio : tab === "transacoes" ? lista.map((x, i) => /*#__PURE__*/React.createElement(FN.ListRow, {
     key: i,
     icon: x.tipo === "Entrada" ? "arrow-down-left" : "arrow-up-right",
-    title: x.desc,
-    subtitle: x.data + " · " + x.meio,
-    value: (x.tipo === "Entrada" ? "+ " : "− ") + window.brl(x.valor),
+    title: x.desc || "Sem descrição",
+    subtitle: [x.data, x.meio].filter(Boolean).join(" · "),
+    value: x.valor == null ? "—" : (x.tipo === "Entrada" ? "+ " : "− ") + window.brl(x.valor),
     tone: x.tipo === "Entrada" ? "in" : "out",
     trailing: lixo(i)
   })) : tab === "boletos" ? lista.map((x, i) => /*#__PURE__*/React.createElement(FN.ListRow, {
     key: i,
     icon: "receipt",
-    title: x.desc,
-    subtitle: "Vence " + x.venc,
-    value: window.brl(x.valor),
+    title: x.desc || "Sem descrição",
+    subtitle: "Vence " + (x.venc || "—"),
+    value: x.valor == null ? "—" : window.brl(x.valor),
     trailing: /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
@@ -4255,41 +4477,32 @@ function Financeiro({
       size: "sm",
       variant: "outline",
       icon: "check",
-      onClick: () => {
-        setDados(d => ({
-          ...d,
-          boletos: d.boletos.map((b, j) => j === i ? {
-            ...b,
-            status: "Pago"
-          } : b)
-        }));
-        showToast("Boleto marcado como pago");
-      }
+      loading: pendente === "pagar-" + i,
+      onClick: () => pagar(i)
     }, "Marcar pago"), lixo(i))
   })) : lista.map((x, i) => /*#__PURE__*/React.createElement(FN.ListRow, {
     key: i,
     icon: "credit-card",
-    title: x.nome + " · final " + x.final,
-    subtitle: x.bandeira + " · vence dia " + x.venc + " · limite " + window.brl(x.limite),
-    value: window.brl(x.fatura),
+    title: (x.nome || "Cartão") + " · final " + (x.final || "—"),
+    subtitle: [x.bandeira, x.venc ? "vence dia " + x.venc : null, x.limite ? "limite " + window.brl(x.limite) : null].filter(Boolean).join(" · "),
+    value: x.fatura == null ? "—" : window.brl(x.fatura),
     trailing: lixo(i)
   })))), novo ? /*#__PURE__*/React.createElement(FinRegistro, {
     tab: tab,
     onClose: () => setNovo(false),
-    onSave: salvar
+    onSave: salvar,
+    salvando: pendente === "salvar"
   }) : null, apagar != null && lista[apagar] ? /*#__PURE__*/React.createElement(FN.ConfirmDialog, {
     tone: "danger",
     icon: "trash-2",
     title: "Remover registro?",
     message: nomeDe(lista[apagar]) + " sai do financeiro. Não dá pra desfazer.",
+    pending: pendente === "remover",
     confirmLabel: "Sim, remover",
     cancelLabel: "Voltar",
     onCancel: () => setApagar(null),
     onConfirm: () => remover(apagar)
-  }) : null, toast ? /*#__PURE__*/React.createElement(FN.Toast, {
-    tone: "success",
-    icon: "check"
-  }, toast) : null);
+  }) : null, toastNode);
 }
 Object.assign(window, {
   Financeiro
@@ -4525,7 +4738,9 @@ const {
   Select,
   Card,
   StatusBadge,
-  DataTable
+  DataTable,
+  ListRow,
+  Icon
 } = DS;
 
 /* One tab per Coda Status. "Verificando Estoque" is the Telegram round-trip in progress, so it
@@ -4559,6 +4774,7 @@ const valor = s => Number(String(s || "").replace(/[^\d,]/g, "").replace(",", ".
 const casa = (p, q) => !q || [p.cliente, p.id, p.tel].some(v => String(v || "").toLowerCase().includes(q.toLowerCase()));
 
 /* Every confirmation the order card can open. Money actions name the amount in the question. */
+const quem = p => p.cliente || "O cliente";
 const CONFIRMA = {
   estoque: p => ({
     tone: "accent",
@@ -4566,31 +4782,39 @@ const CONFIRMA = {
     title: "Confirmar estoque?",
     message: "O cliente recebe o link de pagamento da entrada e o pedido vai para Esperando pagamento.",
     confirmLabel: "Sim, confirmar",
-    toast: "Estoque confirmado"
+    ok: "Estoque confirmado",
+    falhou: "Não deu pra confirmar o estoque",
+    aplicar: l => l.map(x => x.id === p.id ? {
+      ...x,
+      status: "Confirmado — Esperando pagamento"
+    } : x)
   }),
   entrada: p => ({
     tone: "chargeEntry",
     icon: "link",
-    title: `Cobrar entrada de ${p.falta}?`,
-    message: `${p.cliente} recebe o link de pagamento da entrada.`,
+    title: p.falta ? `Cobrar entrada de ${p.falta}?` : "Cobrar entrada?",
+    message: `${quem(p)} recebe o link de pagamento da entrada.` + (p.falta ? "" : " O valor da entrada não está preenchido neste pedido."),
     confirmLabel: "Sim, cobrar",
-    toast: "Link de cobrança enviado"
+    ok: "Link de cobrança enviado",
+    falhou: "Não deu pra enviar a cobrança"
   }),
   restante: p => ({
     tone: "chargeAll",
     icon: "banknote",
-    title: `Cobrar restante de ${p.falta}?`,
-    message: `${p.cliente} recebe o link de pagamento do restante.`,
+    title: p.falta ? `Cobrar restante de ${p.falta}?` : "Cobrar restante?",
+    message: `${quem(p)} recebe o link de pagamento do restante.` + (p.falta ? "" : " O valor do restante não está preenchido neste pedido."),
     confirmLabel: "Sim, cobrar",
-    toast: "Cobrança do restante enviada"
+    ok: "Cobrança do restante enviada",
+    falhou: "Não deu pra enviar a cobrança do restante"
   }),
   pago: p => ({
     tone: "success",
     icon: "badge-check",
     title: "Marcar como pago?",
-    message: `O pedido de ${p.cliente} fica como totalmente pago. Nenhuma cobrança é enviada.`,
+    message: `O pedido de ${p.cliente || "este cliente"} fica como totalmente pago. Nenhuma cobrança é enviada.`,
     confirmLabel: "Sim, marcar pago",
-    toast: "Pagamento registrado"
+    ok: "Pagamento registrado",
+    falhou: "Não deu pra registrar o pagamento"
   }),
   apagar: p => ({
     tone: "danger",
@@ -4598,13 +4822,17 @@ const CONFIRMA = {
     title: "Apagar pedido?",
     message: "O pedido sai da fila e do Coda. Não dá pra desfazer.",
     confirmLabel: "Sim, apagar",
-    toast: "Pedido apagado"
+    ok: "Pedido apagado",
+    falhou: "Não deu pra apagar o pedido",
+    aplicar: l => l.filter(x => x.id !== p.id)
   })
 };
 function DetalhesModal({
   pedido,
   onClose,
-  onToast
+  onToast,
+  acao,
+  pendente
 }) {
   /* What the order already received comes from the order itself. The site does not report
      when it was paid, so that row carries no timestamp until Coda provides one. */
@@ -4634,9 +4862,12 @@ function DetalhesModal({
     }, "Imprimir"), /*#__PURE__*/React.createElement(Button, {
       block: true,
       icon: "save",
-      onClick: () => {
-        onClose();
-        onToast("Pedido atualizado");
+      loading: pendente === "salvar",
+      onClick: async () => {
+        if (await acao("salvar", {
+          ok: "Pedido atualizado",
+          falhou: "Não deu pra salvar o pedido"
+        })) onClose();
       }
     }, "Salvar"))
   }, /*#__PURE__*/React.createElement("div", {
@@ -4669,39 +4900,46 @@ function DetalhesModal({
     label: "Cliente",
     required: true
   }, /*#__PURE__*/React.createElement(Input, {
-    defaultValue: pedido.cliente
+    defaultValue: pedido.cliente || ""
   })), /*#__PURE__*/React.createElement(Field, {
     label: "WhatsApp",
     required: true
   }, /*#__PURE__*/React.createElement(Input, {
-    defaultValue: pedido.tel
+    defaultValue: pedido.tel || ""
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Entrega"
   }, /*#__PURE__*/React.createElement(Select, {
     options: ["Retirada no local", "Entrega em endereço"],
-    defaultValue: pedido.modo
+    defaultValue: pedido.modo || undefined
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Data"
   }, /*#__PURE__*/React.createElement(Input, {
     type: "date",
-    defaultValue: pedido.data
+    defaultValue: pedido.data || ""
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Hora"
   }, /*#__PURE__*/React.createElement(Input, {
     type: "time",
-    defaultValue: pedido.hora
+    defaultValue: pedido.hora || ""
   })), /*#__PURE__*/React.createElement(Field, {
     label: "Pagamento"
   }, /*#__PURE__*/React.createElement(Select, {
     options: ["Pix", "Cartão", "Dinheiro"],
-    defaultValue: pedido.pgto
+    defaultValue: pedido.pgto || undefined
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 16
     }
   }, /*#__PURE__*/React.createElement(DataTable, {
     minWidth: 0,
-    rows: pedido.itens.map((it, i) => ({
+    empty: /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: "12px",
+        fontSize: "var(--fs-body-s)",
+        color: "var(--text-muted)"
+      }
+    }, "Nenhum item registrado neste pedido."),
+    rows: (pedido.itens || []).map((it, i) => ({
       id: i,
       ...it
     })),
@@ -4753,7 +4991,9 @@ function DetalhesModal({
     lista: pgtos,
     onChange: setPgtos,
     onClose: () => setVerPgtos(false),
-    onToast: onToast
+    onToast: onToast,
+    acao: acao,
+    pendente: pendente
   }) : null);
 }
 function Pedidos({
@@ -4764,14 +5004,16 @@ function Pedidos({
   const [detalhe, setDetalhe] = React.useState(null);
   const [manual, setManual] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
-  const [toast, setToast] = React.useState(null);
-  const showToast = msg => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2600);
-  };
-  const todos = window.DLUH.pedidos;
+  const [toastNode, showToast] = useToast();
+  const [acao, pendente] = useAcao(showToast);
+  const carga = useCarga(() => window.DLUH_API.carregar("pedidos"));
+  const todos = carga.dados || [];
   const filtro = (TABS.find(t => t.id === tab) || TABS[0]).filtro;
   const lista = todos.filter(p => filtro.includes(p.status)).filter(p => casa(p, q));
+  /* Orders whose Status is not in the Coda single-select would fall between the tabs. They are
+     listed on their own, above the tabs, so a typo in Coda is visible instead of lost. */
+  const fora = todos.filter(p => !TABS.some(t => t.filtro.includes(p.status)));
+  const achouEmOutra = !!q && todos.some(p => casa(p, q));
 
   /* A search that only matches in another status moves to that tab, so picking a pedido in
      the global search never lands on an empty list. */
@@ -4779,13 +5021,21 @@ function Pedidos({
     if (!q || lista.length) return;
     const alvo = TABS.find(t => todos.some(p => t.filtro.includes(p.status) && casa(p, q)));
     if (alvo) setTab(alvo.id);
-  }, [q]);
+  }, [q, carga.estado]);
   const counts = {};
   TABS.forEach(t => counts[t.id] = todos.filter(p => t.filtro.includes(p.status)).length);
   const pede = (tipo, p) => setConfirm({
     tipo,
     p,
     ...CONFIRMA[tipo](p)
+  });
+  if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
+    erro: carga.erro,
+    oque: "os pedidos",
+    onTentar: carga.tentar
+  });
+  if (!carga.dados) return /*#__PURE__*/React.createElement(Carregando, {
+    oque: "pedidos"
   });
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4795,7 +5045,45 @@ function Pedidos({
       gap: "var(--space-8)",
       minHeight: "100%"
     }
-  }, /*#__PURE__*/React.createElement(Tabs, {
+  }, fora.length ? /*#__PURE__*/React.createElement(Card, {
+    header: /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: "var(--fs-title)",
+        fontWeight: "var(--fw-semibold)"
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "circle-alert",
+      size: 18,
+      style: {
+        color: "var(--action-warn)"
+      }
+    }), fora.length === 1 ? "1 pedido com status fora do padrão" : fora.length + " pedidos com status fora do padrão"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: "var(--fs-tiny)",
+        color: "var(--text-muted)",
+        marginTop: 2
+      }
+    }, "O status n\xE3o bate com nenhuma aba. Corrija no Coda para o pedido voltar ao fluxo.")),
+    bodyStyle: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 6
+    }
+  }, fora.map(p => /*#__PURE__*/React.createElement(ListRow, {
+    key: p.id,
+    icon: "receipt-text",
+    title: p.cliente || "Cliente sem nome",
+    subtitle: p.id + " · status: " + (p.status || "vazio"),
+    value: dinheiro(p.total),
+    onClick: () => setDetalhe(p)
+  }))) : null, /*#__PURE__*/React.createElement(Tabs, {
     value: tab,
     onChange: setTab,
     items: TABS.map(t => ({
@@ -4830,7 +5118,7 @@ function Pedidos({
     }, p.tipo) : null, p.falta ? /*#__PURE__*/React.createElement(Badge, {
       tone: "warn"
     }, "Falta ", p.falta) : null),
-    items: p.itens,
+    items: p.itens || [],
     total: p.total,
     paid: p.pago,
     due: p.falta,
@@ -4852,7 +5140,11 @@ function Pedidos({
       size: "sm",
       tone: "delivered",
       icon: "truck",
-      onClick: () => showToast("Pedido marcado como entregue")
+      loading: pendente === "entregue-" + p.id,
+      onClick: () => acao("entregue-" + p.id, {
+        ok: "Pedido marcado como entregue",
+        falhou: "Não deu pra marcar como entregue"
+      })
     }, "Marcar entregue") : p.status === "Entregue — Esperando restante" ? /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       tone: "chargeAll",
@@ -4879,7 +5171,10 @@ function Pedidos({
       }, {
         label: "Notificar alterações",
         icon: "bell-ring",
-        onClick: () => showToast("Cliente avisado no WhatsApp")
+        onClick: () => acao("notificar-" + p.id, {
+          ok: "Cliente avisado no WhatsApp",
+          falhou: "Não deu pra avisar o cliente"
+        })
       }, {
         label: "Imprimir recibo",
         icon: "printer",
@@ -4893,7 +5188,13 @@ function Pedidos({
         onClick: () => pede("apagar", p)
       }]
     }))
-  }))) : /*#__PURE__*/React.createElement(Card, {
+  }))) : q && !achouEmOutra ? /*#__PURE__*/React.createElement(Card, {
+    padded: false
+  }, /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "search-x",
+    title: `Nenhum pedido encontrado para “${q}”`,
+    description: "A busca procura pelo nome do cliente, pelo n\xFAmero do pedido (PED-\u2026) e pelo telefone."
+  })) : /*#__PURE__*/React.createElement(Card, {
     padded: false
   }, /*#__PURE__*/React.createElement(EmptyState, {
     icon: "party-popper",
@@ -4902,11 +5203,15 @@ function Pedidos({
   })), detalhe ? /*#__PURE__*/React.createElement(DetalhesModal, {
     pedido: detalhe,
     onClose: () => setDetalhe(null),
-    onToast: showToast
+    onToast: showToast,
+    acao: acao,
+    pendente: pendente
   }) : null, manual ? /*#__PURE__*/React.createElement(ManualModal, {
     compact: compact,
     onClose: () => setManual(false),
-    onToast: showToast
+    onToast: showToast,
+    acao: acao,
+    pendente: pendente
   }) : null, confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
     tone: confirm.tone,
     icon: confirm.icon,
@@ -4914,16 +5219,17 @@ function Pedidos({
     message: confirm.message,
     confirmLabel: confirm.confirmLabel,
     cancelLabel: "Voltar",
+    pending: pendente === confirm.tipo,
     onCancel: () => setConfirm(null),
-    onConfirm: () => {
-      const t = confirm.toast;
+    onConfirm: async () => {
+      const c = confirm;
+      await acao(c.tipo, {
+        ok: c.ok,
+        falhou: c.falhou
+      }, c.aplicar ? () => carga.setDados(c.aplicar) : null);
       setConfirm(null);
-      showToast(t);
     }
-  }) : null, toast ? /*#__PURE__*/React.createElement(Toast, {
-    tone: "success",
-    icon: "check"
-  }, toast) : null);
+  }) : null, toastNode);
 }
 Object.assign(window, {
   Pedidos,
@@ -5053,11 +5359,14 @@ function PagamentosModal({
   lista,
   onChange,
   onClose,
-  onToast
+  onToast,
+  acao,
+  pendente
 }) {
   const [valor, setValor] = React.useState("");
   const [arquivo, setArquivo] = React.useState(null);
   const [remover, setRemover] = React.useState(null);
+  const [erroValor, setErroValor] = React.useState(null);
   const total = lista.reduce((s, p) => s + p.valor, 0);
   const cab = {
     fontSize: "var(--fs-caption)",
@@ -5066,18 +5375,27 @@ function PagamentosModal({
     textTransform: "uppercase",
     letterSpacing: "var(--ls-label)"
   };
-  const registrar = () => {
+  /* The amount is checked here; the record only joins the list once the server accepted it. */
+  const registrar = async () => {
     const v = parseFloat(String(valor).replace(",", "."));
-    if (!v) return;
-    onChange([...lista, {
+    if (!(v > 0)) {
+      setErroValor("Digite um valor maior que zero");
+      return;
+    }
+    setErroValor(null);
+    const ok = await acao("registrar-pagamento", {
+      ok: "Pagamento registrado",
+      falhou: "Não deu pra registrar o pagamento"
+    }, () => onChange([...lista, {
       quando: agora(),
       valor: v,
       arquivo,
       origem: "manual"
-    }]);
-    setValor("");
-    setArquivo(null);
-    onToast("Pagamento registrado");
+    }]));
+    if (ok) {
+      setValor("");
+      setArquivo(null);
+    }
   };
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PM.Modal, {
     width: 600,
@@ -5199,20 +5517,27 @@ function PagamentosModal({
       display: "grid",
       gridTemplateColumns: "minmax(0,1fr) auto auto",
       gap: 12,
-      alignItems: "end"
+      alignItems: "start"
     }
   }, /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Novo pagamento"
+    label: "Novo pagamento",
+    error: erroValor
   }, /*#__PURE__*/React.createElement(PM.Input, {
     type: "number",
     prefix: "R$",
     step: "0.01",
+    min: "0",
     placeholder: "0,00",
+    invalid: !!erroValor,
     value: valor,
-    onChange: e => setValor(e.target.value)
+    onChange: e => {
+      setValor(e.target.value);
+      setErroValor(null);
+    }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       height: 40,
+      marginTop: 21,
       display: "flex",
       alignItems: "center"
     }
@@ -5222,7 +5547,11 @@ function PagamentosModal({
   })), /*#__PURE__*/React.createElement(PM.Button, {
     tone: "success",
     icon: "plus",
-    onClick: registrar
+    loading: pendente === "registrar-pagamento",
+    onClick: registrar,
+    style: {
+      marginTop: 21
+    }
   }, "Registrar"))), remover != null ? /*#__PURE__*/React.createElement(PM.ConfirmDialog, {
     tone: "danger",
     icon: "trash-2",
@@ -5230,11 +5559,15 @@ function PagamentosModal({
     message: `O registro de ${brl(lista[remover].valor)} sai da lista. Não dá pra desfazer.`,
     confirmLabel: "Sim, remover",
     cancelLabel: "Voltar",
+    pending: pendente === "remover-pagamento",
     onCancel: () => setRemover(null),
-    onConfirm: () => {
-      onChange(lista.filter((_, j) => j !== remover));
+    onConfirm: async () => {
+      const i = remover;
+      await acao("remover-pagamento", {
+        ok: "Pagamento removido",
+        falhou: "Não deu pra remover o pagamento"
+      }, () => onChange(lista.filter((_, j) => j !== i)));
       setRemover(null);
-      onToast("Pagamento removido");
     }
   }) : null);
 }
@@ -5271,7 +5604,9 @@ const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.
 function ManualModal({
   compact,
   onClose,
-  onToast
+  onToast,
+  acao,
+  pendente
 }) {
   const [lista, setLista] = React.useState([novoRascunho(0)]);
   const [ativo, setAtivo] = React.useState(0);
@@ -5302,16 +5637,20 @@ function ManualModal({
   const n = lista.length;
   const geral = lista.reduce((s, x) => s + totalRascunho(x), 0);
   const erros = tentou ? faltas(r) : {};
-  const fechar = () => lista.some(preenchido) ? setSair(true) : onClose();
-  const criar = () => {
+  const fechar = () => pendente === "criar-pedido" ? null : lista.some(preenchido) ? setSair(true) : onClose();
+  /* Drafts stay on screen until the server confirms; a failed write keeps everything typed. */
+  const criar = async () => {
     const i = lista.findIndex(x => Object.keys(faltas(x)).length);
     if (i >= 0) {
       setTentou(true);
       setAtivo(i);
       return;
     }
-    onClose();
-    onToast(n > 1 ? `${n} pedidos criados` : "Pedido criado");
+    const ok = await acao("criar-pedido", {
+      ok: n > 1 ? `${n} pedidos criados` : "Pedido criado",
+      falhou: n > 1 ? "Não deu pra criar os pedidos" : "Não deu pra criar o pedido"
+    });
+    if (ok) onClose();
   };
   const item = (it, j) => {
     const campos = [/*#__PURE__*/React.createElement(PM.Input, {
@@ -5388,6 +5727,7 @@ function ManualModal({
     }, "Cancelar"), /*#__PURE__*/React.createElement(PM.Button, {
       block: true,
       icon: "check",
+      loading: pendente === "criar-pedido",
       onClick: criar
     }, n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : "Criar pedido"))
   }, /*#__PURE__*/React.createElement("div", {
@@ -6102,11 +6442,11 @@ const {
   EmptyState
 } = window.DLuhFestasDesignSystem_c861a2;
 function ChartCard({
-  compact
+  compact,
+  serie
 }) {
-  const serie = window.DLUH.serieReceita;
   const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  const max = Math.max(...serie);
+  const max = Math.max(1, ...serie);
   return /*#__PURE__*/React.createElement(Card, {
     header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -6120,7 +6460,10 @@ function ChartCard({
         marginTop: 2
       }
     }, "08 \u2013 14 de junho")))
-  }, /*#__PURE__*/React.createElement("div", {
+  }, !serie.length || !serie.some(v => v > 0) ? /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "chart-no-axes-column",
+    title: "Sem receita registrada nesta semana"
+  }) : /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "flex-end",
@@ -6163,7 +6506,21 @@ function VisaoGeral({
   compact,
   onView
 }) {
-  const d = window.DLUH;
+  const carga = useCarga(() => window.DLUH_API.carregar());
+  if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
+    erro: carga.erro,
+    oque: "a vis\xE3o geral",
+    onTentar: carga.tentar
+  });
+  if (!carga.dados) return /*#__PURE__*/React.createElement(Carregando, {
+    oque: "a vis\xE3o geral"
+  });
+  const d = {
+    ...carga.dados,
+    pagamentos: carga.dados.pagamentos || [],
+    recentes: carga.dados.recentes || [],
+    serieReceita: carga.dados.serieReceita || []
+  };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -6190,7 +6547,8 @@ function VisaoGeral({
       alignItems: "start"
     }
   }, /*#__PURE__*/React.createElement(ChartCard, {
-    compact: compact
+    compact: compact,
+    serie: d.serieReceita
   }), /*#__PURE__*/React.createElement(Card, {
     header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -6208,14 +6566,17 @@ function VisaoGeral({
       flexDirection: "column",
       gap: 6
     }
-  }, d.pagamentos.map((p, i) => /*#__PURE__*/React.createElement(ListRow, {
+  }, d.pagamentos.length ? d.pagamentos.map((p, i) => /*#__PURE__*/React.createElement(ListRow, {
     key: i,
     icon: p.icon,
     title: p.title,
     subtitle: p.sub,
     value: p.value,
     tone: p.tone
-  })))), /*#__PURE__*/React.createElement(Card, {
+  })) : /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "wallet",
+    title: "Nenhum pagamento recente"
+  }))), /*#__PURE__*/React.createElement(Card, {
     padded: false,
     header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -6228,7 +6589,7 @@ function VisaoGeral({
         color: "var(--text-muted)",
         marginTop: 2
       }
-    }, "Os ", d.recentes.length, " mais recentes")), /*#__PURE__*/React.createElement(Button, {
+    }, d.recentes.length === 1 ? "O mais recente" : `Os ${d.recentes.length} mais recentes`)), /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       variant: "ghost",
       iconRight: "arrow-right",
@@ -6254,7 +6615,10 @@ function VisaoGeral({
     style: {
       textAlign: "right"
     }
-  }, "Total")), d.recentes.map(r => compact ? /*#__PURE__*/React.createElement("div", {
+  }, "Total")), !d.recentes.length ? /*#__PURE__*/React.createElement(EmptyState, {
+    icon: "receipt-text",
+    title: "Nenhum pedido ainda"
+  }) : d.recentes.map(r => compact ? /*#__PURE__*/React.createElement("div", {
     key: r.id,
     style: {
       display: "flex",
@@ -6273,9 +6637,11 @@ function VisaoGeral({
     style: {
       fontSize: "var(--fs-body-s)",
       fontWeight: "var(--fw-semibold)",
-      color: "var(--text-strong)"
+      color: "var(--text-strong)",
+      minWidth: 0,
+      overflowWrap: "anywhere"
     }
-  }, r.nome), /*#__PURE__*/React.createElement("span", {
+  }, r.nome || "Cliente sem nome"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: "var(--fs-body-s)",
       fontWeight: "var(--fw-semibold)",
@@ -6323,9 +6689,13 @@ function VisaoGeral({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontWeight: "var(--fw-semibold)",
-      color: "var(--text-strong)"
-    }
-  }, r.nome), /*#__PURE__*/React.createElement("div", {
+      color: "var(--text-strong)",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    },
+    title: r.nome
+  }, r.nome || "Cliente sem nome"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: "var(--fs-tiny)",
       color: "var(--text-muted)",

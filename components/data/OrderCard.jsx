@@ -12,7 +12,7 @@ export function OrderCard({ id, customer, status, meta = [], items = [], total, 
       header={<>
         <div style={{ minWidth: 0 }}>
           {id ? <div style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-accent)", letterSpacing: "var(--ls-caps)", textTransform: "uppercase", marginBottom: 4 }}>{id}</div> : null}
-          <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{customer}</div>
+          <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", overflowWrap: "anywhere" }}>{customer || "Cliente sem nome"}</div>
           {meta.length ? <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-body)", fontWeight: "var(--fw-medium)", marginTop: 3 }}>
             {meta.map((m, i) => <React.Fragment key={i}>{i ? <span style={{ opacity: .45, margin: "0 6px" }}>·</span> : null}{m}</React.Fragment>)}
           </div> : null}
@@ -23,7 +23,7 @@ export function OrderCard({ id, customer, status, meta = [], items = [], total, 
       footer={<>
         <div style={{ fontFamily: "var(--font-ui)" }}>
           <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginRight: 6 }}>Total</span>
-          <span style={{ fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)" }}>{total}</span>
+          <span style={{ fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)" }}>{total == null || total === "" ? "—" : total}</span>
           {paid != null || due != null ? <div style={{ fontSize: "var(--fs-small)", fontWeight: "var(--fw-semibold)", color: "var(--text-body)", marginTop: 4 }}>
             {paid != null ? <>Pago <b style={{ color: isZero(paid) ? "var(--text-strong)" : "var(--action-paid)" }}>{paid}</b></> : null}
             {due != null ? <> · Falta <b style={{ color: "var(--action-warn)" }}>{due}</b></> : null}
@@ -31,11 +31,12 @@ export function OrderCard({ id, customer, status, meta = [], items = [], total, 
         </div>
         <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>{actions}</div>
       </>}>
+      {!items.length ? <div style={{ fontFamily: "var(--font-ui)", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Nenhum item registrado neste pedido.</div> : null}
       {items.length ? <div style={{ fontFamily: "var(--font-ui)" }}>
         <div style={{ fontSize: "var(--fs-tiny)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)", marginBottom: 8 }}>Itens</div>
         {items.map((it, i) => (
           <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", padding: "9px 0", borderTop: i ? "var(--border-hairline) solid var(--color-border)" : "none" }}>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
               <div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-medium)", color: "var(--text-strong)" }}>{it.qty ? <span style={{ color: "var(--text-muted)", marginRight: 6 }}>{it.qty}×</span> : null}{it.name}</div>
               {it.note ? <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 3, lineHeight: "var(--lh-snug)" }}>{it.note}</div> : null}
               {it.topper ? <div style={{ display: "inline-block", fontSize: "var(--fs-tiny)", color: "var(--text-accent)", background: "var(--color-accent-soft)", padding: "4px 8px", borderRadius: "var(--radius-xs)", marginTop: 5, lineHeight: "var(--lh-normal)" }}>{it.topper}</div> : null}
