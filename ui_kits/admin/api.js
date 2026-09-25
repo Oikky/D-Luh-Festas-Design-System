@@ -38,8 +38,37 @@ window.DLUH_API = (() => {
   /* ── Real system ── */
   const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   const quando = e => !e ? "—" : e.data === hoje() ? e.hora : `${e.data.slice(8, 10)}/${e.data.slice(5, 7)} · ${e.hora}`;
+  const brl = c => "R$ " + ((Number(c) || 0) / 100).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const ts = v => v && typeof v.toDate === "function" ? v.toDate() : v instanceof Date ? v : null;
+  const MEIO = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão", outro: "Outro" };
   /* Kitchen queue: in production and not yet done, soonest first, in the shape FilaCard reads. */
   const MAPAS = {
+    /* All orders, in the shape OrderCard/DetalhesModal read (money as "R$ …" strings), keeping the
+       raw numbers the actions need (centavos, pedidoId…). Newest first. */
+    pedidos: pedidos => pedidos
+      .slice().sort((a, b) => (ts(b.criadoEm) || 0) - (ts(a.criadoEm) || 0))
+      .map(x => {
+        const falta = x.status === "Cancelado" ? 0 : Math.max(0, (x.total || 0) - (x.pago || 0));
+        return {
+          id: x.id,
+          cliente: x.cliente?.nome || "",
+          tel: x.cliente?.telefone || "",
+          status: x.status,
+          tipo: x.tipo === "empresa" ? "Empresa" : null,
+          entrega: [quando(x.entrega), x.entrega?.modo === "entrega" ? "Entrega" : "Retirada"].join(" · "),
+          modo: x.entrega?.modo === "entrega" ? "Entrega em endereço" : "Retirada no local",
+          data: x.entrega?.data || "", hora: x.entrega?.hora || "", endereco: x.entrega?.endereco || "",
+          pgto: MEIO[x.formaPagamento] || null,
+          total: brl(x.total), pago: x.pago ? brl(x.pago) : null, falta: falta ? brl(falta) : null,
+          pagamento: x.pagamento, feitoNaCozinha: x.cozinha === "feito",
+          itens: (x.itens || []).map(i => ({ qty: i.qtd, name: i.nome, note: i.obs, topper: i.topo, price: brl(i.qtd * i.valorUnit) })),
+          _c: { total: x.total || 0, pago: x.pago || 0, falta, entradaPct: x.entradaPct || 50, formaPagamento: x.formaPagamento || null }
+        };
+      }),
+    pagamentos: lista => lista
+      .slice().sort((a, b) => (ts(a.em) || 0) - (ts(b.em) || 0))
+      .map(p => ({ quando: ts(p.em) ? ts(p.em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " ·") : null,
+        valor: (p.valor || 0) / 100, origem: p.por === "infinitepay" ? "site" : "manual", meio: MEIO[p.meio] || p.meio, arquivo: null, id: p.id })),
     fila: pedidos => pedidos
       .filter(x => x.cozinha !== "feito")
       .sort((a, b) => `${a.entrega?.data} ${a.entrega?.hora}`.localeCompare(`${b.entrega?.data} ${b.entrega?.hora}`))
@@ -65,11 +94,11 @@ window.DLUH_API = (() => {
   if (modo === "firebase") return {
     ErroApi, modo,
     carregar: naoLigada,
-    assinar(colecao, aoDados, aoErro) {
+    assinar(colecao, aoDados, aoErro, param) {
       if (!MAPAS[colecao]) { aoErro(new ErroApi("nao-ligada")); return () => {}; }
       let parar = () => {}, vivo = true;
       window.DLUH_FB.then(fb => {
-        if (vivo) parar = fb.assinar(colecao, (docs, meta) => aoDados(MAPAS[colecao](docs), meta), e => aoErro(erroReal(e)));
+        if (vivo) parar = fb.assinar(colecao, (docs, meta) => aoDados(MAPAS[colecao](docs), meta), e => aoErro(erroReal(e)), param);
       }, e => aoErro(erroReal(e)));
       return () => { vivo = false; parar(); };
     },
@@ -78,7 +107,8 @@ window.DLUH_API = (() => {
       if (!pedido) throw new ErroApi("nao-ligada");
       const fb = await window.DLUH_FB;
       const limite = espera(TIMEOUT).then(() => { throw new ErroApi("timeout"); });
-      try { return await Promise.race([fb.chamar(pedido.acao, pedido.dados), limite]); }
+      const trabalho = typeof pedido === "function" ? pedido((acao, dados) => fb.chamar(acao, dados)) : fb.chamar(pedido.acao, pedido.dados);
+      try { return await Promise.race([trabalho, limite]); }
       catch (e) { throw erroReal(e); }
     }
   };

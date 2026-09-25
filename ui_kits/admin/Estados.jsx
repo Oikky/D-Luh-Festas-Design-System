@@ -56,15 +56,15 @@ function useCarga(carregar) {
 
 /* Same shape as useCarga, but stays subscribed: every change on the server re-renders. `doCache`
    is true while what's on screen came from the device cache (no connection to the server). */
-function useAoVivo(colecao) {
+function useAoVivo(colecao, param) {
   const [st, setSt] = React.useState({ estado: "carregando", dados: null, erro: null, doCache: false });
   const [volta, setVolta] = React.useState(0);
   React.useEffect(() => {
     setSt(s => ({ ...s, estado: "carregando", erro: null }));
     return window.DLUH_API.assinar(colecao,
       (dados, meta) => setSt({ estado: "pronto", dados, erro: null, doCache: !!(meta && meta.doCache) }),
-      erro => setSt(s => ({ ...s, estado: "erro", erro })));
-  }, [colecao, volta]);
+      erro => setSt(s => ({ ...s, estado: "erro", erro })), param);
+  }, [colecao, param, volta]);
   return { ...st, tentar: () => setVolta(v => v + 1), setDados: fn => setSt(s => ({ ...s, dados: typeof fn === "function" ? fn(s.dados) : fn })) };
 }
 
@@ -74,15 +74,16 @@ function useAoVivo(colecao) {
 function useAcao(mostrar) {
   const [pendente, setPendente] = React.useState(null);
   const emCurso = React.useRef(false);
-  /* `pedido` ({ acao, dados }) is what the real system needs; the demo ignores it. */
+  /* `pedido` is what the real system needs — { acao, dados }, or async chamar => … to chain several
+     calls — and the demo ignores it. Resolves to the server's answer (truthy) or false. */
   const executar = async (chave, { ok, falhou }, aplicar, pedido) => {
     if (emCurso.current) return false;
     emCurso.current = true; setPendente(chave);
     try {
-      await window.DLUH_API.escrever(chave, pedido);
+      const resposta = await window.DLUH_API.escrever(chave, pedido);
       if (aplicar) aplicar();
       if (ok) mostrar(ok);
-      return true;
+      return resposta || true;
     } catch (e) {
       mostrar(`${falhou}: ${motivo(e)}`, "danger");
       return false;

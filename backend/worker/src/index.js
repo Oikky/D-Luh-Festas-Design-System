@@ -4,7 +4,7 @@
    As telas LEEM direto do Firestore (tempo real); toda ESCRITA passa por aqui e deixa evento. */
 import { criarFirestore } from "./firestore.js";
 import { verificarToken, tokenDoSistema, quemESistema } from "./auth.js";
-import { ErroDominio } from "./dominio.js";
+import { ErroDominio, MEIOS } from "./dominio.js";
 import { ehEquipe } from "./equipe.js";
 import * as pedidos from "./pedidos.js";
 import * as infinitepay from "./infinitepay.js";
@@ -36,10 +36,10 @@ const ACOES = {
   mudarStatus: (db, dados, por) => pedidos.mudarStatus(db, dados, por),
   marcarFeito: (db, dados, por) => pedidos.marcarFeito(db, dados, por),
 
-  /* Pix direto na conta, dinheiro, maquininha. A tela manda uma `chave` nova por clique
+  /* Pix direto na conta, dinheiro, maquininha, ou "outro". A tela manda uma `chave` nova por clique
      (crypto.randomUUID()), então um clique repetido não paga duas vezes. */
   registrarPagamentoManual: (db, dados, por) => {
-    if (!["pix", "dinheiro", "cartao"].includes(dados.meio)) throw new ErroDominio("invalid-argument", "Meio deve ser pix, dinheiro ou cartao");
+    if (!MEIOS.includes(dados.meio)) throw new ErroDominio("invalid-argument", `Meio deve ser ${MEIOS.join(", ")}`);
     if (!dados.chave) throw new ErroDominio("invalid-argument", "Falta a chave do pagamento");
     return pedidos.registrarPagamento(db, { ...dados, chave: `manual-${dados.chave}` }, por);
   },
@@ -47,8 +47,8 @@ const ACOES = {
   async gerarCobranca(db, { pedidoId, tipo }, por, env, origem) {
     const snap = await db.collection(pedidos.PEDIDOS).doc(String(pedidoId || "")).get();
     if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
-    const { total, pago, cliente } = snap.data();
-    const valor = { entrada: Math.round(total / 2) - pago, restante: total - pago, total }[tipo];
+    const { total, pago, cliente, entradaPct = 50 } = snap.data();
+    const valor = { entrada: Math.round(total * entradaPct / 100) - pago, restante: total - pago, total }[tipo];
     if (valor === undefined) throw new ErroDominio("invalid-argument", "Tipo deve ser entrada, restante ou total");
     if (valor <= 0) throw new ErroDominio("failed-precondition", "Não há nada a cobrar nesse pedido");
 

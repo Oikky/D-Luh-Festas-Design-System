@@ -20,8 +20,9 @@ lógica no Worker **`dluh-api`** (Cloudflare, plano grátis). Plano e inventári
 |---|---|---|
 | `/api/criarPedido` | admin (pedido manual); depois o site | Cria `PED-3001`, `PED-3002`… (acima da numeração do Coda) |
 | `/api/mudarStatus` | admin, cozinha | Troca o status (só os 8 valores do `StatusBadge`) |
-| `/api/gerarCobranca` | admin | Link InfinitePay de `entrada` (50%), `restante` ou `total` |
-| `/api/registrarPagamentoManual` | admin | Pix por fora, dinheiro, maquininha |
+| `/api/marcarFeito` | cozinha | Tira o pedido da fila (`cozinha: "feito"`); não mexe em status nem pagamento |
+| `/api/gerarCobranca` | admin | Link InfinitePay de `entrada` (`entradaPct` do pedido: 50% ou 100%), `restante` ou `total` |
+| `/api/registrarPagamentoManual` | admin | Pix por fora, dinheiro, maquininha ou `outro` |
 | `/webhook/infinitepay` | InfinitePay | Confere no `payment_check` e registra; aviso repetido conta uma vez |
 
 `/api/*` exige `Authorization: Bearer <ID token>` de um e-mail da equipe. Erros voltam como
@@ -33,7 +34,8 @@ Quando o primeiro pagamento chega num pedido em "Confirmado — Esperando pagame
 ## Coleções
 
 - `sis_pedidos/{PED-n}` — `cliente{nome,telefone}`, `clienteUid?`, `tipo`, `entrega{modo,data,hora,endereco?}`,
-  `itens[{nome,qtd,valorUnit,produtoId?,obs?,topo?}]`, `taxaEntrega`, `total`, `pago`, `pagamento`, `status`, `obs`, `origem`, `criadoEm`, `atualizadoEm`
+  `itens[{nome,qtd,valorUnit,produtoId?,obs?,topo?}]`, `taxaEntrega`, `total`, `entradaPct`, `formaPagamento?`, `pago`, `pagamento`,
+  `status`, `cozinha` (`pendente`/`feito`), `obs`, `origem`, `criadoEm`, `atualizadoEm` — `entrega.hora` pode ser vazia
 - `sis_pedidos/{id}/eventos` — histórico
 - `sis_pagamentos/{chave}` — um documento por pagamento; a chave impede contar duas vezes
 - `sis_config/contador` — último número de pedido
@@ -67,4 +69,5 @@ npm run deploy:worker  # publica o Worker dluh-api
 ## Ainda falta
 
 Telegram, WhatsApp, Google Agenda, upload do topo do bolo, produtos/recheios/limites de horário,
-bot de status do cliente, backup diário, e ligar o `api.js` do admin e o painel da cozinha.
+bot de status do cliente, backup diário, editar pedido, e ligar Agenda/Financeiro/Visão geral.
+Ligados no admin (`?fonte=firebase`): Cozinha e Pedidos.

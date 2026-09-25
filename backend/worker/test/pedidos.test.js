@@ -67,6 +67,17 @@ test("criarPedido numera em sequência, soma em centavos e registra evento", asy
   assert.deepEqual((await eventos(a.id)).map(e => e.tipo), ["criado"]);
 });
 
+test("criarPedido guarda entrada 100%, forma de pagamento e aceita hora vazia", async () => {
+  const { id } = await criarPedido(db, { ...base(), entrega: { modo: "retirada", data: "2026-10-10", hora: "" }, entradaPct: 100, formaPagamento: "dinheiro" }, "ana");
+  const p = (await db.doc(`sis_pedidos/${id}`).get()).data();
+  assert.equal(p.entradaPct, 100);
+  assert.equal(p.formaPagamento, "dinheiro");
+  assert.equal(p.entrega.hora, "");
+  const q = (await db.doc(`sis_pedidos/${(await criarPedido(db, { ...base(), formaPagamento: "cheque" }, "ana")).id}`).get()).data();
+  assert.equal(q.entradaPct, 50);
+  assert.equal(q.formaPagamento, undefined);
+});
+
 test("criarPedido recusa dados inválidos", async () => {
   await assert.rejects(criarPedido(db, { ...base(), itens: [] }, "x"), /pelo menos um item/);
   await assert.rejects(criarPedido(db, { ...base(), entrega: { modo: "entrega", data: "2026-10-10", hora: "15:00" } }, "x"), /endereço/);

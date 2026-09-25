@@ -39,9 +39,14 @@ function Anexo({ arquivo, onFile }) {
 }
 
 const PG_COLS = "minmax(0,1fr) minmax(0,.8fr) minmax(0,1.4fr) 40px";
+const MODO_REAL = () => window.DLUH_API.modo === "firebase";
+const MEIO_API = { "Pix": "pix", "Dinheiro": "dinheiro", "Cartão": "cartao" };
+const novaChave = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 
-function PagamentosModal({ lista, onChange, onClose, onToast, acao, pendente }) {
+function PagamentosModal({ lista, onChange, pedido, onClose, onToast, acao, pendente }) {
+  const real = MODO_REAL();
   const [valor, setValor] = React.useState("");
+  const [meio, setMeio] = React.useState(pedido && MEIO_API[pedido.pgto] ? pedido.pgto : "Pix");
   const [arquivo, setArquivo] = React.useState(null);
   const [remover, setRemover] = React.useState(null);
   const [erroValor, setErroValor] = React.useState(null);
@@ -53,7 +58,8 @@ function PagamentosModal({ lista, onChange, onClose, onToast, acao, pendente }) 
     if (!(v > 0)) { setErroValor("Digite um valor maior que zero"); return; }
     setErroValor(null);
     const ok = await acao("registrar-pagamento", { ok: "Pagamento registrado", falhou: "Não deu pra registrar o pagamento" },
-      () => onChange([...lista, { quando: agora(), valor: v, arquivo, origem: "manual" }]));
+      () => onChange([...lista, { quando: agora(), valor: v, arquivo, origem: "manual" }]),
+      pedido ? { acao: "registrarPagamentoManual", dados: { pedidoId: pedido.id, valor: Math.round(v * 100), meio: MEIO_API[meio], chave: novaChave() } } : undefined);
     if (ok) { setValor(""); setArquivo(null); }
   };
   return (<>
@@ -68,13 +74,13 @@ function PagamentosModal({ lista, onChange, onClose, onToast, acao, pendente }) 
           <div key={i} style={{ display: "grid", gridTemplateColumns: PG_COLS, gap: 12, alignItems: "center", padding: "10px 14px", borderTop: "var(--border-hairline) solid var(--color-border)", fontSize: "var(--fs-body-s)" }}>
             <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.3, minWidth: 0 }}>
               <span style={{ color: "var(--text-body)", whiteSpace: "nowrap" }}>{p.quando || (p.origem === "site" ? "Pelo site" : "Manual")}</span>
-              <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>{p.origem === "site" ? (p.quando ? "Pelo site · " : "") + (p.meio || "Pix") : "Manual"}</span>
+              <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>{p.origem === "site" ? (p.quando ? "Pelo site · " : "") + (p.meio || "Pix") : "Manual" + (p.meio ? " · " + p.meio : "")}</span>
             </span>
             <span style={{ textAlign: "right", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", whiteSpace: "nowrap" }}>{brl(p.valor)}</span>
             {p.origem === "site"
               ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}><PM.Icon name="check" size={14} />Confirmado automaticamente</span>
-              : <Anexo arquivo={p.arquivo} onFile={n => onChange(lista.map((x, j) => j === i ? { ...x, arquivo: n } : x))} />}
-            {p.origem === "site" ? <span /> : <PM.IconButton icon="trash-2" label="Remover pagamento" size={36} onClick={() => setRemover(i)} />}
+              : real ? <span /> : <Anexo arquivo={p.arquivo} onFile={n => onChange(lista.map((x, j) => j === i ? { ...x, arquivo: n } : x))} />}
+            {p.origem === "site" || real ? <span /> : <PM.IconButton icon="trash-2" label="Remover pagamento" size={36} onClick={() => setRemover(i)} />}
           </div>
         )) : <div style={{ padding: "14px", borderTop: "var(--border-hairline) solid var(--color-border)", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Nenhum pagamento registrado.</div>}
         <div style={{ display: "grid", gridTemplateColumns: PG_COLS, gap: 12, alignItems: "center", padding: "12px 14px", borderTop: "var(--border-hairline) solid var(--color-border-strong)", background: "var(--color-accent-soft)" }}>
@@ -85,7 +91,9 @@ function PagamentosModal({ lista, onChange, onClose, onToast, acao, pendente }) 
       </div>
       <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "minmax(0,1fr) auto auto", gap: 12, alignItems: "start" }}>
         <PM.Field label="Novo pagamento" error={erroValor}><PM.Input type="number" prefix="R$" step="0.01" min="0" placeholder="0,00" invalid={!!erroValor} value={valor} onChange={e => { setValor(e.target.value); setErroValor(null); }} /></PM.Field>
-        <div style={{ height: 40, marginTop: 21, display: "flex", alignItems: "center" }}><Anexo arquivo={arquivo} onFile={setArquivo} /></div>
+        {real
+          ? <PM.Field label="Como pagou"><PM.Select options={Object.keys(MEIO_API)} value={meio} onChange={e => setMeio(e.target.value)} /></PM.Field>
+          : <div style={{ height: 40, marginTop: 21, display: "flex", alignItems: "center" }}><Anexo arquivo={arquivo} onFile={setArquivo} /></div>}
         <PM.Button tone="success" icon="plus" loading={pendente === "registrar-pagamento"} onClick={registrar} style={{ marginTop: 21 }}>Registrar</PM.Button>
       </div>
     </PM.Modal>
@@ -100,7 +108,7 @@ function PagamentosModal({ lista, onChange, onClose, onToast, acao, pendente }) 
   </>);
 }
 
-const novoRascunho = n => ({ uid: Date.now() + n, cliente: "", tel: "", data: "", hora: "", entrega: "Retirada no local", pgto: "Pix", entrada: 50, tipo: "Pessoa física", obs: "", itens: [{ nome: "", qtd: 1, preco: "" }] });
+const novoRascunho = n => ({ uid: Date.now() + n, cliente: "", tel: "", data: "", hora: "", entrega: "Retirada no local", endereco: "", pgto: "Pix", entrada: 50, tipo: "Pessoa física", obs: "", itens: [{ nome: "", qtd: 1, preco: "" }] });
 const totalRascunho = r => r.itens.reduce((s, it) => s + (Number(it.qtd) || 0) * (parseFloat(String(it.preco).replace(",", ".")) || 0), 0);
 const ITEM_COLS = "minmax(0,1fr) 80px 130px 44px";
 
@@ -110,10 +118,21 @@ const faltas = r => {
   if (!r.cliente.trim()) f.cliente = "Preencha o nome do cliente";
   if (!r.tel.trim()) f.tel = "Preencha o WhatsApp";
   if (!r.data) f.data = "Escolha a data de entrega";
+  if (r.entrega === "Entrega em endereço" && !r.endereco.trim()) f.endereco = "Preencha o endereço de entrega";
   if (!r.itens.some(it => it.nome.trim() && parseFloat(String(it.preco).replace(",", ".")) > 0)) f.itens = "Adicione pelo menos um produto com preço";
   return f;
 };
-const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.itens.some(it => it.nome || it.preco));
+const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.endereco || r.itens.some(it => it.nome || it.preco));
+
+/* The draft as the Worker's criarPedido expects it: money in centavos, only priced items. */
+const paraApi = r => ({
+  cliente: { nome: r.cliente.trim(), telefone: r.tel },
+  tipo: r.tipo === "Empresa" ? "empresa" : "pessoa",
+  entrega: { modo: r.entrega === "Entrega em endereço" ? "entrega" : "retirada", data: r.data, hora: r.hora, endereco: r.endereco.trim() },
+  itens: r.itens.filter(it => it.nome.trim() && parseFloat(String(it.preco).replace(",", ".")) > 0)
+    .map(it => ({ nome: it.nome.trim(), qtd: Math.max(1, parseInt(it.qtd, 10) || 1), valorUnit: Math.round(parseFloat(String(it.preco).replace(",", ".")) * 100) })),
+  obs: r.obs, entradaPct: r.entrada, formaPagamento: MEIO_API[r.pgto], origem: "admin"
+});
 
 function ManualModal({ compact, onClose, onToast, acao, pendente }) {
   const [lista, setLista] = React.useState([novoRascunho(0)]);
@@ -134,7 +153,17 @@ function ManualModal({ compact, onClose, onToast, acao, pendente }) {
   const criar = async () => {
     const i = lista.findIndex(x => Object.keys(faltas(x)).length);
     if (i >= 0) { setTentou(true); setAtivo(i); return; }
-    const ok = await acao("criar-pedido", { ok: n > 1 ? `${n} pedidos criados` : "Pedido criado", falhou: n > 1 ? "Não deu pra criar os pedidos" : "Não deu pra criar o pedido" });
+    /* One call per draft; each one that is created leaves the list, so a failure halfway never
+       creates the same order twice when the atendente tries again. */
+    const ok = await acao("criar-pedido", { ok: n > 1 ? `${n} pedidos criados` : "Pedido criado", falhou: n > 1 ? "Não deu pra criar os pedidos" : "Não deu pra criar o pedido" }, null,
+      async chamar => {
+        for (const x of lista) {
+          await chamar("criarPedido", paraApi(x));
+          setLista(l => l.length > 1 ? l.filter(y => y.uid !== x.uid) : l);
+          setAtivo(0);
+        }
+        return { ok: true };
+      });
     if (ok) onClose();
   };
   const item = (it, j) => {
@@ -154,7 +183,7 @@ function ManualModal({ compact, onClose, onToast, acao, pendente }) {
 
   return (<>
     <PM.Modal width={860} title={n > 1 ? "Pedidos manuais" : "Pedido manual"} onClose={fechar}
-      subtitle="Mesmo fluxo do site: registra no Coda, notifica o Telegram (Confirmar Estoque) e segue o ciclo normal — cobrança, fila da cozinha, avisos no WhatsApp do cliente."
+      subtitle="Mesmo fluxo do site: o pedido entra em Estoque pendente e segue o ciclo normal — confirmar estoque, cobrança, fila da cozinha."
       footer={<>
         <PM.Button variant="ghost" block onClick={fechar}>Cancelar</PM.Button>
         <PM.Button block icon="check" loading={pendente === "criar-pedido"} onClick={criar}>{n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : "Criar pedido"}</PM.Button>
@@ -190,6 +219,9 @@ function ManualModal({ compact, onClose, onToast, acao, pendente }) {
         <PM.Field label="Data de entrega" required error={erros.data}><PM.Input type="date" invalid={!!erros.data} {...ctl("data")} /></PM.Field>
         <PM.Field label="Hora"><PM.Input type="time" {...ctl("hora")} /></PM.Field>
         <PM.Field label="Entrega"><PM.Select options={["Retirada no local", "Entrega em endereço"]} {...ctl("entrega")} /></PM.Field>
+        {r.entrega === "Entrega em endereço"
+          ? <PM.Field label="Endereço" required error={erros.endereco}><PM.Input placeholder="Rua, número, bairro" invalid={!!erros.endereco} {...ctl("endereco")} /></PM.Field>
+          : null}
         <PM.Field label="Pagamento"><PM.Select options={["Pix", "Cartão", "Dinheiro"]} {...ctl("pgto")} /></PM.Field>
         <PM.Field label="Entrada" hint="Percentual cobrado agora"><EntradaToggle value={r.entrada} onChange={v => set("entrada", v)} /></PM.Field>
         <PM.Field label="Observações"><PM.Input placeholder="Opcional" {...ctl("obs")} /></PM.Field>

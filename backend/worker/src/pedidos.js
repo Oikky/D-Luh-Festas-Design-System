@@ -2,7 +2,7 @@
    sis_pedidos/{id}/eventos — é o histórico de quem mudou o quê, e quando.
    Recebem o Firestore por parâmetro para os testes rodarem contra o emulador. */
 import { FieldValue } from "./firestore.js";
-import { STATUS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio } from "./dominio.js";
+import { STATUS, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio } from "./dominio.js";
 
 const PEDIDOS = "sis_pedidos";
 const PAGAMENTOS = "sis_pagamentos";
@@ -26,12 +26,15 @@ async function criarPedido(db, dados, por) {
   const data = String(dados.entrega.data || "");
   const hora = String(dados.entrega.hora || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) throw new ErroDominio("invalid-argument", "Data no formato AAAA-MM-DD");
-  if (!/^\d{2}:\d{2}$/.test(hora)) throw new ErroDominio("invalid-argument", "Hora no formato HH:MM");
+  if (hora && !/^\d{2}:\d{2}$/.test(hora)) throw new ErroDominio("invalid-argument", "Hora no formato HH:MM");
   if (modo === "entrega" && !String(dados.entrega.endereco || "").trim()) throw new ErroDominio("invalid-argument", "Entrega precisa de endereço");
 
   const itens = validarItens(dados.itens);
   const taxaEntrega = centavos(dados.taxaEntrega ?? 0, "taxaEntrega");
   const total = totalDe(itens, taxaEntrega);
+  // Quanto do total a cobrança de entrada pede: 50% (padrão) ou 100% (tudo agora).
+  const entradaPct = dados.entradaPct === 100 ? 100 : 50;
+  const formaPagamento = MEIOS.includes(dados.formaPagamento) ? dados.formaPagamento : null;
 
   return db.runTransaction(async tx => {
     const contRef = db.doc(CONTADOR);
@@ -47,7 +50,8 @@ async function criarPedido(db, dados, por) {
       ...(dados.clienteUid ? { clienteUid: String(dados.clienteUid) } : {}),
       tipo: dados.tipo === "empresa" ? "empresa" : "pessoa",
       entrega: { modo, data, hora, ...(modo === "entrega" ? { endereco: String(dados.entrega.endereco).trim() } : {}) },
-      itens, taxaEntrega, total,
+      itens, taxaEntrega, total, entradaPct,
+      ...(formaPagamento ? { formaPagamento } : {}),
       pago: 0,
       pagamento: "Não pago",
       status: "Aguardando confirmação",

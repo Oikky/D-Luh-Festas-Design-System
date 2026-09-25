@@ -24,7 +24,9 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
     const db = F.initializeFirestore(app, { localCache: F.persistentLocalCache() });
 
     const CONSULTAS = {
-      fila: () => F.query(F.collection(db, "sis_pedidos"), F.where("status", "==", "Em produção"))
+      fila: () => F.query(F.collection(db, "sis_pedidos"), F.where("status", "==", "Em produção")),
+      pedidos: () => F.collection(db, "sis_pedidos"),
+      pagamentos: pedidoId => F.query(F.collection(db, "sis_pagamentos"), F.where("pedidoId", "==", pedidoId))
     };
 
     return {
@@ -34,8 +36,8 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
 
       /* Chama aoDados a cada mudança, com { doCache: true } quando o que chegou é do cache local
          (sem conexão com o servidor). Devolve a função que para de ouvir. */
-      assinar(nome, aoDados, aoErro) {
-        return F.onSnapshot(CONSULTAS[nome](), { includeMetadataChanges: true },
+      assinar(nome, aoDados, aoErro, param) {
+        return F.onSnapshot(CONSULTAS[nome](param), { includeMetadataChanges: true },
           snap => aoDados(snap.docs.map(d => ({ id: d.id, ...d.data() })), { doCache: snap.metadata.fromCache }),
           aoErro);
       },

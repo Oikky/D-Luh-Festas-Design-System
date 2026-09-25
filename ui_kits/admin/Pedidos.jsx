@@ -14,37 +14,83 @@ const TABS = [
 ];
 
 const valor = s => Number(String(s || "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+const REAL = () => window.DLUH_API.modo === "firebase";
+const reais = c => window.brl((c || 0) / 100);
+/* What "Cobrar entrada" will ask for: the order's entry share (50% or 100%) minus what came in. */
+const entradaDe = p => p._c ? reais(Math.max(0, Math.round(p._c.total * p._c.entradaPct / 100) - p._c.pago)) : p.falta;
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+const para = p => p.cliente || "o cliente";
 const casa = (p, q) => !q || [p.cliente, p.id, p.tel].some(v => String(v || "").toLowerCase().includes(q.toLowerCase()));
 
 /* Every confirmation the order card can open. Money actions name the amount in the question. */
 const quem = p => p.cliente || "O cliente";
 const CONFIRMA = {
+  /* Confirming stock moves the order on and prepares the entry link in one go; the link opens
+     in a dialog so the atendente sends it on WhatsApp. */
   estoque: p => ({ tone: "accent", icon: "circle-check", title: "Confirmar estoque?",
-    message: "O cliente recebe o link de pagamento da entrada e o pedido vai para Esperando pagamento.",
+    message: "O pedido vai para Esperando pagamento e o link da entrada fica pronto para enviar ao cliente.",
     confirmLabel: "Sim, confirmar", ok: "Estoque confirmado", falhou: "Não deu pra confirmar o estoque",
-    aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Confirmado — Esperando pagamento" } : x) }),
-  entrada: p => ({ tone: "chargeEntry", icon: "link", title: p.falta ? `Cobrar entrada de ${p.falta}?` : "Cobrar entrada?",
-    message: `${quem(p)} recebe o link de pagamento da entrada.` + (p.falta ? "" : " O valor da entrada não está preenchido neste pedido."),
-    confirmLabel: "Sim, cobrar", ok: "Link de cobrança enviado", falhou: "Não deu pra enviar a cobrança" }),
+    aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Confirmado — Esperando pagamento" } : x),
+    pedido: async chamar => {
+      await chamar("mudarStatus", { pedidoId: p.id, status: "Confirmado — Esperando pagamento" });
+      return { ...(await chamar("gerarCobranca", { pedidoId: p.id, tipo: "entrada" })), rotulo: "Entrada" };
+    } }),
+  entrada: p => ({ tone: "chargeEntry", icon: "link", title: entradaDe(p) ? `Cobrar entrada de ${entradaDe(p)}?` : "Cobrar entrada?",
+    message: `Gera o link de pagamento da entrada para enviar a ${para(p)}.` + (entradaDe(p) ? "" : " O valor da entrada não está preenchido neste pedido."),
+    confirmLabel: "Sim, gerar link", ok: "Link de cobrança gerado", falhou: "Não deu pra gerar a cobrança",
+    pedido: async chamar => ({ ...(await chamar("gerarCobranca", { pedidoId: p.id, tipo: "entrada" })), rotulo: "Entrada" }) }),
   restante: p => ({ tone: "chargeAll", icon: "banknote", title: p.falta ? `Cobrar restante de ${p.falta}?` : "Cobrar restante?",
-    message: `${quem(p)} recebe o link de pagamento do restante.` + (p.falta ? "" : " O valor do restante não está preenchido neste pedido."),
-    confirmLabel: "Sim, cobrar", ok: "Cobrança do restante enviada", falhou: "Não deu pra enviar a cobrança do restante" }),
-  pago: p => ({ tone: "success", icon: "badge-check", title: "Marcar como pago?",
-    message: `O pedido de ${p.cliente || "este cliente"} fica como totalmente pago. Nenhuma cobrança é enviada.`,
-    confirmLabel: "Sim, marcar pago", ok: "Pagamento registrado", falhou: "Não deu pra registrar o pagamento" }),
+    message: `Gera o link de pagamento do restante para enviar a ${para(p)}.` + (p.falta ? "" : " O valor do restante não está preenchido neste pedido."),
+    confirmLabel: "Sim, gerar link", ok: "Link do restante gerado", falhou: "Não deu pra gerar a cobrança do restante",
+    pedido: async chamar => ({ ...(await chamar("gerarCobranca", { pedidoId: p.id, tipo: "restante" })), rotulo: "Restante" }) }),
+  pago: p => ({ tone: "success", icon: "badge-check", title: p.falta ? `Marcar como pago (${p.falta})?` : "Marcar como pago?",
+    message: `Registra que ${para(p)} pagou o que faltava, fora do link. Nenhuma cobrança é enviada.`,
+    confirmLabel: "Sim, marcar pago", ok: "Pagamento registrado", falhou: "Não deu pra registrar o pagamento",
+    pedido: p._c ? { acao: "registrarPagamentoManual", dados: { pedidoId: p.id, valor: p._c.falta, meio: p._c.formaPagamento || "outro", chave: uuid() } } : undefined }),
+  cancelar: p => ({ tone: "danger", icon: "circle-x", title: "Cancelar pedido?",
+    message: "O pedido vai para Cancelados e sai da fila da cozinha. O histórico continua guardado.", confirmLabel: "Sim, cancelar",
+    ok: "Pedido cancelado", falhou: "Não deu pra cancelar o pedido",
+    pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Cancelado" } } }),
   apagar: p => ({ tone: "danger", icon: "trash-2", title: "Apagar pedido?",
-    message: "O pedido sai da fila e do Coda. Não dá pra desfazer.", confirmLabel: "Sim, apagar",
+    message: "O pedido sai da fila e do sistema. Não dá pra desfazer.", confirmLabel: "Sim, apagar",
     ok: "Pedido apagado", falhou: "Não deu pra apagar o pedido", aplicar: l => l.filter(x => x.id !== p.id) })
 };
 
+/* A charge is a link the atendente sends; this is where it lands after it's generated. */
+function LinkCobranca({ link, onClose, onToast }) {
+  const fone = String(link.tel || "").replace(/\D/g, "");
+  const msg = `Olá, ${link.cliente || ""}! 🩷\n\nSeu pedido ${link.pedidoId} na D'Luh Festas — ${link.rotulo.toLowerCase()} de ${reais(link.valor)}.\nPague pelo link: ${link.url}`;
+  const copiar = () => navigator.clipboard.writeText(link.url).then(() => onToast("Link copiado"), () => onToast("Não deu pra copiar: selecione o link e copie", "danger"));
+  return <Modal width={520} title="Link de pagamento pronto" onClose={onClose}
+    subtitle={`${link.rotulo} de ${reais(link.valor)} · ${link.pedidoId} · ${link.cliente || "cliente"}`}
+    footer={<>
+      <Button variant="ghost" block icon="copy" onClick={copiar}>Copiar link</Button>
+      <Button block icon="message-circle" disabled={fone.length < 10}
+        onClick={() => window.open(`https://wa.me/${fone.length <= 11 ? "55" + fone : fone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener")}>Enviar no WhatsApp</Button>
+    </>}>
+    <Field label="Link"><Input readOnly value={link.url} onFocus={e => e.target.select()} /></Field>
+    <div style={{ marginTop: 10, fontSize: "var(--fs-body-s)", color: "var(--text-muted)", lineHeight: "var(--lh-normal)" }}>
+      Quando o cliente pagar, o pagamento entra sozinho no pedido.
+    </div>
+  </Modal>;
+}
+
+const copiarPedido = (p, onToast) => navigator.clipboard.writeText([
+  `${p.id} — ${p.cliente}`, p.tel, p.entrega, p.endereco || null,
+  ...(p.itens || []).map(i => `${i.qty}× ${i.name}${i.note ? ` (${i.note})` : ""}`),
+  `Total ${p.total}${p.falta ? ` · falta ${p.falta}` : ""}`
+].filter(Boolean).join("\n")).then(() => onToast("Dados copiados"), () => onToast("Não deu pra copiar os dados", "danger"));
+
 function DetalhesModal({ pedido, onClose, onToast, acao, pendente }) {
-  /* What the order already received comes from the order itself. The site does not report
-     when it was paid, so that row carries no timestamp until Coda provides one. */
-  const [pgtos, setPgtos] = React.useState(() => pedido && valor(pedido.pago) > 0
+  /* Demo: what the order already received comes from the order itself. Real system: every
+     payment is its own record, live. */
+  const [pgtosDemo, setPgtos] = React.useState(() => pedido && valor(pedido.pago) > 0
     ? [{ quando: null, valor: valor(pedido.pago), origem: "site", meio: pedido.pgto }] : []);
+  const aoVivo = useAoVivo(REAL() ? "pagamentos" : "nada", REAL() && pedido ? pedido.id : undefined);
+  const pgtos = REAL() ? aoVivo.dados || [] : pgtosDemo;
   const [verPgtos, setVerPgtos] = React.useState(false);
   if (!pedido) return null;
-  const recebido = pgtos.reduce((s, p) => s + p.valor, 0);
+  const recebido = REAL() ? valor(pedido.pago) : pgtos.reduce((s, p) => s + p.valor, 0);
   return (<>
     <Modal width={620} title="Detalhes do pedido" onClose={onClose}
       subtitle="Edite os dados do cliente, a entrega e o pagamento."
@@ -63,6 +109,7 @@ function DetalhesModal({ pedido, onClose, onToast, acao, pendente }) {
         <Field label="Cliente" required><Input defaultValue={pedido.cliente || ""} /></Field>
         <Field label="WhatsApp" required><Input defaultValue={pedido.tel || ""} /></Field>
         <Field label="Entrega"><Select options={["Retirada no local", "Entrega em endereço"]} defaultValue={pedido.modo || undefined} /></Field>
+        {pedido.endereco ? <Field label="Endereço"><Input defaultValue={pedido.endereco} /></Field> : null}
         <Field label="Data"><Input type="date" defaultValue={pedido.data || ""} /></Field>
         <Field label="Hora"><Input type="time" defaultValue={pedido.hora || ""} /></Field>
         <Field label="Pagamento"><Select options={["Pix", "Cartão", "Dinheiro"]} defaultValue={pedido.pgto || undefined} /></Field>
@@ -80,7 +127,7 @@ function DetalhesModal({ pedido, onClose, onToast, acao, pendente }) {
         <Button size="sm" variant="outline" icon="list" onClick={() => setVerPgtos(true)}>Pagamentos ({pgtos.length})</Button>
       </div>
     </Modal>
-    {verPgtos ? <PagamentosModal lista={pgtos} onChange={setPgtos} onClose={() => setVerPgtos(false)} onToast={onToast} acao={acao} pendente={pendente} /> : null}
+    {verPgtos ? <PagamentosModal lista={pgtos} onChange={REAL() ? () => {} : setPgtos} pedido={pedido} onClose={() => setVerPgtos(false)} onToast={onToast} acao={acao} pendente={pendente} /> : null}
   </>);
 }
 
@@ -91,7 +138,8 @@ function Pedidos({ compact, q }) {
   const [confirm, setConfirm] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
-  const carga = useCarga(() => window.DLUH_API.carregar("pedidos"));
+  const carga = useAoVivo("pedidos");
+  const [link, setLink] = React.useState(null);
 
   const todos = carga.dados || [];
   const filtro = (TABS.find(t => t.id === tab) || TABS[0]).filtro;
@@ -123,7 +171,7 @@ function Pedidos({ compact, q }) {
             <Icon name="circle-alert" size={18} style={{ color: "var(--action-warn)" }} />
             {fora.length === 1 ? "1 pedido com status fora do padrão" : fora.length + " pedidos com status fora do padrão"}
           </div>
-          <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>O status não bate com nenhuma aba. Corrija no Coda para o pedido voltar ao fluxo.</div>
+          <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>O status não bate com nenhuma aba. Corrija o status para o pedido voltar ao fluxo.</div>
         </div>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {fora.map(p => <ListRow key={p.id} icon="receipt-text" title={p.cliente || "Cliente sem nome"}
           subtitle={p.id + " · status: " + (p.status || "vazio")} value={dinheiro(p.total)} onClick={() => setDetalhe(p)} />)}
@@ -143,6 +191,7 @@ function Pedidos({ compact, q }) {
               badges={<>
                 {p.tipo ? <Badge tone="accent" icon="building-2">{p.tipo}</Badge> : null}
                 {p.falta ? <Badge tone="warn">Falta {p.falta}</Badge> : null}
+                {p.feitoNaCozinha && p.status === "Em produção" ? <Badge tone="success" icon="chef-hat">Feito na cozinha</Badge> : null}
               </>}
               items={p.itens || []} total={p.total} paid={p.pago} due={p.falta}
               actions={<>
@@ -153,19 +202,21 @@ function Pedidos({ compact, q }) {
                   ? <Button size="sm" tone="chargeEntry" icon="link" onClick={() => pede("entrada", p)}>Cobrar entrada</Button>
                   : p.status === "Em produção"
                   ? <Button size="sm" tone="delivered" icon="truck" loading={pendente === "entregue-" + p.id}
-                      onClick={() => acao("entregue-" + p.id, { ok: "Pedido marcado como entregue", falhou: "Não deu pra marcar como entregue" })}>Marcar entregue</Button>
+                      onClick={() => acao("entregue-" + p.id, { ok: p.pagamento === "Totalmente pago" ? "Pedido entregue e finalizado" : "Pedido marcado como entregue", falhou: "Não deu pra marcar como entregue" }, null,
+                        { acao: "mudarStatus", dados: { pedidoId: p.id, status: p.pagamento === "Totalmente pago" ? "Finalizado" : "Entregue — Esperando restante" } })}>Marcar entregue</Button>
                   : p.status === "Entregue — Esperando restante"
                   ? <Button size="sm" tone="chargeAll" icon="banknote" onClick={() => pede("restante", p)}>Cobrar restante</Button>
                   : p.status === "Finalizado"
                   ? <Button size="sm" variant="outline" icon="printer" onClick={() => showToast("Recibo gerado")}>Recibo</Button>
                   : null}
                 <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
-                  { label: "Copiar dados do pedido", icon: "copy", onClick: () => showToast("Dados copiados") },
+                  { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
                   { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
                   { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }) },
                   { label: "Imprimir recibo", icon: "printer", onClick: () => showToast("Recibo enviado para impressão") },
                   { divider: true },
-                  { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => pede("apagar", p) }
+                  REAL() ? { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) }
+                    : { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => pede("apagar", p) }
                 ]} />
               </>} />
           ))}
@@ -185,9 +236,11 @@ function Pedidos({ compact, q }) {
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
           const c = confirm;
-          await acao(c.tipo, { ok: c.ok, falhou: c.falhou }, c.aplicar ? () => carga.setDados(c.aplicar) : null);
+          const r = await acao(c.tipo, { ok: c.ok, falhou: c.falhou }, c.aplicar ? () => carga.setDados(c.aplicar) : null, c.pedido);
           setConfirm(null);
+          if (r && r.url) setLink({ ...r, pedidoId: c.p.id, cliente: c.p.cliente, tel: c.p.tel });
         }} /> : null}
+      {link ? <LinkCobranca link={link} onClose={() => setLink(null)} onToast={showToast} /> : null}
       {toastNode}
     </div>
   );

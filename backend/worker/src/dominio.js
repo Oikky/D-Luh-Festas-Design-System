@@ -15,6 +15,9 @@ const STATUS = [
 
 const PAGAMENTO = ["Não pago", "Só entrada", "Totalmente pago"];
 
+/* Como o dinheiro entrou. "outro" é para quando a tela não sabe (ex.: "Marcar como pago"). */
+const MEIOS = ["pix", "dinheiro", "cartao", "outro"];
+
 /* Dinheiro sempre em centavos inteiros (é também o que a InfinitePay usa). */
 function pagamentoDe(totalCentavos, pagoCentavos) {
   if (pagoCentavos <= 0) return "Não pago";
@@ -53,4 +56,4 @@ class ErroDominio extends Error {
   constructor(codigo, mensagem) { super(mensagem); this.codigo = codigo; }
 }
 
-export { STATUS, PAGAMENTO, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };
+export { STATUS, PAGAMENTO, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };
