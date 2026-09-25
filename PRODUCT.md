@@ -52,7 +52,7 @@ transaction; this models a commitment with a date, a kitchen, and a remaining ba
   targets outrank visual flourish.
 - **Order lifecycle** (the six Status values, mirrored from a Coda single-select):
   `Aguardando confirmação` · `Verificando Estoque` · `Confirmado — Esperando pagamento` ·
-  `Pago — Em produção` · `Entregue — Esperando restante` · `Finalizado` · `Cancelado`.
+  `Em produção` · `Entregue — Esperando restante` · `Finalizado` · `Cancelado`.
 - **Payment state** is its own axis: `Não pago` / `Só entrada` / `Totalmente pago`.
 - **Systems the product already talks to:** Coda (the record of truth for orders), Telegram
   (the "Confirmar Estoque" round-trip), InfinitePay (payment links), WhatsApp (customer

@@ -6,7 +6,7 @@ export const STATUS = {
   "Aguardando confirmação":        { key: "aguardando", short: "Aguardando" },
   "Verificando Estoque":           { key: "aguardando", short: "Verificando estoque" },
   "Confirmado — Esperando pagamento": { key: "confirmado", short: "Esperando pagamento" },
-  "Pago — Em produção":            { key: "preparo", short: "Em produção" },
+  "Em produção":            { key: "preparo", short: "Em produção" },
   "Pronto":                        { key: "pronto", short: "Pronto" },
   "Entregue — Esperando restante": { key: "saiu", short: "Esperando restante" },
   "Finalizado":                    { key: "entregue", short: "Finalizado" },

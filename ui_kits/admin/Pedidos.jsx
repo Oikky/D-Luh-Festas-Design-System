@@ -7,7 +7,7 @@ const { Tabs, FilterPill, OrderCard, Button, IconButton, DropdownMenu, Badge, Em
 const TABS = [
   { id: "estoque", label: "Estoque pendente", filtro: ["Aguardando confirmação", "Verificando Estoque"] },
   { id: "pagamento", label: "Esperando pagamento", filtro: ["Confirmado — Esperando pagamento"] },
-  { id: "producao", label: "Em produção", filtro: ["Pago — Em produção"] },
+  { id: "producao", label: "Em produção", filtro: ["Em produção"] },
   { id: "restante", label: "Esperando restante", filtro: ["Entregue — Esperando restante"] },
   { id: "final", label: "Finalizados", filtro: ["Finalizado"] },
   { id: "cancelado", label: "Cancelados", filtro: ["Cancelado"] }
@@ -151,7 +151,7 @@ function Pedidos({ compact, q }) {
                   ? <Button size="sm" icon="check" onClick={() => pede("estoque", p)}>Confirmar estoque</Button>
                   : p.status === "Confirmado — Esperando pagamento"
                   ? <Button size="sm" tone="chargeEntry" icon="link" onClick={() => pede("entrada", p)}>Cobrar entrada</Button>
-                  : p.status === "Pago — Em produção"
+                  : p.status === "Em produção"
                   ? <Button size="sm" tone="delivered" icon="truck" loading={pendente === "entregue-" + p.id}
                       onClick={() => acao("entregue-" + p.id, { ok: "Pedido marcado como entregue", falhou: "Não deu pra marcar como entregue" })}>Marcar entregue</Button>
                   : p.status === "Entregue — Esperando restante"

@@ -10,7 +10,8 @@ function useCompact() {
 }
 
 function App() {
-  const [view, setView] = React.useState("visao");
+  // In the real system only the kitchen is wired so far, so it opens there.
+  const [view, setView] = React.useState(window.DLUH_API.modo === "firebase" ? "cozinha" : "visao");
   const compact = useCompact();
   const [theme, setTheme] = React.useState("dark");
   const [q, setQ] = React.useState("");
@@ -24,4 +25,4 @@ function App() {
     </div>
   );
 }
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+ReactDOM.createRoot(document.getElementById("root")).render(<window.Portao><App /></window.Portao>);

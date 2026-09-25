@@ -1,0 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..800;1,400&family=Playfair+Display:wght@500;600;700&display=swap");
+/* Urbanist = UI + numerals (from the 2026 admin concept). Playfair Display = brand display,
+   inherited from the live D'Luh site (admin.css header-title, edit-title, confirm-title).
+   Both are served from Google Fonts; no local binaries ship with this system. */

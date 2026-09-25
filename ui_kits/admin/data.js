@@ -2,7 +2,7 @@ window.DLUH = {
   /* The shop day the fake rows are built around. Agenda opens on it and the rail counts it. */
   hoje: "2026-06-12",
   pedidos: [
-    { id: "PED-2291", data: "2026-06-12", hora: "15:00", modo: "Entrega em endereço", cliente: "Maria Helena", status: "Pago — Em produção", tel: "(38) 99812-4410",
+    { id: "PED-2291", data: "2026-06-12", hora: "15:00", modo: "Entrega em endereço", cliente: "Maria Helena", status: "Em produção", tel: "(38) 99812-4410",
       entrega: "12/06 · 15h", pgto: "Pix", tipo: null, total: "R$ 480,00", pago: "R$ 240,00", falta: "R$ 240,00",
       itens: [{ qty: 1, name: "Bolo Vulcão 2kg", note: "Recheio: ninho com nutella", topper: "Topo: “Ana faz 5”", price: "R$ 240,00" },
               { qty: 100, name: "Salgados sortidos", note: "Coxinha, risoles, quibe", price: "R$ 228,00" },
@@ -37,13 +37,13 @@ window.DLUH = {
     { data: "2026-06-25", tipo: "boleto", cliente: "Simples Nacional", titulo: "DAS — competência maio", valor: "R$ 1.482,77", situacao: "A vencer" },
     { data: "2026-06-08", tipo: "boleto", cliente: "Embalagens Montes Claros", titulo: "Caixas para bolo e forminhas", valor: "R$ 438,00", situacao: "Vencido", parcela: "1/2" },
     { data: "2026-06-10", tipo: "encomenda", hora: "18:00", cliente: "Ana Cláudia", titulo: "Bolo de festa 3 andares — jardim encantado", valor: "R$ 320,00", status: "Entregue — Esperando restante" },
-    { data: "2026-06-12", tipo: "encomenda", hora: "15:00", cliente: "Maria Helena", titulo: "Bolo Vulcão 2kg · 100 salgados sortidos", valor: "R$ 480,00", status: "Pago — Em produção" },
-    { data: "2026-06-12", tipo: "buffet", hora: "19:30", cliente: "Família Prates", titulo: "Buffet completo — aniversário de 15 anos", local: "Espaço Villa Bella", convidados: 120, valor: "R$ 8.400,00", status: "Pago — Em produção" },
+    { data: "2026-06-12", tipo: "encomenda", hora: "15:00", cliente: "Maria Helena", titulo: "Bolo Vulcão 2kg · 100 salgados sortidos", valor: "R$ 480,00", status: "Em produção" },
+    { data: "2026-06-12", tipo: "buffet", hora: "19:30", cliente: "Família Prates", titulo: "Buffet completo — aniversário de 15 anos", local: "Espaço Villa Bella", convidados: 120, valor: "R$ 8.400,00", status: "Em produção" },
     { data: "2026-06-13", tipo: "encomenda", hora: "11:00", cliente: "Willian Bicalho", titulo: "2 bolos Red Velvet · 50 docinhos gourmet", valor: "R$ 740,00", status: "Confirmado — Esperando pagamento" },
     { data: "2026-06-14", tipo: "encomenda", hora: "07:00", cliente: "Padaria Central", titulo: "400 salgados para revenda — contrato semanal", valor: "R$ 1.240,00", status: "Aguardando confirmação" },
     { data: "2026-06-14", tipo: "festa", hora: "16:00", cliente: "Tiago Meireles", titulo: "Locação do salão — aniversário infantil", local: "Salão D'Luh", convidados: 60, valor: "R$ 1.800,00", status: "Confirmado — Esperando pagamento" },
     { data: "2026-06-18", tipo: "buffet", hora: "20:00", cliente: "Colégio São José", titulo: "Buffet de formatura", local: "Auditório do colégio", convidados: 250, valor: "R$ 14.200,00", status: "Aguardando confirmação" },
-    { data: "2026-06-20", tipo: "festa", hora: "14:00", cliente: "Rafaela Prates", titulo: "Locação do salão — chá de bebê", local: "Salão D'Luh", convidados: 45, valor: "R$ 1.500,00", status: "Pago — Em produção" },
+    { data: "2026-06-20", tipo: "festa", hora: "14:00", cliente: "Rafaela Prates", titulo: "Locação do salão — chá de bebê", local: "Salão D'Luh", convidados: 45, valor: "R$ 1.500,00", status: "Em produção" },
     { data: "2026-06-21", tipo: "encomenda", hora: "09:30", cliente: "João Vitor", titulo: "Torta salgada grande — frango com catupiry", valor: "R$ 188,00", status: "Finalizado" },
     { data: "2026-06-27", tipo: "buffet", hora: "12:00", cliente: "Empresa Minas Log", titulo: "Coffee break corporativo", local: "Sede da empresa", convidados: 80, valor: "R$ 3.900,00", status: "Confirmado — Esperando pagamento" }
   ],
@@ -72,7 +72,7 @@ window.DLUH = {
   serieSemana: [8, 11, 9, 14, 12, 19, 14],
   serieReceita: [1200, 1680, 1440, 2100, 1980, 2740, 2320],
   recentes: [
-    { id: 1, nome: "Maria Helena", cat: "Bolo", status: "Pago — Em produção", total: "R$ 480,00", data: "12/06", hora: "14:00" },
+    { id: 1, nome: "Maria Helena", cat: "Bolo", status: "Em produção", total: "R$ 480,00", data: "12/06", hora: "14:00" },
     { id: 2, nome: "Willian Bicalho", cat: "Docinhos", status: "Confirmado — Esperando pagamento", total: "R$ 740,00", data: "13/06", hora: "10:30" },
     { id: 3, nome: "Padaria Central", cat: "Empresa", status: "Aguardando confirmação", total: "R$ 1.240,00", data: "14/06", hora: "08:00" },
     { id: 4, nome: "Ana Cláudia", cat: "Bolo de festa", status: "Entregue — Esperando restante", total: "R$ 320,00", data: "10/06", hora: "16:00" },

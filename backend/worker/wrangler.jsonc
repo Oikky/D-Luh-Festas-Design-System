@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dluh-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "vars": {
+    "FIREBASE_PROJECT_ID": "dluh-festas",
+    // Chave pública do app web (a mesma que está no site); não é segredo.
+    "FIREBASE_API_KEY": "AIzaSyCV7LcTZmCE9MpezCvBah0hHQ245WYcixs",
+    "SISTEMA_EMAIL": "sistema@dluh-festas.firebaseapp.com",
+    "INFINITEPAY_HANDLE": "dluh_festas",
+    // Telas que podem chamar a API (separadas por vírgula).
+    "ORIGENS": "https://sitedluh.github.io,http://localhost:8000,http://127.0.0.1:8000"
+  }
+  // Segredo: SISTEMA_SENHA → `npx wrangler secret put SISTEMA_SENHA`
+}

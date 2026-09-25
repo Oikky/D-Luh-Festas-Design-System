@@ -32,8 +32,42 @@ function FilaCard({ p, onEntregar, pendente }) {
 const chip = { padding: "5px 12px", borderRadius: "var(--radius-pill)", background: "rgba(0,0,0,.15)", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)" };
 const seta = { width: 48, height: 48, background: "rgba(255,255,255,.16)", border: "1.5px solid rgba(255,255,255,.5)", color: "inherit" };
 
+/* The tablet sits on the counter all shift: keep the screen awake while the queue is open.
+   Browsers drop the lock when the tab hides, so it is asked for again on return. */
+function useTelaAcesa() {
+  React.useEffect(() => {
+    if (!("wakeLock" in navigator)) return;
+    let lock = null, vivo = true;
+    const pedir = () => { if (document.visibilityState === "visible") navigator.wakeLock.request("screen").then(l => { if (vivo) lock = l; else l.release(); }, () => {}); };
+    pedir();
+    document.addEventListener("visibilitychange", pedir);
+    return () => { vivo = false; document.removeEventListener("visibilitychange", pedir); if (lock) lock.release().catch(() => {}); };
+  }, []);
+}
+
+function useOnline() {
+  const [on, setOn] = React.useState(navigator.onLine);
+  React.useEffect(() => {
+    const sim = () => setOn(true), nao = () => setOn(false);
+    window.addEventListener("online", sim); window.addEventListener("offline", nao);
+    return () => { window.removeEventListener("online", sim); window.removeEventListener("offline", nao); };
+  }, []);
+  return on;
+}
+
+/* A queue that looks current but isn't is worse than a delay: say it loudly. */
+function SemConexao() {
+  return <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: "var(--radius-lg)",
+    background: "var(--action-warn-bg)", color: "var(--action-warn)", border: "1.5px solid var(--action-warn-line)",
+    fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-semibold)" }}>
+    <Icon name="wifi-off" size={20} /> Sem conexão — a fila pode estar desatualizada. Ela volta a atualizar sozinha.
+  </div>;
+}
+
 function Cozinha({ compact }) {
-  const carga = useCarga(() => window.DLUH_API.carregar("fila"));
+  const carga = useAoVivo("fila");
+  const online = useOnline();
+  useTelaAcesa();
   const fila = carga.dados || [];
   const [feature, setFeature] = React.useState(0);
   const [confirm, setConfirm] = React.useState(null);
@@ -46,7 +80,8 @@ function Cozinha({ compact }) {
      The card leaves the queue only after the server accepted it. */
   const feito = async x => {
     await acao("feito-" + x.id, { ok: "Pedido marcado como feito", falhou: "Não deu pra marcar como feito" },
-      () => carga.setDados(l => l.filter(y => y.id !== x.id)));
+      () => carga.setDados(l => l.filter(y => y.id !== x.id)),
+      { acao: "marcarFeito", dados: { pedidoId: x.id } });
     setConfirm(null);
   };
 
@@ -55,6 +90,7 @@ function Cozinha({ compact }) {
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", minHeight: "100%" }}>
+      {!online || carga.doCache ? <SemConexao /> : null}
       {p ? <div style={{
         borderRadius: "var(--radius-xl)", padding: compact ? "18px" : "24px 28px",
         background: "var(--color-accent-strong)", color: "var(--color-accent-contrast)",
@@ -84,7 +120,7 @@ function Cozinha({ compact }) {
 
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)" }}>Fila de hoje</div>
+          <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)" }}>Fila de produção</div>
           <Badge>{fila.length} {fila.length === 1 ? "pedido" : "pedidos"}</Badge>
           <div style={{ flex: 1 }} />
           <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
@@ -95,11 +131,11 @@ function Cozinha({ compact }) {
               {fila.map(x => <FilaCard key={x.id} p={x} onEntregar={setConfirm} pendente={pendente === "feito-" + x.id} />)}
             </div>
           : <Card padded={false}><EmptyState icon="chef-hat" title="Fila vazia"
-              description="Tudo o que era para hoje já foi feito. Pedidos pagos entram aqui automaticamente." /></Card>}
+              description="Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos." /></Card>}
       </div>
 
       {confirm ? <ConfirmDialog tone="delivered" icon="check" title="Marcar como feito?"
-        message={[confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila de hoje."}
+        message={[confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila."}
         cancelLabel="Voltar" confirmLabel="Sim, marcar feito" pending={pendente === "feito-" + confirm.id}
         onCancel={() => setConfirm(null)} onConfirm={() => feito(confirm)} /> : null}
       {toastNode}

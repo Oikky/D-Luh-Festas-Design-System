@@ -511,7 +511,7 @@ const STATUS = {
     key: "confirmado",
     short: "Esperando pagamento"
   },
-  "Pago — Em produção": {
+  "Em produção": {
     key: "preparo",
     short: "Em produção"
   },
@@ -4756,7 +4756,7 @@ const TABS = [{
 }, {
   id: "producao",
   label: "Em produção",
-  filtro: ["Pago — Em produção"]
+  filtro: ["Em produção"]
 }, {
   id: "restante",
   label: "Esperando restante",
@@ -5136,7 +5136,7 @@ function Pedidos({
       tone: "chargeEntry",
       icon: "link",
       onClick: () => pede("entrada", p)
-    }, "Cobrar entrada") : p.status === "Pago — Em produção" ? /*#__PURE__*/React.createElement(Button, {
+    }, "Cobrar entrada") : p.status === "Em produção" ? /*#__PURE__*/React.createElement(Button, {
       size: "sm",
       tone: "delivered",
       icon: "truck",
@@ -7116,7 +7116,7 @@ window.DLUH = {
     hora: "15:00",
     modo: "Entrega em endereço",
     cliente: "Maria Helena",
-    status: "Pago — Em produção",
+    status: "Em produção",
     tel: "(38) 99812-4410",
     entrega: "12/06 · 15h",
     pgto: "Pix",
@@ -7331,7 +7331,7 @@ window.DLUH = {
     cliente: "Maria Helena",
     titulo: "Bolo Vulcão 2kg · 100 salgados sortidos",
     valor: "R$ 480,00",
-    status: "Pago — Em produção"
+    status: "Em produção"
   }, {
     data: "2026-06-12",
     tipo: "buffet",
@@ -7341,7 +7341,7 @@ window.DLUH = {
     local: "Espaço Villa Bella",
     convidados: 120,
     valor: "R$ 8.400,00",
-    status: "Pago — Em produção"
+    status: "Em produção"
   }, {
     data: "2026-06-13",
     tipo: "encomenda",
@@ -7387,7 +7387,7 @@ window.DLUH = {
     local: "Salão D'Luh",
     convidados: 45,
     valor: "R$ 1.500,00",
-    status: "Pago — Em produção"
+    status: "Em produção"
   }, {
     data: "2026-06-21",
     tipo: "encomenda",
@@ -7487,7 +7487,7 @@ window.DLUH = {
     id: 1,
     nome: "Maria Helena",
     cat: "Bolo",
-    status: "Pago — Em produção",
+    status: "Em produção",
     total: "R$ 480,00",
     data: "12/06",
     hora: "14:00"

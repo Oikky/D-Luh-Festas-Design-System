@@ -1,0 +1,29 @@
+/* Dark theme — the 2026 admin concept palette, carrying D'Luh terracotta as the accent.
+   Apply with <html data-theme="dark"> or on any container. */
+[data-theme="dark"]{
+--color-bg:var(--night-950);--color-surface:var(--night-900);--color-surface-2:var(--night-850);
+--color-surface-3:var(--night-800);--color-surface-inset:rgba(192,114,90,.12);
+--color-border:rgba(255,255,255,.07);--color-border-soft:rgba(255,255,255,.04);
+--color-border-strong:rgba(255,255,255,.14);
+--text-strong:#f4f1ee;--text-body:#b9b4b0;--text-muted:#7c7a80;--text-inverse:#0d0d14;
+--text-accent:#e2957a;
+--color-accent:#d98b6e;--color-accent-hover:#e8a289;--color-accent-soft:rgba(217,139,110,.14);
+--color-accent-contrast:#20120c;
+--focus-ring:0 0 0 3px rgba(217,139,110,.35);
+--overlay-scrim:rgba(4,4,8,.66);
+--shadow-card:0 2px 8px rgba(0,0,0,.4);
+--shadow-soft:0 4px 14px rgba(0,0,0,.45);
+--shadow-pop:0 10px 30px rgba(0,0,0,.6);
+--shadow-modal:0 18px 50px rgba(0,0,0,.7);
+--status-aguardando-bg:rgba(245,158,11,.16);--status-aguardando-fg:#f3c26b;
+--status-confirmado-bg:rgba(56,189,248,.14);--status-confirmado-fg:#7dd3fc;
+--status-preparo-bg:rgba(192,180,254,.16);--status-preparo-fg:#c4b5fd;
+--status-pronto-bg:rgba(96,165,250,.16);--status-pronto-fg:#93c5fd;
+--status-saiu-bg:rgba(52,211,153,.14);--status-saiu-fg:#6ee7b7;
+--status-entregue-bg:rgba(255,255,255,.08);--status-entregue-fg:#c7c5cb;
+--status-cancelado-bg:rgba(248,113,113,.14);--status-cancelado-fg:#fca5a5;
+--action-success:#34d399;--action-paid:#34d399;--action-paid-bg:rgba(52,211,153,.12);
+--action-charge-total:#a78bfa;--action-charge-entry:#60a5fa;--action-delivered:#2dd4bf;
+--action-warn:#fbbf24;--action-warn-bg:rgba(251,191,36,.12);--action-warn-tint:rgba(251,191,36,.07);
+--action-danger:#f87171;
+}

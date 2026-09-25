@@ -1,0 +1,11 @@
+:root{
+--space-0:0;--space-1:2px;--space-2:4px;--space-3:6px;--space-4:8px;--space-5:10px;
+--space-6:12px;--space-7:14px;--space-8:16px;--space-9:18px;--space-10:20px;--space-11:24px;
+--space-12:32px;--space-13:40px;--space-14:60px;
+
+--pad-card:14px 18px;--pad-card-header:16px 18px;--pad-page:20px 24px;--pad-page-mobile:16px 10px;
+--gap-inline:8px;--gap-stack:12px;--gap-section:24px;
+
+--rail-w:72px;--sidebar-w:248px;--topbar-h:64px;--content-max:1440px;
+--tap-min:44px;--icon-tile:48px;--icon-size:24px;
+}

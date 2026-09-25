@@ -1,0 +1,13 @@
+{
+  "name": "dluh-backend",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/testar.js",
+    "emuladores": "firebase emulators:start --project demo-dluh",
+    "deploy:worker": "npm --prefix worker run deploy",
+    "deploy:regras": "firebase deploy --only firestore:rules"
+  },
+  "devDependencies": {
+    "firebase-tools": "^14.0.0"
+  }
+}

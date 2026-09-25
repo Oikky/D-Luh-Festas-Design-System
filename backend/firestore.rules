@@ -1,0 +1,47 @@
+rules_version = '2';
+
+/* Publicar este arquivo substitui as regras do projeto inteiro, inclusive as da coleção
+   `pedidos` que o site atual usa ("Meus pedidos"). */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null; }
+    // Quem é da equipe. Mesma lista de worker/src/equipe.js — mudar nos dois lugares.
+    function equipe() {
+      return logado() && request.auth.token.email_verified == true
+        && request.auth.token.email in ['ikkysousa5@gmail.com'];
+    }
+    // A conta (e-mail/senha) com que o Worker dluh-api entra para gravar. Mesma de SISTEMA_EMAIL no wrangler.jsonc.
+    function sistema() {
+      return logado() && request.auth.token.firebase.sign_in_provider == 'password'
+        && request.auth.token.email == 'sistema@dluh-festas.firebaseapp.com';
+    }
+
+    // ── Sistema novo: só o Worker (conta sistema) escreve ──
+    match /sis_pedidos/{id} {
+      allow read: if equipe() || sistema() || (logado() && resource.data.clienteUid == request.auth.uid);
+      allow write: if sistema();
+      match /eventos/{evento} {
+        allow read: if equipe() || sistema();
+        allow write: if sistema();
+      }
+    }
+    match /sis_pagamentos/{id} {
+      allow read: if equipe() || sistema();
+      allow write: if sistema();
+    }
+    match /sis_config/{doc} {
+      allow read, write: if sistema();
+    }
+
+    // ── Sistema atual (site) — manter até o corte ──
+    // Antes deste arquivo, o projeto tinha a regra do "modo de teste", que venceu em 05/07/2026 —
+    // desde então tudo era recusado. Aqui o cliente logado volta a criar, ler e atualizar só os
+    // próprios pedidos (o site grava `uid`). O admin.html antigo, que lia todos, continua sem acesso.
+    match /pedidos/{id} {
+      allow create: if logado() && request.resource.data.uid == request.auth.uid;
+      allow read: if logado() && resource.data.uid == request.auth.uid;
+      allow update: if logado() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+    }
+  }
+}
