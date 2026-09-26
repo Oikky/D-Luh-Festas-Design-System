@@ -62,3 +62,13 @@ test("cliente logado lê só o próprio pedido e não marca nada como pago", asy
 test("visitante sem login não lê nada", async () => {
   await assertFails(env.unauthenticatedContext().firestore().doc("sis_pedidos/PED-3001").get());
 });
+
+test("catálogo: qualquer visitante lê, só a conta sistema grava", async () => {
+  const visitante = env.unauthenticatedContext().firestore();
+  await assertSucceeds(visitante.doc("sis_produtos/p1").get());
+  await assertSucceeds(visitante.doc("sis_catalogo/recheios").get());
+  await assertFails(visitante.doc("sis_produtos/p1").set({ nome: "x" }));
+  await assertFails(equipe().doc("sis_produtos/p1").set({ nome: "x" }));
+  await assertSucceeds(sistema().doc("sis_produtos/p1").set({ nome: "x" }));
+  await assertSucceeds(sistema().doc("sis_catalogo/recheios").set({ lista: [] }));
+});

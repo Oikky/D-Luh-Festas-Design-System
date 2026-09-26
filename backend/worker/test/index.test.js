@@ -32,3 +32,8 @@ test("webhook ignora aviso sem os campos da InfinitePay, sem consultar nada", as
   assert.equal(r.status, 200);
   assert.match((await r.json()).message, /ignorado/);
 });
+
+test("ações de cliente existem e também pedem login", async () => {
+  const r = await chamar("/api/enviarTopo", { method: "POST", body: "{}" });
+  assert.equal(r.status, 401);
+});

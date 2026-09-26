@@ -4,12 +4,14 @@ const { SearchInput, IconButton, UserChip, Icon, Modal, FilterPill, Button, List
    commitments on the shop day, and the kitchen queue. */
 const FECHADOS = ["Finalizado", "Cancelado"];
 const navItems = () => {
-  const d = window.DLUH;
+  // The real system has no counts here yet; the example rows would show numbers that aren't true.
+  const d = window.DLUH_API.modo === "firebase" ? null : window.DLUH;
   return [
     { id: "visao", label: "Visão geral", icon: "layout-dashboard" },
-    { id: "pedidos", label: "Pedidos", icon: "receipt-text", count: d.pedidos.filter(p => !FECHADOS.includes(p.status)).length },
-    { id: "agenda", label: "Agenda", icon: "calendar-days", count: d.agenda.filter(x => x.data === d.hoje).length },
-    { id: "cozinha", label: "Cozinha", icon: "chef-hat", count: d.fila.length },
+    { id: "pedidos", label: "Pedidos", icon: "receipt-text", count: d && d.pedidos.filter(p => !FECHADOS.includes(p.status)).length },
+    { id: "agenda", label: "Agenda", icon: "calendar-days", count: d && d.agenda.filter(x => x.data === d.hoje).length },
+    { id: "cozinha", label: "Cozinha", icon: "chef-hat", count: d && d.fila.length },
+    { id: "produtos", label: "Produtos", icon: "package" },
     { id: "financeiro", label: "Financeiro", icon: "wallet" }
   ];
 };

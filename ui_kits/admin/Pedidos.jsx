@@ -81,7 +81,9 @@ const copiarPedido = (p, onToast) => navigator.clipboard.writeText([
   `Total ${p.total}${p.falta ? ` · falta ${p.falta}` : ""}`
 ].filter(Boolean).join("\n")).then(() => onToast("Dados copiados"), () => onToast("Não deu pra copiar os dados", "danger"));
 
-function DetalhesModal({ pedido, onClose, onToast, acao, pendente }) {
+/* Details is the edit form: the same fields as Pedido manual, filled from the order. Status,
+   payments and the kitchen don't change here; the total and payment state follow the items. */
+function DetalhesModal({ pedido, onClose, onToast, acao, pendente, compact, produtos }) {
   /* Demo: what the order already received comes from the order itself. Real system: every
      payment is its own record, live. */
   const [pgtosDemo, setPgtos] = React.useState(() => pedido && valor(pedido.pago) > 0
@@ -89,45 +91,52 @@ function DetalhesModal({ pedido, onClose, onToast, acao, pendente }) {
   const aoVivo = useAoVivo(REAL() ? "pagamentos" : "nada", REAL() && pedido ? pedido.id : undefined);
   const pgtos = REAL() ? aoVivo.dados || [] : pgtosDemo;
   const [verPgtos, setVerPgtos] = React.useState(false);
-  if (!pedido) return null;
+  const inicial = React.useMemo(() => window.rascunhoDe(pedido), [pedido.id]);
+  const [r, setR] = React.useState(inicial);
+  const [tentou, setTentou] = React.useState(false);
+  const [sair, setSair] = React.useState(false);
+  const set = (k, v) => setR(x => ({ ...x, [k]: v }));
+  const mudou = JSON.stringify(r) !== JSON.stringify(inicial);
+  const erros = tentou ? window.faltas(r) : {};
+  const cancelado = pedido.status === "Cancelado";
   const recebido = REAL() ? valor(pedido.pago) : pgtos.reduce((s, p) => s + p.valor, 0);
+  const fechar = () => pendente === "salvar" ? null : mudou ? setSair(true) : onClose();
+  const salvar = async () => {
+    if (Object.keys(window.faltas(r)).length) { setTentou(true); return; }
+    if (!mudou) { onClose(); return; }
+    const ok = await acao("salvar", { ok: "Pedido atualizado", falhou: "Não deu pra salvar o pedido" }, null,
+      { acao: "editarPedido", dados: { pedidoId: pedido.id, ...window.paraApi(r) } });
+    if (ok) onClose();
+  };
   return (<>
-    <Modal width={620} title="Detalhes do pedido" onClose={onClose}
-      subtitle="Edite os dados do cliente, a entrega e o pagamento."
+    <Modal width={860} title="Detalhes do pedido" onClose={fechar}
+      subtitle={cancelado ? "Pedido cancelado: dá pra ver e imprimir, mas não editar." : "Edite cliente, entrega e itens. O total e o que falta pagar se ajustam sozinhos."}
       footer={<>
-        <Button variant="ghost" block onClick={onClose}>Fechar</Button>
-        <Button variant="ghost" block icon="printer" onClick={() => onToast("Pedido enviado para impressão")}>Imprimir</Button>
-        <Button block icon="save" loading={pendente === "salvar"}
-          onClick={async () => { if (await acao("salvar", { ok: "Pedido atualizado", falhou: "Não deu pra salvar o pedido" })) onClose(); }}>Salvar</Button>
+        <Button variant="ghost" block onClick={fechar}>{mudou ? "Descartar" : "Fechar"}</Button>
+        <Button variant="ghost" block icon="printer" onClick={() => window.imprimirPedido(pedido, produtos) || onToast("O navegador bloqueou a janela de impressão", "danger")}>Imprimir</Button>
+        {cancelado ? null : <Button block icon="save" loading={pendente === "salvar"} onClick={salvar}>{mudou ? "Salvar alterações" : "Salvar"}</Button>}
       </>}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <span style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-accent)", letterSpacing: "var(--ls-caps)" }}>{pedido.id}</span>
         <StatusBadge status={pedido.status} />
+        {pedido.pagamento ? <Badge tone={pedido.pagamento === "Totalmente pago" ? "success" : pedido.pagamento === "Só entrada" ? "warn" : "neutral"}>{pedido.pagamento}</Badge> : null}
         {pedido.tipo ? <Badge tone="accent" icon="building-2">{pedido.tipo}</Badge> : null}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px 12px" }}>
-        <Field label="Cliente" required><Input defaultValue={pedido.cliente || ""} /></Field>
-        <Field label="WhatsApp" required><Input defaultValue={pedido.tel || ""} /></Field>
-        <Field label="Entrega"><Select options={["Retirada no local", "Entrega em endereço"]} defaultValue={pedido.modo || undefined} /></Field>
-        {pedido.endereco ? <Field label="Endereço"><Input defaultValue={pedido.endereco} /></Field> : null}
-        <Field label="Data"><Input type="date" defaultValue={pedido.data || ""} /></Field>
-        <Field label="Hora"><Input type="time" defaultValue={pedido.hora || ""} /></Field>
-        <Field label="Pagamento"><Select options={["Pix", "Cartão", "Dinheiro"]} defaultValue={pedido.pgto || undefined} /></Field>
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <DataTable minWidth={0} empty={<div style={{ padding: "12px", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Nenhum item registrado neste pedido.</div>} rows={(pedido.itens || []).map((it, i) => ({ id: i, ...it }))} columns={[
-          { key: "name", label: "Produto", strong: true, wrap: true },
-          { key: "qty", label: "Qtd", align: "center", width: 60 },
-          { key: "price", label: "Subtotal", align: "right", width: 100, strong: true }
-        ]} />
-      </div>
+      <fieldset disabled={cancelado} style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
+        <window.CamposPedido r={r} set={set} erros={erros} />
+        <window.ListaProdutos id="dluh-produtos-detalhe" produtos={produtos} />
+        <window.ItensPedido r={r} set={set} compact={compact} produtos={produtos} erro={erros.itens} acao={acao} onToast={onToast} listaId="dluh-produtos-detalhe" />
+      </fieldset>
       <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "var(--border-hairline) solid var(--color-border)" }}>
         <Field label="Valor recebido"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{window.brl(recebido)}</div></Field>
+        {window.totalRascunho(r) - recebido > 0.004 ? <Field label="Falta"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", color: "var(--text-accent)" }}>{window.brl(window.totalRascunho(r) - recebido)}</div></Field> : null}
         <div style={{ flex: 1 }} />
         <Button size="sm" variant="outline" icon="list" onClick={() => setVerPgtos(true)}>Pagamentos ({pgtos.length})</Button>
       </div>
     </Modal>
     {verPgtos ? <PagamentosModal lista={pgtos} onChange={REAL() ? () => {} : setPgtos} pedido={pedido} onClose={() => setVerPgtos(false)} onToast={onToast} acao={acao} pendente={pendente} /> : null}
+    {sair ? <ConfirmDialog tone="danger" icon="trash-2" title="Descartar alterações?" message="O que foi mudado neste pedido se perde. O pedido fica como estava."
+      confirmLabel="Sim, descartar" cancelLabel="Voltar" onCancel={() => setSair(false)} onConfirm={() => { setSair(false); onClose(); }} /> : null}
   </>);
 }
 
@@ -139,7 +148,10 @@ function Pedidos({ compact, q }) {
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   const carga = useAoVivo("pedidos");
+  const catalogo = useAoVivo("produtos");
+  const produtos = catalogo.dados || [];
   const [link, setLink] = React.useState(null);
+  const imprimir = p => window.imprimirPedido(p, produtos) || showToast("O navegador bloqueou a janela de impressão", "danger");
 
   const todos = carga.dados || [];
   const filtro = (TABS.find(t => t.id === tab) || TABS[0]).filtro;
@@ -207,13 +219,13 @@ function Pedidos({ compact, q }) {
                   : p.status === "Entregue — Esperando restante"
                   ? <Button size="sm" tone="chargeAll" icon="banknote" onClick={() => pede("restante", p)}>Cobrar restante</Button>
                   : p.status === "Finalizado"
-                  ? <Button size="sm" variant="outline" icon="printer" onClick={() => showToast("Recibo gerado")}>Recibo</Button>
+                  ? <Button size="sm" variant="outline" icon="printer" onClick={() => imprimir(p)}>Recibo</Button>
                   : null}
                 <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
                   { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
                   { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
-                  { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }) },
-                  { label: "Imprimir recibo", icon: "printer", onClick: () => showToast("Recibo enviado para impressão") },
+                  { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
+                  { label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) },
                   { divider: true },
                   REAL() ? { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) }
                     : { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => pede("apagar", p) }
@@ -229,8 +241,8 @@ function Pedidos({ compact, q }) {
           description="Assim que um pedido entrar nesse status ele aparece aqui automaticamente." /></Card>
       )}
 
-      {detalhe ? <DetalhesModal pedido={detalhe} onClose={() => setDetalhe(null)} onToast={showToast} acao={acao} pendente={pendente} /> : null}
-      {manual ? <ManualModal compact={compact} onClose={() => setManual(false)} onToast={showToast} acao={acao} pendente={pendente} /> : null}
+      {detalhe ? <DetalhesModal key={detalhe.id} pedido={todos.find(x => x.id === detalhe.id) || detalhe} onClose={() => setDetalhe(null)} onToast={showToast} acao={acao} pendente={pendente} compact={compact} produtos={produtos} /> : null}
+      {manual ? <ManualModal compact={compact} onClose={() => setManual(false)} onToast={showToast} acao={acao} pendente={pendente} produtos={produtos} /> : null}
       {confirm ? <ConfirmDialog tone={confirm.tone} icon={confirm.icon} title={confirm.title} message={confirm.message}
         confirmLabel={confirm.confirmLabel} cancelLabel="Voltar" pending={pendente === confirm.tipo}
         onCancel={() => setConfirm(null)}

@@ -41,6 +41,8 @@ window.DLUH_API = (() => {
   const brl = c => "R$ " + ((Number(c) || 0) / 100).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const ts = v => v && typeof v.toDate === "function" ? v.toDate() : v instanceof Date ? v : null;
   const MEIO = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão", outro: "Outro" };
+  const topoTexto = t => !t ? null : typeof t === "string" ? t : "Topo: " + [t.tema, t.detalhes].filter(Boolean).join(" — ") + (t.imagem ? " · com imagem" : "");
+  const resumo = x => (x.itens || []).map(i => `${i.qtd} ${i.nome}`).join(" · ");
   /* Kitchen queue: in production and not yet done, soonest first, in the shape FilaCard reads. */
   const MAPAS = {
     /* All orders, in the shape OrderCard/DetalhesModal read (money as "R$ …" strings), keeping the
@@ -61,14 +63,28 @@ window.DLUH_API = (() => {
           pgto: MEIO[x.formaPagamento] || null,
           total: brl(x.total), pago: x.pago ? brl(x.pago) : null, falta: falta ? brl(falta) : null,
           pagamento: x.pagamento, feitoNaCozinha: x.cozinha === "feito",
-          itens: (x.itens || []).map(i => ({ qty: i.qtd, name: i.nome, note: i.obs, topper: i.topo, price: brl(i.qtd * i.valorUnit) })),
-          _c: { total: x.total || 0, pago: x.pago || 0, falta, entradaPct: x.entradaPct || 50, formaPagamento: x.formaPagamento || null }
+          itens: (x.itens || []).map(i => ({ qty: i.qtd, name: i.nome, price: brl(i.qtd * i.valorUnit),
+            note: [i.recheios && i.recheios.length ? "Recheio: " + i.recheios.join(", ") : null, i.obs].filter(Boolean).join(" · ") || null,
+            topper: topoTexto(i.topo) })),
+          obs: x.obs || "",
+          /* The raw record: what editing, printing and the money actions need, unformatted. */
+          _c: { total: x.total || 0, pago: x.pago || 0, falta, entradaPct: x.entradaPct || 50, formaPagamento: x.formaPagamento || null,
+            tipo: x.tipo || "pessoa", taxaEntrega: x.taxaEntrega || 0, itens: x.itens || [], obs: x.obs || "" }
         };
       }),
     pagamentos: lista => lista
       .slice().sort((a, b) => (ts(a.em) || 0) - (ts(b.em) || 0))
       .map(p => ({ quando: ts(p.em) ? ts(p.em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " ·") : null,
         valor: (p.valor || 0) / 100, origem: p.por === "infinitepay" ? "site" : "manual", meio: MEIO[p.meio] || p.meio, arquivo: null, id: p.id })),
+    /* Every live order on the calendar, as an "encomenda" on its delivery day. */
+    agenda: pedidos => pedidos
+      .filter(x => x.status !== "Cancelado" && x.entrega && x.entrega.data)
+      .map(x => ({ id: x.id, data: x.entrega.data, hora: x.entrega.hora || "", tipo: "encomenda", cliente: x.cliente?.nome || "",
+        titulo: resumo(x), valor: brl(x.total), status: x.status, local: x.entrega.modo === "entrega" ? x.entrega.endereco : null })),
+    produtos: lista => lista
+      .map(p => ({ ...p, preco: brl(p.valorUnit) }))
+      .sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || (a.nome || "").localeCompare(b.nome || "")),
+    recheios: docs => (docs.find(d => d.id === "recheios") || {}).lista || [],
     fila: pedidos => pedidos
       .filter(x => x.cozinha !== "feito")
       .sort((a, b) => `${a.entrega?.data} ${a.entrega?.hora}`.localeCompare(`${b.entrega?.data} ${b.entrega?.hora}`))
@@ -76,7 +92,7 @@ window.DLUH_API = (() => {
         id: x.id,
         cliente: x.cliente?.nome || "",
         hora: quando(x.entrega),
-        itens: (x.itens || []).map(i => `${i.qtd} ${i.nome}`).join(" · "),
+        itens: resumo(x),
         pago: x.pagamento,
         entrega: x.entrega?.modo === "entrega" ? "Entrega" : "Retirada"
       }))
@@ -92,7 +108,7 @@ window.DLUH_API = (() => {
   const naoLigada = () => Promise.reject(new ErroApi("nao-ligada"));
 
   if (modo === "firebase") return {
-    ErroApi, modo,
+    ErroApi, modo, hoje,
     carregar: naoLigada,
     assinar(colecao, aoDados, aoErro, param) {
       if (!MAPAS[colecao]) { aoErro(new ErroApi("nao-ligada")); return () => {}; }
@@ -115,7 +131,7 @@ window.DLUH_API = (() => {
 
   const carregar = colecao => chamar("carregar", () => copia(colecao ? window.DLUH[colecao] : window.DLUH));
   return {
-    ErroApi, modo,
+    ErroApi, modo, hoje: () => window.DLUH.hoje,
     carregar,
     /* Demo: one load, delivered like a live update. */
     assinar(colecao, aoDados, aoErro) {

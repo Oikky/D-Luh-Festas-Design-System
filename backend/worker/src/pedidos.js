@@ -15,7 +15,8 @@ function evento(tx, pedidoRef, dados) {
   tx.create(pedidoRef.collection("eventos").doc(), { ...dados, em: agora() });
 }
 
-async function criarPedido(db, dados, por) {
+/* O que criar e editar aceitam, já conferido e no formato gravado. */
+function normalizar(dados) {
   const nome = String(dados?.cliente?.nome || "").trim();
   const telefone = String(dados?.cliente?.telefone || "").replace(/\D/g, "");
   if (!nome) throw new ErroDominio("invalid-argument", "Informe o nome do cliente");
@@ -34,7 +35,19 @@ async function criarPedido(db, dados, por) {
   const total = totalDe(itens, taxaEntrega);
   // Quanto do total a cobrança de entrada pede: 50% (padrão) ou 100% (tudo agora).
   const entradaPct = dados.entradaPct === 100 ? 100 : 50;
-  const formaPagamento = MEIOS.includes(dados.formaPagamento) ? dados.formaPagamento : null;
+  const formaPagamento = MEIOS.includes(dados.formaPagamento) ? dados.formaPagamento : undefined;
+
+  return {
+    cliente: { nome, telefone },
+    tipo: dados.tipo === "empresa" ? "empresa" : "pessoa",
+    entrega: { modo, data, hora, ...(modo === "entrega" ? { endereco: String(dados.entrega.endereco).trim() } : {}) },
+    itens, taxaEntrega, total, entradaPct, formaPagamento,
+    obs: String(dados.obs || "")
+  };
+}
+
+async function criarPedido(db, dados, por) {
+  const { formaPagamento, ...p } = normalizar(dados);
 
   return db.runTransaction(async tx => {
     const contRef = db.doc(CONTADOR);
@@ -46,23 +59,43 @@ async function criarPedido(db, dados, por) {
     tx.set(contRef, { ultimo: numero }, { merge: true });
     tx.create(ref, {
       id,
-      cliente: { nome, telefone },
+      ...p,
       ...(dados.clienteUid ? { clienteUid: String(dados.clienteUid) } : {}),
-      tipo: dados.tipo === "empresa" ? "empresa" : "pessoa",
-      entrega: { modo, data, hora, ...(modo === "entrega" ? { endereco: String(dados.entrega.endereco).trim() } : {}) },
-      itens, taxaEntrega, total, entradaPct,
       ...(formaPagamento ? { formaPagamento } : {}),
       pago: 0,
       pagamento: "Não pago",
       status: "Aguardando confirmação",
       cozinha: "pendente",
-      obs: String(dados.obs || ""),
       origem: ["site", "empresas", "admin"].includes(dados.origem) ? dados.origem : "admin",
       criadoEm: agora(),
       atualizadoEm: agora()
     });
     evento(tx, ref, { tipo: "criado", para: "Aguardando confirmação", por });
-    return { id, total };
+    return { id, total: p.total };
+  });
+}
+
+const EDITAVEIS = ["cliente", "tipo", "entrega", "itens", "taxaEntrega", "total", "entradaPct", "formaPagamento", "obs"];
+
+/* Troca os dados do pedido (cliente, entrega, itens, valores). Status, pagamentos e cozinha não
+   mudam aqui; só o estado do pagamento é refeito, porque o total pode ter mudado. O evento guarda
+   como cada campo estava antes. */
+async function editarPedido(db, { pedidoId, ...dados }, por) {
+  const novo = normalizar(dados);
+  const ref = db.collection(PEDIDOS).doc(String(pedidoId || ""));
+
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
+    if (snap.get("status") === "Cancelado") throw new ErroDominio("failed-precondition", "Pedido cancelado não pode ser editado");
+    const velho = snap.data();
+    const mudou = EDITAVEIS.filter(k => JSON.stringify(velho[k] ?? null) !== JSON.stringify(novo[k] ?? null));
+    if (!mudou.length) return { mudou: false };
+
+    const pagamento = pagamentoDe(novo.total, velho.pago || 0);
+    tx.update(ref, { ...Object.fromEntries(mudou.map(k => [k, novo[k]])), pagamento, atualizadoEm: agora() });
+    evento(tx, ref, { tipo: "editado", campos: mudou, antes: Object.fromEntries(mudou.map(k => [k, velho[k] ?? null])), por });
+    return { mudou: true, campos: mudou, total: novo.total, pagamento };
   });
 }
 
@@ -124,4 +157,4 @@ async function registrarPagamento(db, { pedidoId, valor, chave, meio, comprovant
   });
 }
 
-export { criarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };
+export { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };

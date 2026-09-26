@@ -26,6 +26,9 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
     const CONSULTAS = {
       fila: () => F.query(F.collection(db, "sis_pedidos"), F.where("status", "==", "Em produção")),
       pedidos: () => F.collection(db, "sis_pedidos"),
+      agenda: () => F.collection(db, "sis_pedidos"),
+      produtos: () => F.collection(db, "sis_produtos"),
+      recheios: () => F.collection(db, "sis_catalogo"),
       pagamentos: pedidoId => F.query(F.collection(db, "sis_pagamentos"), F.where("pedidoId", "==", pedidoId))
     };
 

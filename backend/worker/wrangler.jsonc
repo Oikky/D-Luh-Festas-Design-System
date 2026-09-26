@@ -5,6 +5,8 @@
   "compatibility_date": "2026-09-25",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // Backup diário às 03:00 de Brasília (06:00 UTC) no Google Drive.
+  "triggers": { "crons": ["0 6 * * *"] },
   "vars": {
     "FIREBASE_PROJECT_ID": "dluh-festas",
     // Chave pública do app web (a mesma que está no site); não é segredo.
@@ -12,7 +14,16 @@
     "SISTEMA_EMAIL": "sistema@dluh-festas.firebaseapp.com",
     "INFINITEPAY_HANDLE": "dluh_festas",
     // Telas que podem chamar a API (separadas por vírgula).
-    "ORIGENS": "https://sitedluh.github.io,https://oikky.github.io,http://localhost:8000,http://127.0.0.1:8000"
+    "ORIGENS": "https://sitedluh.github.io,https://oikky.github.io,http://localhost:8000,http://127.0.0.1:8000",
+    // ── Integrações (vazias = desligadas; ver README) ──
+    // Google Drive e Agenda: ID da pasta do Drive e da agenda ("primary" = agenda principal da conta).
+    "GOOGLE_DRIVE_PASTA": "1HZd4xLWZ8U9CmYI76evk6s8ZEUAcnsZ0",
+    "GOOGLE_AGENDA_ID": "primary",
+    // Evolution API: endereço público (túnel) e nome da instância; número da loja que recebe os avisos.
+    "EVOLUTION_URL": "",
+    "EVOLUTION_INSTANCE": "",
+    "WHATSAPP_LOJA": ""
   }
-  // Segredo: SISTEMA_SENHA → `npx wrangler secret put SISTEMA_SENHA`
+  // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+  // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY.
 }

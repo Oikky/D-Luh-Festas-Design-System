@@ -1,5 +1,8 @@
 # Migração Coda → Firestore — inventário
 
+> **26/09/2026: o Coda foi abandonado.** Nada é migrado nem mexido lá; ele só vai ser esquecido. Este arquivo fica
+> como histórico e como lista das funções que o sistema novo cobre. O que falta está em `backend/README.md`.
+
 Decisão (conselho de 25/09/2026): **opção A — Firestore + Cloud Functions**, depois trocado para **Firestore + Cloudflare Worker `dluh-api`** no mesmo dia (contas de faturamento do Google fechadas; ver `backend/README.md`) no projeto Firebase `dluh-festas`, que já existe e já tem uma coleção `pedidos` (histórico "Meus pedidos" do cliente, gravada pelo site com `addDoc`).
 
 Fontes lidas: `sitedluh/site@origin/main` (`arquitetura.mermaid`, `admin.js`, `painel-pedidos.js`, `cardapio-*.js`), a cópia local de `worker-completo-pronto.js` (desatualizada — não tem `/pagar`, `/novo-pedido`, `/webhook-telegram` etc.) e a página pública "NEW SIS" do doc Coda "Vendas 2".

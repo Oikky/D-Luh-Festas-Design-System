@@ -108,43 +108,188 @@ function PagamentosModal({ lista, onChange, pedido, onClose, onToast, acao, pend
   </>);
 }
 
-const novoRascunho = n => ({ uid: Date.now() + n, cliente: "", tel: "", data: "", hora: "", entrega: "Retirada no local", endereco: "", pgto: "Pix", entrada: 50, tipo: "Pessoa física", obs: "", itens: [{ nome: "", qtd: 1, preco: "" }] });
-const totalRascunho = r => r.itens.reduce((s, it) => s + (Number(it.qtd) || 0) * (parseFloat(String(it.preco).replace(",", ".")) || 0), 0);
-const ITEM_COLS = "minmax(0,1fr) 80px 130px 44px";
 
-/* What Criar pedido needs before it can write to Coda: the required fields plus one priced item. */
+/* ── The order form: shared by Pedido manual (new) and Detalhes (edit) ── */
+
+const PGTOS = ["Pix", "Cartão", "Dinheiro", "Não definido"];
+const reaisDe = s => parseFloat(String(s).replace(",", ".")) || 0;
+const itemVazio = () => ({ nome: "", qtd: 1, preco: "", obs: "", recheios: "", topo: null });
+const novoRascunho = n => ({ uid: Date.now() + n, cliente: "", tel: "", data: "", hora: "", entrega: "Retirada no local", endereco: "", taxa: "", pgto: "Pix", entrada: 50, tipo: "Pessoa física", obs: "", itens: [itemVazio()] });
+const totalRascunho = r => r.itens.reduce((s, it) => s + (Number(it.qtd) || 0) * reaisDe(it.preco), 0) + (r.entrega === "Entrega em endereço" ? reaisDe(r.taxa) : 0);
+
+/* An existing order as a draft. Real orders carry the raw record in _c; demo rows only have the
+   formatted strings, so prices are read back from them. */
+const MEIO_ROTULO = { pix: "Pix", cartao: "Cartão", dinheiro: "Dinheiro" };
+function rascunhoDe(p) {
+  const c = p._c;
+  const itens = c
+    ? c.itens.map(i => ({ nome: i.nome, qtd: i.qtd, preco: (i.valorUnit / 100).toFixed(2), produtoId: i.produtoId, categoria: i.categoria,
+        obs: i.obs || "", recheios: (i.recheios || []).join(", "), topo: i.topo || null }))
+    : (p.itens || []).map(i => ({ nome: i.name, qtd: i.qty, preco: (reaisDe(String(i.price).replace(/[^\d,]/g, "")) / (i.qty || 1)).toFixed(2), obs: i.note || "", recheios: "", topo: i.topper || null }));
+  return {
+    uid: p.id, cliente: p.cliente || "", tel: p.tel || "", data: p.data || "", hora: p.hora || "",
+    entrega: p.modo === "Entrega em endereço" ? "Entrega em endereço" : "Retirada no local", endereco: p.endereco || "",
+    taxa: c && c.taxaEntrega ? (c.taxaEntrega / 100).toFixed(2) : "",
+    pgto: c ? MEIO_ROTULO[c.formaPagamento] || "Não definido" : p.pgto || "Não definido",
+    entrada: c ? c.entradaPct : 50, tipo: (c ? c.tipo === "empresa" : p.tipo === "Empresa") ? "Empresa" : "Pessoa física",
+    obs: c ? c.obs : p.obs || "", itens: itens.length ? itens : [itemVazio()]
+  };
+}
+
+/* What saving needs before it can write: the required fields plus one priced item. */
 const faltas = r => {
   const f = {};
   if (!r.cliente.trim()) f.cliente = "Preencha o nome do cliente";
-  if (!r.tel.trim()) f.tel = "Preencha o WhatsApp";
+  if (r.tel.replace(/\D/g, "").length < 10) f.tel = r.tel.trim() ? "WhatsApp com DDD, ex.: (38) 99999-9999" : "Preencha o WhatsApp";
   if (!r.data) f.data = "Escolha a data de entrega";
   if (r.entrega === "Entrega em endereço" && !r.endereco.trim()) f.endereco = "Preencha o endereço de entrega";
-  if (!r.itens.some(it => it.nome.trim() && parseFloat(String(it.preco).replace(",", ".")) > 0)) f.itens = "Adicione pelo menos um produto com preço";
+  if (!r.itens.some(it => it.nome.trim() && reaisDe(it.preco) > 0)) f.itens = "Adicione pelo menos um produto com preço";
+  if (r.itens.some(it => it.topo && typeof it.topo === "object" && !String(it.topo.tema || "").trim())) f.itens = "Preencha o tema do topo, ou tire o topo do item";
   return f;
 };
 const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.endereco || r.itens.some(it => it.nome || it.preco));
 
-/* The draft as the Worker's criarPedido expects it: money in centavos, only priced items. */
+/* The draft as the Worker expects it: money in centavos, only priced items. */
 const paraApi = r => ({
   cliente: { nome: r.cliente.trim(), telefone: r.tel },
   tipo: r.tipo === "Empresa" ? "empresa" : "pessoa",
   entrega: { modo: r.entrega === "Entrega em endereço" ? "entrega" : "retirada", data: r.data, hora: r.hora, endereco: r.endereco.trim() },
-  itens: r.itens.filter(it => it.nome.trim() && parseFloat(String(it.preco).replace(",", ".")) > 0)
-    .map(it => ({ nome: it.nome.trim(), qtd: Math.max(1, parseInt(it.qtd, 10) || 1), valorUnit: Math.round(parseFloat(String(it.preco).replace(",", ".")) * 100) })),
+  taxaEntrega: r.entrega === "Entrega em endereço" ? Math.round(reaisDe(r.taxa) * 100) : 0,
+  itens: r.itens.filter(it => it.nome.trim() && reaisDe(it.preco) > 0).map(it => ({
+    nome: it.nome.trim(), qtd: Math.max(1, parseInt(it.qtd, 10) || 1), valorUnit: Math.round(reaisDe(it.preco) * 100),
+    ...(it.produtoId ? { produtoId: it.produtoId } : {}), ...(it.categoria ? { categoria: it.categoria } : {}),
+    ...(it.obs && it.obs.trim() ? { obs: it.obs.trim() } : {}),
+    ...(String(it.recheios || "").trim() ? { recheios: String(it.recheios).split(",").map(x => x.trim()).filter(Boolean) } : {}),
+    ...(it.topo ? { topo: typeof it.topo === "string" ? it.topo : { tema: it.topo.tema.trim(), ...(it.topo.detalhes ? { detalhes: it.topo.detalhes.trim() } : {}), ...(it.topo.imagem ? { imagem: it.topo.imagem } : {}) } } : {})
+  })),
   obs: r.obs, entradaPct: r.entrada, formaPagamento: MEIO_API[r.pgto], origem: "admin"
 });
 
-function ManualModal({ compact, onClose, onToast, acao, pendente }) {
+/* Cake topper: theme, details and a reference picture. The picture goes up when chosen; only
+   its link travels with the order. */
+function TopoItem({ topo, onChange, acao, onToast }) {
+  const t = typeof topo === "string" ? { tema: topo } : topo || { tema: "" };
+  const [subindo, setSubindo] = React.useState(false);
+  const set = (k, v) => onChange({ ...t, [k]: v });
+  const escolher = async e => {
+    const arq = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!arq) return;
+    setSubindo(true);
+    try {
+      const dataUrl = await window.reduzirImagem(arq);
+      if (!MODO_REAL()) { set("imagem", dataUrl); return; }
+      const r = await acao("topo-imagem", { falhou: "Não deu pra enviar a imagem do topo" }, null, { acao: "enviarImagem", dados: { dataUrl } });
+      if (r && r.url) set("imagem", r.url);
+    } catch (err) { onToast(err.message, "danger"); } finally { setSubindo(false); }
+  };
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, alignItems: "end" }}>
+      <PM.Field label="Tema do topo"><PM.Input size="sm" placeholder="Ex.: Frozen, “Ana 5 anos”" value={t.tema || ""} onChange={e => set("tema", e.target.value)} /></PM.Field>
+      <PM.Field label="Detalhes"><PM.Input size="sm" placeholder="Cores, nome, idade…" value={t.detalhes || ""} onChange={e => set("detalhes", e.target.value)} /></PM.Field>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32 }}>
+        {t.imagem ? <a href={t.imagem} target="_blank" rel="noopener"><img src={t.imagem} alt="Referência do topo" style={{ width: 32, height: 32, objectFit: "cover", borderRadius: "var(--radius-xs)", display: "block" }} /></a> : null}
+        <label data-target style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: subindo ? "wait" : "pointer", fontSize: "var(--fs-tiny)", fontWeight: "var(--fw-semibold)", color: "var(--text-accent)" }}>
+          <PM.Icon name={subindo ? "loader" : "image-plus"} size={14} />{subindo ? "Enviando…" : t.imagem ? "Trocar imagem" : "Imagem de referência"}
+          <input type="file" accept="image/*" hidden disabled={subindo} onChange={escolher} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+const ITEM_COLS = "minmax(0,1fr) 72px 120px 40px 40px";
+
+function ItensPedido({ r, set, compact, produtos, erro, acao, onToast, listaId }) {
+  const [aberto, setAberto] = React.useState(() => r.itens.map(it => !!(it.topo || it.obs || it.recheios)));
+  const setItem = (j, patch) => set("itens", r.itens.map((it, i) => i === j ? { ...it, ...patch } : it));
+  /* Typing a catalog name fills price and category; editing the price afterwards is allowed. */
+  const nome = (j, v) => {
+    const p = window.acharProduto(produtos, v);
+    const it = r.itens[j];
+    setItem(j, p ? { nome: p.nome, produtoId: p.id, categoria: p.categoria, preco: (p.valorUnit / 100).toFixed(2), qtd: Math.max(Number(it.qtd) || 1, p.qtdMin || 1) }
+      : { nome: v, produtoId: undefined, categoria: undefined });
+  };
+  const linha = (it, j) => {
+    const bolo = /bolo/i.test(it.categoria || it.nome);
+    const campos = [
+      <PM.Input key="n" size="sm" aria-label="Produto" list={listaId} placeholder="Ex.: Bolo de chocolate 2kg" value={it.nome} onChange={e => nome(j, e.target.value)} />,
+      <PM.Input key="q" size="sm" aria-label="Quantidade" type="number" min="1" value={it.qtd} onChange={e => setItem(j, { qtd: e.target.value })} />,
+      <PM.Input key="p" size="sm" aria-label="Preço unitário" type="number" prefix="R$" step="0.01" placeholder="0,00" value={it.preco} onChange={e => setItem(j, { preco: e.target.value })} />,
+      <PM.IconButton key="d" icon={aberto[j] ? "chevron-up" : "chevron-down"} label={aberto[j] ? "Esconder detalhes do item" : "Recheio, topo e observação"} size={36}
+        onClick={() => setAberto(a => { const b = [...a]; b[j] = !b[j]; return b; })} />,
+      <PM.IconButton key="x" icon="trash-2" label="Remover item" size={36} disabled={r.itens.length === 1} style={r.itens.length === 1 ? { opacity: "var(--disabled-opacity)", cursor: "not-allowed" } : undefined}
+        onClick={() => { if (r.itens.length > 1) { set("itens", r.itens.filter((_, i) => i !== j)); setAberto(a => a.filter((_, i) => i !== j)); } }} />
+    ];
+    return (
+      <div key={j} style={{ padding: compact ? "10px 12px" : "8px 12px", borderTop: j || !compact ? "var(--border-hairline) solid var(--color-border)" : "none" }}>
+        {compact
+          ? <div style={{ display: "grid", gridTemplateColumns: "64px minmax(0,1fr) 40px 40px", gap: 8, alignItems: "center" }}>
+              <div style={{ gridColumn: "1 / -1" }}>{campos[0]}</div>{campos[1]}{campos[2]}{campos[3]}{campos[4]}
+            </div>
+          : <div style={{ display: "grid", gridTemplateColumns: ITEM_COLS, gap: 8, alignItems: "center" }}>{campos}</div>}
+        {aberto[j] ? <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "10px 0 4px", padding: "10px 12px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-2)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+            <PM.Field label="Recheio" hint="Separe por vírgula"><PM.Input size="sm" placeholder="Ex.: Ninho com Nutella" value={it.recheios || ""} onChange={e => setItem(j, { recheios: e.target.value })} /></PM.Field>
+            <PM.Field label="Observação do item"><PM.Input size="sm" placeholder="Opcional" value={it.obs || ""} onChange={e => setItem(j, { obs: e.target.value })} /></PM.Field>
+          </div>
+          {it.topo
+            ? <>
+                <TopoItem topo={it.topo} onChange={v => setItem(j, { topo: v })} acao={acao} onToast={onToast} />
+                <div><PM.Button size="sm" variant="quiet" icon="x" onClick={() => setItem(j, { topo: null })}>Tirar topo</PM.Button></div>
+              </>
+            : <div><PM.Button size="sm" variant="quiet" icon="plus" onClick={() => setItem(j, { topo: { tema: "" } })}>{bolo ? "Adicionar topo do bolo" : "Adicionar topo"}</PM.Button></div>}
+        </div> : null}
+      </div>
+    );
+  };
+  return (<>
+    <div style={{ marginTop: 18, border: "var(--border-hairline) solid " + (erro ? "var(--action-danger)" : "var(--color-border)"), borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+      {compact ? null : <div style={{ display: "grid", gridTemplateColumns: ITEM_COLS, gap: 8, padding: "10px 12px", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)" }}>
+        <span>Produto</span><span>Qtd</span><span>Preço un.</span><span /><span />
+      </div>}
+      {r.itens.map(linha)}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "10px 12px", borderTop: "var(--border-hairline) solid var(--color-border)" }}>
+        <PM.Button size="sm" variant="quiet" icon="plus" onClick={() => { set("itens", [...r.itens, itemVazio()]); setAberto(a => [...a, false]); }}>Adicionar item</PM.Button>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Entrada {r.entrada}% · {brl(totalRascunho(r) * r.entrada / 100)}</span>
+          <b style={{ fontSize: "var(--fs-subhead)" }}>{brl(totalRascunho(r))}</b>
+        </div>
+      </div>
+    </div>
+    {erro ? <div style={{ marginTop: 6, fontSize: "var(--fs-tiny)", color: "var(--action-danger)" }}>{erro}</div> : null}
+  </>);
+}
+
+function CamposPedido({ r, set, erros }) {
+  const ctl = k => ({ value: r[k], onChange: e => set(k, e.target.value) });
+  const entrega = r.entrega === "Entrega em endereço";
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px 12px" }}>
+      <PM.Field label="Cliente" required error={erros.cliente}><PM.Input placeholder="Nome do cliente" invalid={!!erros.cliente} {...ctl("cliente")} /></PM.Field>
+      <PM.Field label="WhatsApp" required error={erros.tel}><PM.Input type="tel" placeholder="(38) 99999-9999" invalid={!!erros.tel} {...ctl("tel")} /></PM.Field>
+      <PM.Field label="Tipo de cliente"><PM.Select options={["Pessoa física", "Empresa"]} {...ctl("tipo")} /></PM.Field>
+      <PM.Field label="Data de entrega" required error={erros.data}><PM.Input type="date" invalid={!!erros.data} {...ctl("data")} /></PM.Field>
+      <PM.Field label="Hora"><PM.Input type="time" {...ctl("hora")} /></PM.Field>
+      <PM.Field label="Entrega"><PM.Select options={["Retirada no local", "Entrega em endereço"]} {...ctl("entrega")} /></PM.Field>
+      {entrega ? <PM.Field label="Endereço" required error={erros.endereco}><PM.Input placeholder="Rua, número, bairro" invalid={!!erros.endereco} {...ctl("endereco")} /></PM.Field> : null}
+      {entrega ? <PM.Field label="Taxa de entrega"><PM.Input type="number" prefix="R$" step="0.01" min="0" placeholder="0,00" {...ctl("taxa")} /></PM.Field> : null}
+      <PM.Field label="Pagamento"><PM.Select options={PGTOS} {...ctl("pgto")} /></PM.Field>
+      <PM.Field label="Entrada" hint="Percentual cobrado agora"><EntradaToggle value={r.entrada} onChange={v => set("entrada", v)} /></PM.Field>
+      <PM.Field label="Observações"><PM.Input placeholder="Opcional" {...ctl("obs")} /></PM.Field>
+    </div>
+  );
+}
+
+function ManualModal({ compact, onClose, onToast, acao, pendente, produtos }) {
   const [lista, setLista] = React.useState([novoRascunho(0)]);
   const [ativo, setAtivo] = React.useState(0);
   const [tentou, setTentou] = React.useState(false);
   const [sair, setSair] = React.useState(false);
   const r = lista[ativo];
   const set = (k, v) => setLista(l => l.map((x, i) => i === ativo ? { ...x, [k]: v } : x));
-  const setItem = (j, k, v) => set("itens", r.itens.map((it, i) => i === j ? { ...it, [k]: v } : it));
   const novo = () => { setLista(l => [...l, novoRascunho(l.length)]); setAtivo(lista.length); };
   const remover = i => { if (lista.length === 1) return; setLista(l => l.filter((_, j) => j !== i)); setAtivo(a => Math.max(0, a >= i ? a - 1 : a)); };
-  const ctl = k => ({ value: r[k], onChange: e => set(k, e.target.value) });
   const n = lista.length;
   const geral = lista.reduce((s, x) => s + totalRascunho(x), 0);
   const erros = tentou ? faltas(r) : {};
@@ -165,20 +310,6 @@ function ManualModal({ compact, onClose, onToast, acao, pendente }) {
         return { ok: true };
       });
     if (ok) onClose();
-  };
-  const item = (it, j) => {
-    const campos = [
-      <PM.Input key="n" size="sm" aria-label="Produto" placeholder="Ex.: Bolo de chocolate 2kg" value={it.nome} onChange={e => setItem(j, "nome", e.target.value)} />,
-      <PM.Input key="q" size="sm" aria-label="Quantidade" type="number" min="1" value={it.qtd} onChange={e => setItem(j, "qtd", e.target.value)} />,
-      <PM.Input key="p" size="sm" aria-label="Preço unitário" type="number" prefix="R$" step="0.01" placeholder="0,00" value={it.preco} onChange={e => setItem(j, "preco", e.target.value)} />,
-      <PM.IconButton key="x" icon="trash-2" label="Remover item" disabled={r.itens.length === 1} style={r.itens.length === 1 ? { opacity: "var(--disabled-opacity)", cursor: "not-allowed" } : undefined}
-        onClick={() => r.itens.length > 1 && set("itens", r.itens.filter((_, i) => i !== j))} />
-    ];
-    return compact
-      ? <div key={j} style={{ display: "grid", gridTemplateColumns: "72px minmax(0,1fr) 44px", gap: 8, alignItems: "center", padding: "10px 12px", borderTop: j ? "var(--border-hairline) solid var(--color-border)" : "none" }}>
-          <div style={{ gridColumn: "1 / -1" }}>{campos[0]}</div>{campos[1]}{campos[2]}{campos[3]}
-        </div>
-      : <div key={j} style={{ display: "grid", gridTemplateColumns: ITEM_COLS, gap: 10, alignItems: "center", padding: "8px 12px", borderTop: "var(--border-hairline) solid var(--color-border)" }}>{campos}</div>;
   };
 
   return (<>
@@ -212,35 +343,9 @@ function ManualModal({ compact, onClose, onToast, acao, pendente }) {
         <PM.Button size="sm" variant="quiet" icon="plus" onClick={novo}>Novo pedido</PM.Button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px 12px" }}>
-        <PM.Field label="Cliente" required error={erros.cliente}><PM.Input placeholder="Nome do cliente" invalid={!!erros.cliente} {...ctl("cliente")} /></PM.Field>
-        <PM.Field label="WhatsApp" required error={erros.tel}><PM.Input placeholder="(38) 99999-9999" invalid={!!erros.tel} {...ctl("tel")} /></PM.Field>
-        <PM.Field label="Tipo de cliente"><PM.Select options={["Pessoa física", "Empresa", "Festa"]} {...ctl("tipo")} /></PM.Field>
-        <PM.Field label="Data de entrega" required error={erros.data}><PM.Input type="date" invalid={!!erros.data} {...ctl("data")} /></PM.Field>
-        <PM.Field label="Hora"><PM.Input type="time" {...ctl("hora")} /></PM.Field>
-        <PM.Field label="Entrega"><PM.Select options={["Retirada no local", "Entrega em endereço"]} {...ctl("entrega")} /></PM.Field>
-        {r.entrega === "Entrega em endereço"
-          ? <PM.Field label="Endereço" required error={erros.endereco}><PM.Input placeholder="Rua, número, bairro" invalid={!!erros.endereco} {...ctl("endereco")} /></PM.Field>
-          : null}
-        <PM.Field label="Pagamento"><PM.Select options={["Pix", "Cartão", "Dinheiro"]} {...ctl("pgto")} /></PM.Field>
-        <PM.Field label="Entrada" hint="Percentual cobrado agora"><EntradaToggle value={r.entrada} onChange={v => set("entrada", v)} /></PM.Field>
-        <PM.Field label="Observações"><PM.Input placeholder="Opcional" {...ctl("obs")} /></PM.Field>
-      </div>
-
-      <div style={{ marginTop: 18, border: "var(--border-hairline) solid " + (erros.itens ? "var(--action-danger)" : "var(--color-border)"), borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
-        {compact ? null : <div style={{ display: "grid", gridTemplateColumns: ITEM_COLS, gap: 10, padding: "10px 12px", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)" }}>
-          <span>Produto</span><span>Qtd</span><span>Preço un.</span><span />
-        </div>}
-        {r.itens.map(item)}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "10px 12px", borderTop: "var(--border-hairline) solid var(--color-border)" }}>
-          <PM.Button size="sm" variant="quiet" icon="plus" onClick={() => set("itens", [...r.itens, { nome: "", qtd: 1, preco: "" }])}>Adicionar item</PM.Button>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-            <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Entrada {r.entrada}% · {brl(totalRascunho(r) * r.entrada / 100)}</span>
-            <b style={{ fontSize: "var(--fs-subhead)" }}>{brl(totalRascunho(r))}</b>
-          </div>
-        </div>
-      </div>
-      {erros.itens ? <div style={{ marginTop: 6, fontSize: "var(--fs-tiny)", color: "var(--action-danger)" }}>{erros.itens}</div> : null}
+      <CamposPedido r={r} set={set} erros={erros} />
+      <window.ListaProdutos id="dluh-produtos-manual" produtos={produtos} />
+      <ItensPedido key={r.uid} r={r} set={set} compact={compact} produtos={produtos} erro={erros.itens} acao={acao} onToast={onToast} listaId="dluh-produtos-manual" />
     </PM.Modal>
     {sair ? <PM.ConfirmDialog tone="danger" icon="trash-2" title={n > 1 ? "Descartar pedidos?" : "Descartar pedido?"}
       message="O que foi preenchido aqui se perde." confirmLabel="Sim, descartar" cancelLabel="Voltar"
@@ -248,4 +353,4 @@ function ManualModal({ compact, onClose, onToast, acao, pendente }) {
   </>);
 }
 
-Object.assign(window, { ManualModal, PagamentosModal, EntradaToggle, brl });
+Object.assign(window, { ManualModal, PagamentosModal, EntradaToggle, brl, CamposPedido, ItensPedido, rascunhoDe, faltas, preenchido, paraApi, totalRascunho });

@@ -118,8 +118,8 @@ function ItemAgenda({ x }) {
 }
 
 function Agenda({ compact }) {
-  const hoje = window.DLUH.hoje;
-  const carga = useCarga(() => window.DLUH_API.carregar("agenda"));
+  const hoje = window.DLUH_API.hoje();
+  const carga = useAoVivo("agenda");
   const [filtro, setFiltro] = React.useState("tudo");
   const [sel, setSel] = React.useState(hoje);
   const [cursor, setCursor] = React.useState(() => ({ ano: Number(hoje.slice(0, 4)), mes: Number(hoje.slice(5, 7)) - 1 }));

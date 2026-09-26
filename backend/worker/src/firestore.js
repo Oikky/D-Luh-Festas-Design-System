@@ -62,6 +62,8 @@ class Doc {
     const [snap] = await this.db._batchGet([this]);
     return snap;
   }
+  set(dados, opcoes) { return this.db._commit([escritaSet(this, dados, opcoes)]); }
+  delete() { return this.db._commit([{ delete: this.nome }]); }
 }
 class Colecao {
   constructor(db, path) { this.db = db; this.path = path; }
@@ -115,11 +117,13 @@ class Transacao {
   create(ref, dados) { this.escritas.push(escritaCriar(ref, dados)); }
   update(ref, dados) { this.escritas.push(escritaAtualizar(ref, dados)); }
   set(ref, dados, opcoes) { this.escritas.push(escritaSet(ref, dados, opcoes)); }
+  delete(ref) { this.escritas.push({ delete: ref.nome, currentDocument: { exists: true } }); }
   /* Cada escrita num documento lido só vale se ele ainda estiver como foi lido. */
   comCondicoes() {
     return this.escritas.map(w => {
-      if (!this.lidos.has(w.update.name)) return w;
-      const versao = this.lidos.get(w.update.name);
+      const nome = w.update?.name || w.delete;
+      if (!this.lidos.has(nome)) return w;
+      const versao = this.lidos.get(nome);
       return { ...w, currentDocument: versao ? { updateTime: versao } : { exists: false } };
     });
   }

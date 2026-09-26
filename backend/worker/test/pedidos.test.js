@@ -5,7 +5,8 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { criarPedido, mudarStatus, marcarFeito, registrarPagamento } from "../src/pedidos.js";
+import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento } from "../src/pedidos.js";
+import { salvarProduto, apagarProduto, salvarRecheios } from "../src/produtos.js";
 import { pagamentoDe } from "../src/dominio.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
@@ -141,4 +142,46 @@ test("mudanças simultâneas de status não se perdem", async () => {
   assert.equal(ev[0].de, "Aguardando confirmação");
   for (let i = 1; i < ev.length; i++) assert.equal(ev[i].de, ev[i - 1].para);
   assert.equal(ev.at(-1).para, final);
+});
+
+test("editarPedido troca dados, refaz total e pagamento e guarda o antes no evento", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  await registrarPagamento(db, { pedidoId: id, valor: 13500, chave: "manual-e1", meio: "pix" }, "ana");
+  const r = await editarPedido(db, { pedidoId: id, ...base(), itens: [{ nome: "Bolo 1kg", qtd: 1, valorUnit: 12000, topo: { tema: "Frozen", imagem: "https://lh3.googleusercontent.com/d/x" }, recheios: ["Ninho"] }] }, "ana");
+  assert.deepEqual(r.campos, ["itens", "total"]);
+  const p = (await db.doc(`sis_pedidos/${id}`).get()).data();
+  assert.equal(p.total, 12000);
+  assert.equal(p.pagamento, "Totalmente pago"); // já tinha pago 135,00
+  assert.equal(p.status, "Aguardando confirmação");
+  assert.deepEqual(p.itens[0].topo, { tema: "Frozen", imagem: "https://lh3.googleusercontent.com/d/x" });
+  assert.deepEqual(p.itens[0].recheios, ["Ninho"]);
+  const ev = (await eventos(id)).find(e => e.tipo === "editado");
+  assert.equal(ev.antes.total, 27000);
+  assert.deepEqual(await editarPedido(db, { pedidoId: id, ...base(), itens: p.itens }, "ana"), { mudou: false });
+});
+
+test("editarPedido tira a forma de pagamento quando ela é apagada e recusa pedido cancelado", async () => {
+  const { id } = await criarPedido(db, { ...base(), formaPagamento: "pix" }, "ana");
+  await editarPedido(db, { pedidoId: id, ...base() }, "ana");
+  assert.equal((await db.doc(`sis_pedidos/${id}`).get()).get("formaPagamento"), undefined);
+  await mudarStatus(db, { pedidoId: id, status: "Cancelado" }, "ana");
+  await assert.rejects(editarPedido(db, { pedidoId: id, ...base() }, "ana"), /cancelado/);
+  await assert.rejects(editarPedido(db, { pedidoId: "PED-1", ...base() }, "ana"), /não existe/);
+});
+
+test("produtos: cria, edita, valida e apaga; recheios sem repetidos", async () => {
+  const { id } = await salvarProduto(db, { nome: "Coxinha", categoria: "Salgado Frito", valorUnit: 150, qtdMin: 25 }, "ana");
+  let p = (await db.doc(`sis_produtos/${id}`).get()).data();
+  assert.equal(p.ativo, true);
+  assert.equal(p.qtdMin, 25);
+  await salvarProduto(db, { id, nome: "Coxinha", categoria: "Salgado Frito", valorUnit: 180, ativo: false }, "ana");
+  p = (await db.doc(`sis_produtos/${id}`).get()).data();
+  assert.equal(p.valorUnit, 180);
+  assert.equal(p.ativo, false);
+  assert.equal(p.qtdMin, 1);
+  await assert.rejects(salvarProduto(db, { nome: "X", categoria: "Y", valorUnit: 1.5 }, "ana"), /centavos/);
+  await assert.rejects(salvarProduto(db, { id: "nao-existe", nome: "X", categoria: "Y", valorUnit: 100 }, "ana"), /não existe/);
+  assert.deepEqual(await apagarProduto(db, { id }), { apagado: true });
+  assert.equal((await db.doc(`sis_produtos/${id}`).get()).exists, false);
+  assert.deepEqual((await salvarRecheios(db, { lista: ["Ninho", " ninho ", "Brigadeiro", ""] }, "ana")).lista, ["Ninho", "Brigadeiro"]);
 });

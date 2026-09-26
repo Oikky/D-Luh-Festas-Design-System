@@ -27,6 +27,17 @@ window.DLUH = {
     { id: "PED-2294", cliente: "Colégio São José", hora: "17:00", itens: "300 Salgados sortidos · 2 Bolos 1kg", pago: "Não pago", entrega: "Entrega" },
     { id: "PED-2295", cliente: "Tiago Meireles", hora: "18:15", itens: "1 Bolo Red Velvet 1,5kg", pago: "Só entrada", entrega: "Retirada" }
   ],
+  /* Catalog as the Produtos screen reads it (money in centavos, plus the formatted price). */
+  produtos: [
+    { id: "p1", nome: "Coxinha de frango", categoria: "Salgado Frito", valorUnit: 150, preco: "R$ 1,50", qtdMin: 25, ingredientes: "Frango desfiado com catupiry", imagem: "", ativo: true, destaque: true, tiposPacote: [] },
+    { id: "p2", nome: "Risoles de presunto e queijo", categoria: "Salgado Frito", valorUnit: 150, preco: "R$ 1,50", qtdMin: 25, ingredientes: "", imagem: "", ativo: true, destaque: false, tiposPacote: [] },
+    { id: "p3", nome: "Empada de frango", categoria: "Salgado Assado", valorUnit: 280, preco: "R$ 2,80", qtdMin: 20, ingredientes: "Massa podre, frango e azeitona", imagem: "", ativo: true, destaque: false, tiposPacote: [] },
+    { id: "p4", nome: "Bolo Vulcão 2kg", categoria: "Bolo", valorUnit: 24000, preco: "R$ 240,00", qtdMin: 1, ingredientes: "Massa de chocolate com calda", imagem: "", ativo: true, destaque: true, tiposPacote: [] },
+    { id: "p5", nome: "Bolo Red Velvet 1,5kg", categoria: "Bolo", valorUnit: 26000, preco: "R$ 260,00", qtdMin: 1, ingredientes: "Cream cheese", imagem: "", ativo: false, destaque: false, tiposPacote: [] },
+    { id: "p6", nome: "Brigadeiro belga", categoria: "Doce", valorUnit: 440, preco: "R$ 4,40", qtdMin: 25, ingredientes: "", imagem: "", ativo: true, destaque: false, tiposPacote: [] },
+    { id: "p7", nome: "Pacote Festa 50 pessoas", categoria: "Pacote", valorUnit: 89000, preco: "R$ 890,00", qtdMin: 1, ingredientes: "Bolo 3kg, 300 salgados e 150 doces", imagem: "", ativo: true, destaque: false, tiposPacote: ["Salgado Frito", "Doce"] }
+  ],
+  recheios: ["Ninho com Nutella", "Brigadeiro", "Doce de leite com ameixa", "Prestígio", "Morango com chantilly"],
   agenda: [
     { data: "2026-06-05", tipo: "boleto", cliente: "Cemig", titulo: "Energia elétrica — cozinha e salão", valor: "R$ 684,30", situacao: "Pago", forma: "Débito automático" },
     { data: "2026-06-10", tipo: "cartao", cliente: "Nubank PJ", titulo: "Fatura do cartão — insumos e embalagens", valor: "R$ 2.318,90", situacao: "Pago" },

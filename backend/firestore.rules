@@ -33,6 +33,15 @@ service cloud.firestore {
     match /sis_config/{doc} {
       allow read, write: if sistema();
     }
+    // Catálogo: o site mostra para qualquer visitante, sem login.
+    match /sis_produtos/{id} {
+      allow read: if true;
+      allow write: if sistema();
+    }
+    match /sis_catalogo/{doc} {
+      allow read: if true;
+      allow write: if sistema();
+    }
 
     // ── Sistema atual (site) — manter até o corte ──
     // Antes deste arquivo, o projeto tinha a regra do "modo de teste", que venceu em 05/07/2026 —

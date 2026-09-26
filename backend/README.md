@@ -23,7 +23,14 @@ lógica no Worker **`dluh-api`** (Cloudflare, plano grátis). Plano e inventári
 | `/api/marcarFeito` | cozinha | Tira o pedido da fila (`cozinha: "feito"`); não mexe em status nem pagamento |
 | `/api/gerarCobranca` | admin | Link InfinitePay de `entrada` (`entradaPct` do pedido: 50% ou 100%), `restante` ou `total` |
 | `/api/registrarPagamentoManual` | admin | Pix por fora, dinheiro, maquininha ou `outro` |
+| `/api/editarPedido` | admin (Detalhes) | Troca cliente, entrega, itens e valores; refaz total e `pagamento`; evento guarda o "antes" |
+| `/api/avisarCliente` | admin ("Notificar alterações") | Manda ao cliente, pelo WhatsApp, o resumo atual do pedido |
+| `/api/salvarProduto`, `/api/apagarProduto` | admin (Produtos) | Catálogo em `sis_produtos` |
+| `/api/salvarRecheios` | admin (Produtos) | Lista de recheios em `sis_catalogo/recheios` |
+| `/api/enviarImagem` | admin | Foto de produto ou imagem do topo → Google Drive; devolve o link |
+| `/api/enviarTopo` | **cliente** (qualquer login do Firebase, até anônimo) | Imagem de referência do topo do bolo → Drive; vai em `itens[].topo.imagem` |
 | `/webhook/infinitepay` | InfinitePay | Confere no `payment_check` e registra; aviso repetido conta uma vez |
+| cron 03:00 | Cloudflare | Backup em JSON das coleções `sis_*` na pasta do Drive |
 
 `/api/*` exige `Authorization: Bearer <ID token>` de um e-mail da equipe. Erros voltam como
 `{ erro, codigo }` com status HTTP (400/401/403/404/409/500).
@@ -39,6 +46,35 @@ Quando o primeiro pagamento chega num pedido em "Confirmado — Esperando pagame
 - `sis_pedidos/{id}/eventos` — histórico
 - `sis_pagamentos/{chave}` — um documento por pagamento; a chave impede contar duas vezes
 - `sis_config/contador` — último número de pedido
+- `sis_produtos/{id}` — `nome`, `categoria`, `valorUnit`, `qtdMin`, `ingredientes`, `imagem`, `ativo`, `destaque`, `tiposPacote` — **leitura pública** (o site)
+- `sis_catalogo/recheios` — `{ lista: [...] }` — leitura pública
+
+Item do pedido: `{ nome, qtd, valorUnit, produtoId?, categoria?, obs?, recheios?: [..], topo?: { tema, detalhes?, imagem? } }`.
+
+## Depois de gravar (Agenda, WhatsApp)
+
+Depois que uma ação dá certo, o Worker (em segundo plano, sem atrasar a tela):
+- **Google Agenda**: um evento por pedido (criar, editar, mudar status, pagamento); cancelado sai da agenda.
+- **WhatsApp** (Evolution): pedido novo → mensagem para `WHATSAPP_LOJA`; pagamento confirmado pela InfinitePay → mensagem ao cliente.
+
+Se o Google ou a Evolution falharem, o pedido continua certo no Firestore; o erro aparece em `npx wrangler tail`.
+Cada integração fica **desligada** enquanto os segredos dela não existem.
+
+### Ligar Google Drive e Agenda (uma vez)
+1. Google Cloud → APIs e serviços: ativar **Google Drive API** e **Google Calendar API**.
+2. Tela de consentimento OAuth: tipo Externo, adicionar a conta da loja; depois **Publicar app** (em "Teste" o
+   refresh token vence em 7 dias). O aviso "app não verificado" é normal — só a loja usa.
+3. Credenciais → Criar → ID do cliente OAuth → **App para computador**.
+4. `node scripts/google-autorizar.js <CLIENT_ID> <CLIENT_SECRET>` — entrar com a conta da loja. O script cria a pasta
+   "D'Luh Sistema" no Drive e imprime os comandos `wrangler secret put` e o `GOOGLE_DRIVE_PASTA`.
+5. `npm run deploy:worker`.
+
+### Ligar o WhatsApp (Evolution API no Docker)
+O Worker roda na nuvem, então a Evolution precisa de um endereço público: um **Cloudflare Tunnel**
+(`cloudflared tunnel --url http://localhost:8080`, ou um túnel nomeado para o endereço não mudar).
+Em `wrangler.jsonc`: `EVOLUTION_URL` (endereço do túnel), `EVOLUTION_INSTANCE`, `WHATSAPP_LOJA`; e
+`npx wrangler secret put EVOLUTION_KEY` (a apikey da Evolution). Se o computador desligar, os avisos param —
+o resto do sistema não.
 
 O prefixo `sis_` existe porque a coleção `pedidos` já é usada pelo site atual ("Meus pedidos").
 
@@ -51,7 +87,7 @@ Mudar nos dois e publicar os dois.
 
 ```sh
 npm install && npm --prefix worker install
-npm test               # emulador do Firestore + 19 testes (Java 21 necessário)
+npm test               # emulador do Firestore + 26 testes (Java 21 necessário)
 npm run emuladores     # Firestore/Auth locais com painel em localhost:4000
 npm run deploy:regras  # publica firestore.rules
 npm run deploy:worker  # publica o Worker dluh-api
@@ -68,6 +104,6 @@ npm run deploy:worker  # publica o Worker dluh-api
 
 ## Ainda falta
 
-Telegram, WhatsApp, Google Agenda, upload do topo do bolo, produtos/recheios/limites de horário,
-bot de status do cliente, backup diário, editar pedido, e ligar Agenda/Financeiro/Visão geral.
-Ligados no admin (`?fonte=firebase`): Cozinha e Pedidos.
+Limites de horário, bot de status do cliente, o site novo dos clientes gravando em `criarPedido`,
+e ligar Financeiro/Visão geral. O Coda não é mais usado nem migrado.
+Ligados no admin (`?fonte=firebase`): Pedidos (com edição e impressão), Agenda, Cozinha e Produtos.

@@ -10,12 +10,12 @@ function useCompact() {
 }
 
 function App() {
-  // In the real system only the kitchen is wired so far, so it opens there.
+  // In the real system Visão geral isn't wired yet, so it opens on the kitchen.
   const [view, setView] = React.useState(window.DLUH_API.modo === "firebase" ? "cozinha" : "visao");
   const compact = useCompact();
   const [theme, setTheme] = React.useState("dark");
   const [q, setQ] = React.useState("");
-  const Screen = { visao: window.VisaoGeral, pedidos: window.Pedidos, agenda: window.Agenda, cozinha: window.Cozinha, financeiro: window.Financeiro }[view];
+  const Screen = { visao: window.VisaoGeral, pedidos: window.Pedidos, agenda: window.Agenda, cozinha: window.Cozinha, produtos: window.Produtos, financeiro: window.Financeiro }[view];
   return (
     <div style={{ height: "100dvh" }}>
       <window.Shell view={view} onView={setView} compact={compact} theme={theme}

@@ -37,14 +37,30 @@ function validarItens(itens) {
     const qtd = Number(it?.qtd);
     if (!nome) throw new ErroDominio("invalid-argument", `Item ${i + 1} sem nome`);
     if (!Number.isInteger(qtd) || qtd < 1) throw new ErroDominio("invalid-argument", `Item ${i + 1}: quantidade inválida`);
+    const recheios = Array.isArray(it.recheios) ? it.recheios.map(r => String(r).trim()).filter(Boolean).slice(0, 30) : [];
+    const topo = topoDe(it.topo, i);
     return {
       nome, qtd,
       valorUnit: centavos(it.valorUnit, `Item ${i + 1}: valorUnit`),
       ...(it.produtoId ? { produtoId: String(it.produtoId) } : {}),
+      ...(it.categoria ? { categoria: String(it.categoria) } : {}),
       ...(it.obs ? { obs: String(it.obs) } : {}),
-      ...(it.topo ? { topo: String(it.topo) } : {})
+      ...(recheios.length ? { recheios } : {}),
+      ...(topo ? { topo } : {})
     };
   });
+}
+
+/* Topo do bolo: texto livre (pedidos antigos) ou { tema, detalhes?, imagem? }, onde imagem é o
+   link devolvido por /api/enviarTopo. */
+function topoDe(topo, i) {
+  if (!topo) return null;
+  if (typeof topo === "string") return topo.trim() || null;
+  const tema = String(topo.tema || "").trim();
+  if (!tema) throw new ErroDominio("invalid-argument", `Item ${i + 1}: topo sem tema`);
+  const imagem = String(topo.imagem || "");
+  if (imagem && !/^https:\/\//.test(imagem)) throw new ErroDominio("invalid-argument", `Item ${i + 1}: imagem do topo inválida`);
+  return { tema, ...(topo.detalhes ? { detalhes: String(topo.detalhes).trim() } : {}), ...(imagem ? { imagem } : {}) };
 }
 
 function totalDe(itens, taxaEntrega = 0) {
