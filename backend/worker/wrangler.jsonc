@@ -12,7 +12,7 @@
     "SISTEMA_EMAIL": "sistema@dluh-festas.firebaseapp.com",
     "INFINITEPAY_HANDLE": "dluh_festas",
     // Telas que podem chamar a API (separadas por vírgula).
-    "ORIGENS": "https://sitedluh.github.io,http://localhost:8000,http://127.0.0.1:8000"
+    "ORIGENS": "https://sitedluh.github.io,https://oikky.github.io,http://localhost:8000,http://127.0.0.1:8000"
   }
   // Segredo: SISTEMA_SENHA → `npx wrangler secret put SISTEMA_SENHA`
 }
