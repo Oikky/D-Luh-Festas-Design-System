@@ -95,7 +95,10 @@ const ACOES_CLIENTE = {
 const DEPOIS = {
   criarPedido: (env, db, dados, r) => [efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id)],
   editarPedido: (env, db, dados, r) => r.mudou ? [efeitos.sincronizarAgenda(env, db, dados.pedidoId)] : [],
-  mudarStatus: (env, db, dados, r) => r.mudou ? [efeitos.sincronizarAgenda(env, db, dados.pedidoId)] : [],
+  mudarStatus: (env, db, dados, r) => !r.mudou ? [] : [
+    efeitos.sincronizarAgenda(env, db, dados.pedidoId),
+    ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : [])
+  ],
   registrarPagamentoManual: (env, db, dados, r) => r.duplicado ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId), efeitos.avisarClientePagamento(env, db, dados.pedidoId, dados.valor)
   ]

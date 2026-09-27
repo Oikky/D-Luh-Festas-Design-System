@@ -86,7 +86,27 @@ async function avisarClientePagamento(env, db, pedidoId, valor) {
   return enviarTexto(env, p.cliente?.telefone, [
     `Olá, ${p.cliente?.nome}! 🩷`,
     `Recebemos seu pagamento de ${brl(valor)} do pedido ${p.id}.`,
-    falta ? `Falta ${brl(falta)}.` : "Pedido totalmente pago. Obrigada!"
+    p.status === "Em produção" ? "Seu pedido já está em produção! 🎂" : null,
+    falta ? `O restante, de ${brl(falta)}, é pago quando o pedido estiver pronto, na ${momento(p)}.` : "Pedido totalmente pago. Obrigada!"
+  ].filter(x => x !== null).join("\n"));
+}
+
+const momento = p => p.entrega?.modo === "entrega" ? "entrega" : "retirada";
+
+/* Status virou "Pronto": avisa o cliente e lembra o restante, se houver. */
+async function avisarClientePronto(env, db, pedidoId) {
+  if (!whatsappLigado(env)) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  const e = p.entrega || {};
+  const falta = Math.max(0, p.total - p.pago);
+  return enviarTexto(env, p.cliente?.telefone, [
+    `Olá, ${p.cliente?.nome}! 🩷`,
+    `Seu pedido ${p.id} está pronto! 🎉`,
+    e.modo === "entrega"
+      ? "Em breve sai para entrega."
+      : `Já pode ser retirado${e.data ? ` (combinado: ${dataBR(e.data)}${e.hora ? ` às ${e.hora}` : ""})` : ""}.`,
+    falta ? `Valor restante: ${brl(falta)}, pago na ${momento(p)}.` : "Está totalmente pago. Obrigada!"
   ].join("\n"));
 }
 
@@ -116,4 +136,4 @@ async function backup(env, db) {
   return r;
 }
 
-export { sincronizarAgenda, avisarLojaNovoPedido, avisarClientePagamento, resumoParaCliente, backup, falhou, lerPedido };
+export { sincronizarAgenda, avisarLojaNovoPedido, avisarClientePagamento, avisarClientePronto, resumoParaCliente, backup, falhou, lerPedido };
