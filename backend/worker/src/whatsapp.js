@@ -3,8 +3,9 @@
 
 const whatsappLigado = env => !!(env.EVOLUTION_URL && env.EVOLUTION_KEY && env.EVOLUTION_INSTANCE);
 
-/* Número brasileiro sem DDI ganha o 55. */
+/* Número brasileiro sem DDI ganha o 55. Grupo ("…@g.us") passa como está. */
 const numeroDe = tel => {
+  if (String(tel || "").includes("@")) return String(tel).trim();
   const d = String(tel || "").replace(/\D/g, "");
   return d.length <= 11 ? "55" + d : d;
 };
@@ -14,7 +15,9 @@ async function enviarTexto(env, telefone, texto, fetchFn = fetch) {
   const res = await fetchFn(url, {
     method: "POST",
     headers: { apikey: env.EVOLUTION_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ number: numeroDe(telefone), text: texto })
+    body: JSON.stringify({ number: numeroDe(telefone), text: texto }),
+    // O PC da loja pode estar dormindo ou com o túnel caído: não segura a requisição pendurada.
+    signal: AbortSignal.timeout(8000)
   });
   if (!res.ok) throw new Error(`Evolution ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`);
   return true;

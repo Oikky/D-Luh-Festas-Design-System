@@ -20,9 +20,9 @@
     "GOOGLE_DRIVE_PASTA": "1HZd4xLWZ8U9CmYI76evk6s8ZEUAcnsZ0",
     "GOOGLE_AGENDA_ID": "primary",
     // Evolution API: endereço público (túnel) e nome da instância; número da loja que recebe os avisos.
-    "EVOLUTION_URL": "",
-    "EVOLUTION_INSTANCE": "",
-    "WHATSAPP_LOJA": ""
+    "EVOLUTION_URL": "https://desktop-uu44p04.tail79b93c.ts.net",
+    "EVOLUTION_INSTANCE": "dluh",
+    "WHATSAPP_LOJA": "120363428834894870@g.us"
   }
   // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
   // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY.

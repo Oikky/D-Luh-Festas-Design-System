@@ -62,13 +62,20 @@ async function avisarLojaNovoPedido(env, db, pedidoId) {
   const p = await lerPedido(db, pedidoId);
   if (!p) return;
   const e = p.entrega || {};
-  return enviarTexto(env, env.WHATSAPP_LOJA, [
+  const texto = [
     `🆕 Novo pedido ${p.id} (${p.origem})`,
     `${p.cliente?.nome} · ${p.cliente?.telefone}`,
     `${dataBR(e.data)}${e.hora ? ` ${e.hora}` : ""} · ${e.modo === "entrega" ? `Entrega: ${e.endereco}` : "Retirada"}`,
     "", ...linhasItens(p), "",
     `Total ${brl(p.total)}`
-  ].join("\n"));
+  ].join("\n");
+  // WHATSAPP_LOJA aceita vários destinos separados por vírgula (números ou grupo "…@g.us").
+  const destinos = String(env.WHATSAPP_LOJA).split(",").map(s => s.trim()).filter(Boolean);
+  const res = await Promise.allSettled(destinos.map(d => enviarTexto(env, d, texto)));
+  const falhas = res.filter(r => r.status === "rejected");
+  if (falhas.length === res.length) throw falhas[0].reason;
+  falhas.forEach(f => console.error(JSON.stringify({ msg: "aviso da loja falhou", erro: String(f.reason) })));
+  return true;
 }
 
 async function avisarClientePagamento(env, db, pedidoId, valor) {

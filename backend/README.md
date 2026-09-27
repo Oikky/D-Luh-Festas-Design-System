@@ -1,4 +1,4 @@
-# Backend D'Luh — Firestore + Cloudflare Worker
+﻿# Backend D'Luh — Firestore + Cloudflare Worker
 
 Substitui o Coda e o Worker antigo `coda-proxy`. Dados no Firebase `dluh-festas` (plano grátis);
 lógica no Worker **`dluh-api`** (Cloudflare, plano grátis). Plano e inventário em
@@ -72,7 +72,7 @@ Cada integração fica **desligada** enquanto os segredos dela não existem.
 ### Ligar o WhatsApp (Evolution API no Docker)
 O Worker roda na nuvem, então a Evolution precisa de um endereço público: um **Cloudflare Tunnel**
 (`cloudflared tunnel --url http://localhost:8080`, ou um túnel nomeado para o endereço não mudar).
-Em `wrangler.jsonc`: `EVOLUTION_URL` (endereço do túnel), `EVOLUTION_INSTANCE`, `WHATSAPP_LOJA`; e
+Em `wrangler.jsonc`: `EVOLUTION_URL` (endereço do túnel), `EVOLUTION_INSTANCE`, `WHATSAPP_LOJA` (um ou mais números separados por vírgula, ou um grupo `…@g.us`); e
 `npx wrangler secret put EVOLUTION_KEY` (a apikey da Evolution). Se o computador desligar, os avisos param —
 o resto do sistema não.
 
