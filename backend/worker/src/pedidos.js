@@ -157,4 +157,4 @@ async function registrarPagamento(db, { pedidoId, valor, chave, meio, comprovant
   });
 }
 
-export { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };
+export { normalizar, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };

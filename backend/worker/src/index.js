@@ -2,6 +2,7 @@
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
+     GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
      cron diário               backup no Google Drive
    As telas LEEM direto do Firestore (tempo real); toda ESCRITA passa por aqui e deixa evento. */
 import { criarFirestore } from "./firestore.js";
@@ -14,6 +15,8 @@ import * as produtos from "./produtos.js";
 import { enviarImagem } from "./google.js";
 import { whatsappLigado, enviarTexto } from "./whatsapp.js";
 import * as efeitos from "./efeitos.js";
+import { verificarWebhook, assinaturaValida, mensagensDe } from "./ia/meta.js";
+import { iaLigada, tratarMensagem } from "./ia/assistente.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
 
@@ -153,9 +156,37 @@ async function webhookInfinitepay(request, env, ctx) {
   }
 }
 
+/* Assistente no WhatsApp da Meta. Responde 200 na hora (a Meta reenvia se demorar) e conversa
+   depois, em waitUntil. Ações confirmadas passam pelas mesmas ACOES e DEPOIS das telas. */
+async function webhookWhatsapp(request, env, ctx, url) {
+  if (!iaLigada(env)) return new Response(null, { status: 404 });
+  if (request.method === "GET") return verificarWebhook(url, env);
+  if (request.method !== "POST") return new Response(null, { status: 405 });
+
+  const corpo = await request.text();
+  if (!(await assinaturaValida(corpo, request.headers.get("X-Hub-Signature-256"), env.META_APP_SECRET))) {
+    return new Response(null, { status: 401 });
+  }
+  let dados;
+  try { dados = JSON.parse(corpo); } catch { return new Response(null, { status: 400 }); }
+
+  const db = banco(env);
+  const executar = async (acao, dadosAcao, por) => {
+    const r = await ACOES[acao](db, dadosAcao, por, env);
+    depois(ctx, DEPOIS[acao]?.(env, db, dadosAcao, r) || [], acao, dadosAcao.pedidoId || r?.id);
+    return r;
+  };
+  const tarefas = mensagensDe(dados).map(msg => tratarMensagem({ env, db, msg, executar })
+    .catch(e => console.error(JSON.stringify({ msg: "webhook whatsapp falhou", erro: String(e) }))));
+  ctx.waitUntil(Promise.all(tarefas));
+  return new Response("ok");
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
 
     if (url.pathname === "/webhook/infinitepay") {
       if (request.method !== "POST") return new Response(null, { status: 405 });

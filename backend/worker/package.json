@@ -8,6 +8,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "jose": "^6.0.0"
   },
   "devDependencies": {

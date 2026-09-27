@@ -84,6 +84,23 @@ class Colecao {
     } while (pageToken);
     return docs;
   }
+  /* Consulta simples: filtros [campo, op, valor] (op: == < <= > >=) ligados por E, ordem crescente
+     num campo. Campo aninhado vale ("entrega.data"). Filtro de faixa + igualdade em campos
+     diferentes pediria índice composto — nesses casos, filtre o resto no código. */
+  async consultar(filtros = [], { ordem, limite } = {}) {
+    const OPS = { "==": "EQUAL", "<": "LESS_THAN", "<=": "LESS_THAN_OR_EQUAL", ">": "GREATER_THAN", ">=": "GREATER_THAN_OR_EQUAL" };
+    const where = filtros.map(([campo, op, valor]) => ({ fieldFilter: { field: { fieldPath: campo }, op: OPS[op], value: codificar(valor) } }));
+    const i = this.path.lastIndexOf("/");
+    const pai = i < 0 ? "" : `/${this.path.slice(0, i)}`;
+    const structuredQuery = {
+      from: [{ collectionId: this.path.slice(i + 1) }],
+      ...(where.length ? { where: where.length === 1 ? where[0] : { compositeFilter: { op: "AND", filters: where } } } : {}),
+      ...(ordem ? { orderBy: [{ field: { fieldPath: ordem }, direction: "ASCENDING" }] } : {}),
+      ...(limite ? { limit: limite } : {})
+    };
+    const r = await this.db._req("POST", `${pai}:runQuery`, { structuredQuery });
+    return r.filter(x => x.document).map(x => ({ id: x.document.name.split("/").pop(), ...lerCampos(x.document.fields || {}) }));
+  }
 }
 class Snap {
   constructor(ref, doc) {

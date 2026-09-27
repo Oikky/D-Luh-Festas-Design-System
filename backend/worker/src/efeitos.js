@@ -136,4 +136,4 @@ async function backup(env, db) {
   return r;
 }
 
-export { sincronizarAgenda, avisarLojaNovoPedido, avisarClientePagamento, avisarClientePronto, resumoParaCliente, backup, falhou, lerPedido };
+export { brl, dataBR, linhasItens, sincronizarAgenda, avisarLojaNovoPedido, avisarClientePagamento, avisarClientePronto, resumoParaCliente, backup, falhou, lerPedido };

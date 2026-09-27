@@ -33,6 +33,13 @@ service cloud.firestore {
     match /sis_config/{doc} {
       allow read, write: if sistema();
     }
+    // Assistente do WhatsApp: conversas e mensagens já vistas. Só o Worker.
+    match /sis_ia/{numero} {
+      allow read, write: if sistema();
+    }
+    match /sis_ia_msgs/{id} {
+      allow read, write: if sistema();
+    }
     // Catálogo: o site mostra para qualquer visitante, sem login.
     match /sis_produtos/{id} {
       allow read: if true;

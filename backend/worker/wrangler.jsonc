@@ -14,7 +14,7 @@
     "SISTEMA_EMAIL": "sistema@dluh-festas.firebaseapp.com",
     "INFINITEPAY_HANDLE": "dluh_festas",
     // Telas que podem chamar a API (separadas por vírgula).
-    "ORIGENS": "https://sitedluh.github.io,https://oikky.github.io,http://localhost:8000,http://127.0.0.1:8000",
+    "ORIGENS": "https://www.dluhfestas.com,https://dluhfestas.com,https://sitedluh.github.io,https://oikky.github.io,http://localhost:8000,http://127.0.0.1:8000",
     // ── Integrações (vazias = desligadas; ver README) ──
     // Google Drive e Agenda: ID da pasta do Drive e da agenda ("primary" = agenda principal da conta).
     "GOOGLE_DRIVE_PASTA": "1HZd4xLWZ8U9CmYI76evk6s8ZEUAcnsZ0",
@@ -22,8 +22,12 @@
     // Evolution API: endereço público (túnel) e nome da instância; número da loja que recebe os avisos.
     "EVOLUTION_URL": "https://desktop-uu44p04.tail79b93c.ts.net",
     "EVOLUTION_INSTANCE": "dluh",
-    "WHATSAPP_LOJA": "120363428834894870@g.us"
+    "WHATSAPP_LOJA": "120363428834894870@g.us",
+    // Assistente (Claude) no WhatsApp da Meta: ID do número na Meta e quem pode falar com ela
+    // (separados por vírgula, com DDD). Vazio = desligada.
+    "META_PHONE_ID": "",
+    "IA_NUMEROS": "5538999540665,5538997457788"
   }
   // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-  // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY.
+  // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY; META_TOKEN, META_APP_SECRET, META_VERIFY, ANTHROPIC_API_KEY.
 }

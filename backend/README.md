@@ -76,6 +76,19 @@ Em `wrangler.jsonc`: `EVOLUTION_URL` (endereço do túnel), `EVOLUTION_INSTANCE`
 `npx wrangler secret put EVOLUTION_KEY` (a apikey da Evolution). Se o computador desligar, os avisos param —
 o resto do sistema não.
 
+### Assistente no WhatsApp (Claude + número da Meta)
+`worker/src/ia/`. A equipe conversa com um número próprio na WhatsApp Cloud API; a Meta chama
+`/webhook/whatsapp` direto (sem PC). O Claude Sonnet 5 consulta pedidos e vendas; pedido novo,
+status e pagamento chegam como resumo com botões **Confirmar/Cancelar** e só gravam no toque, pelas
+mesmas ações das telas (evento com `por: ia:<número>`, Agenda, avisos). Preços vêm sempre do catálogo.
+Só números de `IA_NUMEROS` são atendidos. Conversa em `sis_ia/{número}` (esquece após 3h parada).
+
+Ligar: no app da Meta (developers.facebook.com → WhatsApp), pegar o **Phone number ID** →
+`META_PHONE_ID` em `wrangler.jsonc`; segredos `META_TOKEN` (token permanente de usuário do sistema),
+`META_APP_SECRET` (Configurações do app → Básico), `META_VERIFY` (qualquer frase) e
+`ANTHROPIC_API_KEY`. Publicar regras e Worker; no painel da Meta, webhook
+`https://dluh-api.sitedluh.workers.dev/webhook/whatsapp` com o mesmo `META_VERIFY`, assinando `messages`.
+
 O prefixo `sis_` existe porque a coleção `pedidos` já é usada pelo site atual ("Meus pedidos").
 
 ## Equipe
