@@ -146,8 +146,11 @@ async function registrarPagamento(db, { pedidoId, valor, chave, meio, comprovant
     const pago = snap.get("pago") + valor;
     const pagamento = pagamentoDe(snap.get("total"), pago);
     const statusAntes = snap.get("status");
-    // Mantém o fluxo de hoje: o primeiro pagamento tira o pedido da espera e manda para produção.
-    const status = statusAntes === "Confirmado — Esperando pagamento" ? "Em produção" : statusAntes;
+    // O primeiro pagamento tira o pedido da espera e manda para produção; quitar um pedido já
+    // entregue o finaliza.
+    const status = statusAntes === "Confirmado — Esperando pagamento" ? "Em produção"
+      : statusAntes === "Entregue — Esperando restante" && pagamento === "Totalmente pago" ? "Finalizado"
+      : statusAntes;
 
     tx.create(pagRef, { pedidoId: snap.id, valor, meio: String(meio || ""), comprovante: String(comprovante || ""), por, em: agora() });
     tx.update(ref, { pago, pagamento, status, atualizadoEm: agora() });

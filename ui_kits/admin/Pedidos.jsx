@@ -20,7 +20,14 @@ const reais = c => window.brl((c || 0) / 100);
 const entradaDe = p => p._c ? reais(Math.max(0, Math.round(p._c.total * p._c.entradaPct / 100) - p._c.pago)) : p.falta;
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 const para = p => p.cliente || "o cliente";
-const casa = (p, q) => !q || [p.cliente, p.id, p.tel].some(v => String(v || "").toLowerCase().includes(q.toLowerCase()));
+const semAcento = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+/* Nome, número do pedido ou telefone; sem diferença de maiúscula e acento, e o telefone casa só pelos dígitos. */
+const casa = (p, q) => {
+  const t = semAcento(q), digitos = String(q || "").replace(/\D/g, "");
+  return !t || [p.cliente, p.id].some(v => semAcento(v).includes(t)) || (digitos.length >= 4 && String(p.tel || "").replace(/\D/g, "").includes(digitos));
+};
+/* Com texto na busca aparece a aba "Resultados", com o que casou em todos os status. */
+const BUSCA = { id: "busca", label: "Resultados", filtro: null };
 
 /* Every confirmation the order card can open. Money actions name the amount in the question. */
 const quem = p => p.cliente || "O cliente";
@@ -154,23 +161,23 @@ function Pedidos({ compact, q }) {
   const imprimir = p => window.imprimirPedido(p, produtos) || showToast("O navegador bloqueou a janela de impressão", "danger");
 
   const todos = carga.dados || [];
-  const filtro = (TABS.find(t => t.id === tab) || TABS[0]).filtro;
-  const lista = todos.filter(p => filtro.includes(p.status)).filter(p => casa(p, q));
+  const abas = q ? [BUSCA, ...TABS] : TABS;
+  const filtro = (abas.find(t => t.id === tab) || TABS[0]).filtro;
+  const lista = todos.filter(p => !filtro || filtro.includes(p.status)).filter(p => casa(p, q));
   /* Orders whose Status is not in the Coda single-select would fall between the tabs. They are
      listed on their own, above the tabs, so a typo in Coda is visible instead of lost. */
   const fora = todos.filter(p => !TABS.some(t => t.filtro.includes(p.status)));
   const achouEmOutra = !!q && todos.some(p => casa(p, q));
 
-  /* A search that only matches in another status moves to that tab, so picking a pedido in
-     the global search never lands on an empty list. */
+  /* Digitar na busca abre "Resultados" (todos os status); limpar volta para a primeira aba. As
+     contagens das abas passam a ser do que casou, para ver em que status estão. */
   React.useEffect(() => {
-    if (!q || lista.length) return;
-    const alvo = TABS.find(t => todos.some(p => t.filtro.includes(p.status) && casa(p, q)));
-    if (alvo) setTab(alvo.id);
-  }, [q, carga.estado]);
+    if (q) setTab("busca");
+    else setTab(t => t === "busca" ? "estoque" : t);
+  }, [!!q]);
 
   const counts = {};
-  TABS.forEach(t => counts[t.id] = todos.filter(p => t.filtro.includes(p.status)).length);
+  abas.forEach(t => counts[t.id] = todos.filter(p => (!t.filtro || t.filtro.includes(p.status)) && casa(p, q)).length);
   const pede = (tipo, p) => setConfirm({ tipo, p, ...CONFIRMA[tipo](p) });
 
   if (carga.estado === "erro" && !carga.dados) return <ErroCarga erro={carga.erro} oque="os pedidos" onTentar={carga.tentar} />;
@@ -189,7 +196,7 @@ function Pedidos({ compact, q }) {
           subtitle={p.id + " · status: " + (p.status || "vazio")} value={dinheiro(p.total)} onClick={() => setDetalhe(p)} />)}
       </Card> : null}
 
-      <Tabs value={tab} onChange={setTab} items={TABS.map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} />
+      <Tabs value={tab} onChange={setTab} items={abas.map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} />
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <Button size="sm" icon="plus" onClick={() => setManual(true)}>Pedido manual</Button>
@@ -216,6 +223,10 @@ function Pedidos({ compact, q }) {
                   ? <Button size="sm" tone="delivered" icon="truck" loading={pendente === "entregue-" + p.id}
                       onClick={() => acao("entregue-" + p.id, { ok: p.pagamento === "Totalmente pago" ? "Pedido entregue e finalizado" : "Pedido marcado como entregue", falhou: "Não deu pra marcar como entregue" }, null,
                         { acao: "mudarStatus", dados: { pedidoId: p.id, status: p.pagamento === "Totalmente pago" ? "Finalizado" : "Entregue — Esperando restante" } })}>Marcar entregue</Button>
+                  : p.status === "Entregue — Esperando restante" && p.pagamento === "Totalmente pago"
+                  ? <Button size="sm" tone="delivered" icon="circle-check" loading={pendente === "finalizar-" + p.id}
+                      onClick={() => acao("finalizar-" + p.id, { ok: "Pedido finalizado", falhou: "Não deu pra finalizar o pedido" }, null,
+                        { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Finalizado" } })}>Finalizar</Button>
                   : p.status === "Entregue — Esperando restante"
                   ? <Button size="sm" tone="chargeAll" icon="banknote" onClick={() => pede("restante", p)}>Cobrar restante</Button>
                   : p.status === "Finalizado"
@@ -233,7 +244,7 @@ function Pedidos({ compact, q }) {
               </>} />
           ))}
         </div>
-      ) : q && !achouEmOutra ? (
+      ) : q && (tab === "busca" || !achouEmOutra) ? (
         <Card padded={false}><EmptyState icon="search-x" title={`Nenhum pedido encontrado para “${q}”`}
           description="A busca procura pelo nome do cliente, pelo número do pedido (PED-…) e pelo telefone." /></Card>
       ) : (

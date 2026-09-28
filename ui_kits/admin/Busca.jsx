@@ -56,6 +56,9 @@ function GlobalSearch({ q, onQ, onView }) {
   const visiveis = grupos.flatMap(g => g.achados.slice(0, 5).map(it => ({ g, it })));
   const pick = (g, it) => { onView(g.view); onQ(it.q || ""); setOpen(false); setAtivo(-1); };
   const aberto = open && !!t;
+  /* Enter sem escolher um resultado, ou "Ver todos": abre Pedidos com o texto digitado, que lista
+     tudo o que casou em todos os status. */
+  const verTodos = () => { onView("pedidos"); setOpen(false); setAtivo(-1); };
   const onKey = e => {
     if (e.key === "Escape") { if (aberto) { e.preventDefault(); setOpen(false); } else if (q) onQ(""); return; }
     if (!visiveis.length) return;
@@ -65,6 +68,8 @@ function GlobalSearch({ q, onQ, onView }) {
       setAtivo(a => (a + d + visiveis.length) % visiveis.length);
     } else if (e.key === "Enter" && aberto && ativo >= 0 && visiveis[ativo]) {
       e.preventDefault(); pick(visiveis[ativo].g, visiveis[ativo].it);
+    } else if (e.key === "Enter" && aberto) {
+      e.preventDefault(); verTodos();
     }
   };
   React.useEffect(() => { setAtivo(-1); }, [t]);
@@ -95,6 +100,12 @@ function GlobalSearch({ q, onQ, onView }) {
                 <span>{g.label}</span><span>{g.achados.length}</span>
               </div>
               {g.achados.slice(0, 5).map((it, i) => { n++; const k = n; return <ResultadoRow key={i} id={"busca-op-" + k} ativo={k === ativo} onHover={() => setAtivo(k)} grupo={g} it={it} onPick={pick} />; })}
+              {g.id === "pedidos" && g.achados.length > 5 ? (
+                <button type="button" onMouseDown={e => e.preventDefault()} onClick={verTodos} style={{
+                  padding: "8px 10px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left",
+                  fontFamily: "var(--font-ui)", fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)", color: "var(--color-accent)"
+                }}>Ver todos os {g.achados.length} pedidos</button>
+              ) : null}
             </div>
           )) : (
             <div style={{ padding: "18px 10px", fontSize: "var(--fs-body-s)", color: "var(--text-muted)", textAlign: "center" }}>Nada encontrado para “{q}”.<br />Busque pelo nome do cliente, número do pedido (PED-…), telefone, evento ou fornecedor.</div>

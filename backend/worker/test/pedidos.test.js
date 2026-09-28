@@ -109,12 +109,23 @@ test("pagamento repetido (webhook duas vezes) conta uma vez só", async () => {
   assert.equal(p.status, "Em produção"); // a entrada libera a produção, como hoje
 });
 
-test("pagamento não mexe no status fora da espera de pagamento", async () => {
+test("quitar pedido entregue finaliza; pagamento parcial não mexe no status", async () => {
   const { id } = await criarPedido(db, base(), "ana");
   await mudarStatus(db, { pedidoId: id, status: "Entregue — Esperando restante" }, "ana");
-  const r = await registrarPagamento(db, { pedidoId: id, valor: 27000, chave: "manual-1", meio: "dinheiro" }, "ana");
+  const parcial = await registrarPagamento(db, { pedidoId: id, valor: 7000, chave: "manual-0", meio: "pix" }, "ana");
+  assert.equal(parcial.status, "Entregue — Esperando restante");
+  const r = await registrarPagamento(db, { pedidoId: id, valor: 20000, chave: "manual-1", meio: "dinheiro" }, "ana");
   assert.equal(r.pagamento, "Totalmente pago");
-  assert.equal(r.status, "Entregue — Esperando restante");
+  assert.equal(r.status, "Finalizado");
+  const ev = (await eventos(id)).filter(e => e.tipo === "status");
+  assert.deepEqual(ev.at(-1), { ...ev.at(-1), de: "Entregue — Esperando restante", para: "Finalizado", por: "sistema" });
+});
+
+test("pagamento não mexe no status em produção", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  await mudarStatus(db, { pedidoId: id, status: "Em produção" }, "ana");
+  const r = await registrarPagamento(db, { pedidoId: id, valor: 27000, chave: "manual-2", meio: "dinheiro" }, "ana");
+  assert.equal(r.status, "Em produção");
 });
 
 test("cozinha marca feito só em produção, uma vez, sem mexer em status ou pagamento", async () => {
