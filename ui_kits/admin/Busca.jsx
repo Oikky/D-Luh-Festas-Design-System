@@ -3,11 +3,15 @@ const BX = window.DLuhFestasDesignSystem_c861a2;
 const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const dataBR = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "sem data";
 
+const REAL_B = () => window.DLUH_API.modo === "firebase";
+const grupoPedidos = pedidos => ({ id: "pedidos", label: "Pedidos", icon: "receipt-text", view: "pedidos",
+  itens: pedidos.map(p => ({ title: p.cliente, sub: p.id + " · " + (p.status || "sem status"), value: p.total, busca: [p.cliente, p.id, p.tel, p.status, ...(p.itens || []).map(i => i.name)], q: p.id })) });
+
+/* No sistema real só os pedidos existem no Firestore; eventos, boletos e cartões ainda são só da demo. */
 function indiceBusca() {
   const d = window.DLUH, ag = d.agenda;
   return [
-    { id: "pedidos", label: "Pedidos", icon: "receipt-text", view: "pedidos",
-      itens: d.pedidos.map(p => ({ title: p.cliente, sub: p.id + " · " + (p.status || "sem status"), value: p.total, busca: [p.cliente, p.id, p.tel, p.status, ...(p.itens || []).map(i => i.name)], q: p.id })) },
+    grupoPedidos(d.pedidos),
     { id: "eventos", label: "Eventos", icon: "party-popper", view: "agenda",
       itens: ag.filter(e => e.tipo === "buffet" || e.tipo === "festa").map(e => ({ title: e.titulo, sub: [e.cliente, e.data ? dataBR(e.data) + (e.hora ? " " + e.hora : "") : null, e.local].filter(Boolean).join(" · "), value: e.valor, busca: [e.titulo, e.cliente, e.local] })) },
     { id: "pagamentos", label: "Pagamentos", icon: "wallet", view: "visao",
@@ -40,8 +44,12 @@ function ResultadoRow({ grupo, it, onPick, id, ativo, onHover }) {
 function GlobalSearch({ q, onQ, onView }) {
   const [open, setOpen] = React.useState(false);
   const [ativo, setAtivo] = React.useState(-1);
-  const indice = React.useMemo(indiceBusca, []);
   const t = norm(q).trim();
+  /* Real: assina os pedidos só enquanto há texto na busca. A consulta é a mesma das telas Pedidos e
+     Agenda, e o Firestore reaproveita a mesma escuta (sem leituras a mais quando elas estão abertas). */
+  const vivo = useAoVivo(REAL_B() && t ? "pedidos" : "nada");
+  const indice = React.useMemo(() => REAL_B() ? [grupoPedidos(vivo.dados || [])] : indiceBusca(), [vivo.dados]);
+  const carregando = REAL_B() && !!t && !vivo.dados && vivo.estado === "carregando";
   const grupos = t ? indice.map(g => ({ ...g, achados: g.itens.filter(it => it.busca.some(s => norm(s).includes(t))) })).filter(g => g.achados.length) : [];
   const total = grupos.reduce((s, g) => s + g.achados.length, 0);
   /* Flat list of what is on screen (five per group), so arrows walk the results in order. */
@@ -79,7 +87,9 @@ function GlobalSearch({ q, onQ, onView }) {
           padding: 8, borderRadius: "var(--radius-md)", border: "var(--border-hairline) solid var(--color-border)",
           background: "var(--color-surface)", boxShadow: "0 16px 48px rgba(0,0,0,.28)"
         }}>
-          {total ? grupos.map(g => (
+          {carregando ? (
+            <div style={{ padding: "18px 10px", fontSize: "var(--fs-body-s)", color: "var(--text-muted)", textAlign: "center" }}>Buscando…</div>
+          ) : total ? grupos.map(g => (
             <div key={g.id} role="group" aria-label={g.label} style={{ display: "flex", flexDirection: "column", gap: 2, paddingBottom: 6 }}>
               <div aria-hidden="true" style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px 4px", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "var(--ls-label)" }}>
                 <span>{g.label}</span><span>{g.achados.length}</span>
