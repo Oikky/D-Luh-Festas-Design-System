@@ -199,7 +199,8 @@ async function webhookEvolution(request, env, ctx, token) {
   try { dados = JSON.parse(corpo); } catch { return new Response(null, { status: 400 }); }
 
   const msg = mensagemEvolution(dados);
-  const daIA = !!(msg && iaPronta(env) && autorizado(env, msg.de));
+  // Com a Meta ligada a assistente mora só no número dela; o da loja volta a repassar tudo.
+  const daIA = !!(msg && iaPronta(env) && !metaLigado(env) && autorizado(env, msg.de));
   if (msg) {
     // Diagnóstico de quem é quem (o WhatsApp pode identificar o contato por @lid): só os 4 últimos dígitos.
     const mascara = s => (s == null ? undefined : String(s).replace(/\d(?=\d{4})/g, "•"));
