@@ -29,7 +29,7 @@
     "WHATSAPP_LOJA": "120363428834894870@g.us",
     // Assistente (Claude) no WhatsApp da Meta: ID do número na Meta e quem pode falar com ela
     // (separados por vírgula, com DDD). Vazio = desligada.
-    "META_PHONE_ID": "",
+    "META_PHONE_ID": "512497525269120",
     "IA_NUMEROS": "5538999540665,5538997457788"
   }
   // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
