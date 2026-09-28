@@ -15,3 +15,6 @@ tools/.cache/
 
 # Artefatos do plugin do Playwright (logs de console, snapshots)
 .playwright-mcp/
+
+# Cópia do Coda para a migração (dados de clientes)
+backend/.coda-export/
