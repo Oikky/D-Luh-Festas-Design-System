@@ -7,6 +7,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ErroDominio } from "../dominio.js";
 import { DEFINICOES, executarFerramenta, hojeSP } from "./ferramentas.js";
+import { audioLigado, transcrever } from "./audio.js";
 
 const MODELO = "claude-sonnet-5";
 const CONVERSAS = "sis_ia";
@@ -35,6 +36,7 @@ Como responder:
 - Todo dado vem das ferramentas. Nunca invente pedido, cliente, valor, preço ou data; se não achar, diga que não achou.
 - Cada mensagem do usuário começa com a data e hora atuais entre colchetes. Calcule "hoje", "amanhã", "sábado", "essa semana" (segunda a domingo) e "esse mês" a partir dela. Pedidos são sempre filtrados pela data de entrega/retirada.
 - Os valores das ferramentas já vêm em reais formatados; use como vieram.
+- Mensagem que começa com "(áudio transcrito)" veio de um áudio e pode ter erro de transcrição. Nome, telefone, número de pedido ou valor que pareça estranho: confirme antes de usar.
 
 Mudanças (pedido novo, status, pagamento):
 - Use propor_pedido, propor_status ou propor_pagamento. O sistema manda ao usuário o resumo e pede a confirmação; nada é gravado sem ela.
@@ -193,9 +195,16 @@ async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
 
   try {
     if (msg.botao) return await responderBotao({ env, db, numero, botao: msg.botao, executar, enviar });
-    if (msg.tipo !== "text" || !msg.texto) return await enviar.texto("Por enquanto eu só entendo mensagem de texto 🙂");
 
-    const curta = msg.texto.trim();
+    let texto = msg.tipo === "text" ? msg.texto : "", deAudio = false;
+    if (msg.tipo === "audio" && audioLigado(env) && canal.baixarAudio) {
+      texto = await transcrever(env, await canal.baixarAudio(msg));
+      if (!texto) return await enviar.texto("Não consegui entender o áudio. Pode mandar de novo ou escrever?");
+      deAudio = true;
+    }
+    if (!texto) return await enviar.texto("Por enquanto eu entendo texto e áudio 🙂");
+
+    const curta = texto.trim();
     if (SIM.test(curta) || NAO.test(curta)) {
       const { ultimas } = await carregar(db, numero, Date.now());
       if (ultimas.length) {
@@ -204,7 +213,7 @@ async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
       }
     }
     claude ||= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 1 });
-    await conversar({ env, db, numero, texto: msg.texto, claude, enviar });
+    await conversar({ env, db, numero, texto: deAudio ? `(áudio transcrito) ${texto}` : texto, claude, enviar });
   } catch (e) {
     console.error(JSON.stringify({ msg: "IA falhou", erro: String(e) }));
     await enviar.texto("Deu um erro aqui do meu lado. Tenta de novo daqui a pouco?").catch(() => {});

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { assinaturaValida, mensagensDe } from "../src/ia/meta.js";
 import { autorizado, conversar, responderBotao, tratarMensagem } from "../src/ia/assistente.js";
 import { executarFerramenta } from "../src/ia/ferramentas.js";
-import { mensagemEvolution } from "../src/ia/evolution.js";
+import { mensagemEvolution, baixarAudio } from "../src/ia/evolution.js";
 
 /* Firestore de mentira, em memória, com a mesma forma que o código usa. */
 function bancoFalso(inicial = {}) {
@@ -197,6 +197,48 @@ test("\"sim\" logo depois da proposta confirma pelo código; sem proposta recent
   assert.equal(canal.envios.at(-1)[1], "Sim o quê?");
 });
 
+test("áudio é transcrito e entra na conversa; \"sim\" falado também confirma", async () => {
+  const db = bancoFalso({ "sis_pedidos/PED-3012": pedido("PED-3012") });
+  const transcricoes = ["Marca o 3012 como pronto.", "Sim."];
+  const env = { IA_NUMEROS: "5538999540665", AI: { run: async (modelo, e) => ({ text: transcricoes.shift() }) } };
+  const canal = { ...canalFalso(), baixarAudio: async () => "b64" };
+  const claude = claudeFalso([
+    { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "propor_status", input: { pedido_id: "3012", status: "Pronto" } }] },
+    { stop_reason: "end_turn", content: [{ type: "text", text: "Confirma?" }] }
+  ]);
+  const executadas = [];
+  const executar = async acao => { executadas.push(acao); return { mudou: true }; };
+  const de = "553899540665";
+
+  await tratarMensagem({ env, db, msg: { id: "x1", de, tipo: "audio" }, executar, claude, canal });
+  assert.match(db.docs.get(`sis_ia/${de}`).historico[0].content, /\(áudio transcrito\) Marca o 3012/);
+  await tratarMensagem({ env, db, msg: { id: "x2", de, tipo: "audio" }, executar, claude, canal });
+  assert.deepEqual(executadas, ["mudarStatus"]);
+});
+
+test("Evolution: áudio ainda não salvo (\"Message not found\") é pedido de novo até vir", async () => {
+  const respostas = [
+    new Response('{"response":{"message":["Message not found"]}}', { status: 400 }),
+    new Response('{"response":{"message":["Message not found"]}}', { status: 400 }),
+    new Response('{"base64":"QUJD"}')
+  ];
+  let chamadas = 0;
+  const fetchFn = async () => { chamadas++; return respostas.shift(); };
+  const env = { EVOLUTION_URL: "https://x", EVOLUTION_INSTANCE: "dluh", EVOLUTION_KEY: "k" };
+  assert.equal(await baixarAudio(env, { id: "1" }, { fetchFn, esperas: [0, 0, 0] }), "QUJD");
+  assert.equal(chamadas, 3);
+
+  const sempre404 = async () => new Response("Message not found", { status: 400 });
+  await assert.rejects(baixarAudio(env, { id: "1" }, { fetchFn: sempre404, esperas: [0, 0] }), /Evolution mídia 400/);
+});
+
+test("áudio vazio ou sem transcrição pede para repetir", async () => {
+  const env = { IA_NUMEROS: "5538999540665", AI: { run: async () => ({ text: "  " }) } };
+  const canal = { ...canalFalso(), baixarAudio: async () => "b64" };
+  await tratarMensagem({ env, db: bancoFalso(), msg: { id: "y", de: "553899540665", tipo: "audio" }, executar: null, claude: null, canal });
+  assert.match(canal.envios[0][1], /Não consegui entender o áudio/);
+});
+
 test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do campo ao lado do @lid", () => {
   const evento = (key, message = { conversation: "oi" }) => ({ event: "messages.upsert", data: { key, message, messageType: "conversation" } });
   assert.deepEqual(mensagemEvolution(evento({ id: "1", remoteJid: "553899540665@s.whatsapp.net" })), { id: "1", de: "553899540665", tipo: "text", texto: "oi" });
@@ -205,4 +247,5 @@ test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do c
   assert.equal(mensagemEvolution(evento({ id: "4", remoteJid: "120363@g.us" })), null);
   assert.equal(mensagemEvolution({ event: "connection.update", data: {} }), null);
   assert.equal(mensagemEvolution(evento({ id: "5", remoteJid: "553899540665@s.whatsapp.net" }, { extendedTextMessage: { text: "e aí" } })).texto, "e aí");
+  assert.equal(mensagemEvolution(evento({ id: "6", remoteJid: "553899540665@s.whatsapp.net" }, { audioMessage: { seconds: 4 } })).tipo, "audio");
 });

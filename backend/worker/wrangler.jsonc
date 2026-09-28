@@ -6,6 +6,8 @@
   // global_fetch_strictly_public: sem ele, chamar outro Worker desta conta pelo workers.dev (o repasse
   // da Evolution para o coda-proxy) volta 404.
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Workers AI: transcrição dos áudios da assistente (Whisper).
+  "ai": { "binding": "AI" },
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   // Backup diário às 03:00 de Brasília (06:00 UTC) no Google Drive.
   "triggers": { "crons": ["0 6 * * *"] },

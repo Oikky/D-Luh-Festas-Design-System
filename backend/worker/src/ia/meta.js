@@ -38,6 +38,7 @@ function mensagensDe(corpo) {
           de: m.from,
           tipo: m.type,
           texto: m.type === "text" ? String(m.text?.body || "") : undefined,
+          midia: m.type === "audio" ? m.audio?.id : undefined,
           botao: m.type === "interactive" ? m.interactive?.button_reply?.id : m.type === "button" ? m.button?.payload : undefined
         });
       }
@@ -79,7 +80,20 @@ const enviarBotoes = (env, para, texto, botoes, fetchFn) =>
 const marcarLida = (env, mensagemId, fetchFn) =>
   chamar(env, { status: "read", message_id: mensagemId, typing_indicator: { type: "text" } }, fetchFn).catch(() => {});
 
+/* Mídia na Meta: o id leva a um link temporário, que também pede o token. */
+async function baixarMidia(env, mediaId, fetchFn = fetch) {
+  const versao = env.META_VERSAO || "v23.0";
+  const auth = { Authorization: `Bearer ${env.META_TOKEN}` };
+  const info = await fetchFn(`https://graph.facebook.com/${versao}/${mediaId}`, { headers: auth, signal: AbortSignal.timeout(10000) });
+  if (!info.ok) throw new Error(`Meta mídia ${info.status}`);
+  const { url } = await info.json();
+  const arq = await fetchFn(url, { headers: auth, signal: AbortSignal.timeout(15000) });
+  if (!arq.ok) throw new Error(`Meta download ${arq.status}`);
+  return Buffer.from(await arq.arrayBuffer()).toString("base64");
+}
+
 const canalMeta = (env, fetchFn) => ({
+  baixarAudio: msg => baixarMidia(env, msg.midia, fetchFn),
   texto: (numero, t) => enviarTexto(env, numero, t, fetchFn),
   botoes: (numero, t, b) => enviarBotoes(env, numero, t, b, fetchFn),
   lida: msg => marcarLida(env, msg.id, fetchFn)
