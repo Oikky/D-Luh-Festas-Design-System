@@ -33,6 +33,13 @@ test("webhook ignora aviso sem os campos da InfinitePay, sem consultar nada", as
   assert.match((await r.json()).message, /ignorado/);
 });
 
+test("webhook da Evolution só responde com o token certo", async () => {
+  const env2 = { ...env, EVOLUTION_WEBHOOK_TOKEN: "certo" };
+  const chamar2 = caminho => worker.fetch(new Request(`https://dluh-api.test${caminho}`, { method: "POST", body: '{"event":"connection.update"}' }), env2, { waitUntil() {} });
+  assert.equal((await chamar2("/webhook/evolution/errado")).status, 404);
+  assert.equal((await chamar2("/webhook/evolution/certo")).status, 200);
+});
+
 test("ações de cliente existem e também pedem login", async () => {
   const r = await chamar("/api/enviarTopo", { method: "POST", body: "{}" });
   assert.equal(r.status, 401);

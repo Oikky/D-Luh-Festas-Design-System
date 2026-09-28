@@ -3,7 +3,9 @@
   "name": "dluh-api",
   "main": "src/index.js",
   "compatibility_date": "2026-09-25",
-  "compatibility_flags": ["nodejs_compat"],
+  // global_fetch_strictly_public: sem ele, chamar outro Worker desta conta pelo workers.dev (o repasse
+  // da Evolution para o coda-proxy) volta 404.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   // Backup diário às 03:00 de Brasília (06:00 UTC) no Google Drive.
   "triggers": { "crons": ["0 6 * * *"] },
@@ -29,5 +31,7 @@
     "IA_NUMEROS": "5538999540665,5538997457788"
   }
   // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-  // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY; META_TOKEN, META_APP_SECRET, META_VERIFY, ANTHROPIC_API_KEY.
+  // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY; META_TOKEN, META_APP_SECRET, META_VERIFY, ANTHROPIC_API_KEY;
+  // EVOLUTION_WEBHOOK_TOKEN (fim da URL /webhook/evolution/<token>) e EVOLUTION_REPASSE (o webhook que
+  // a Evolution usava antes, com o token dele — por isso é segredo): o que não é da assistente segue para lá.
 }

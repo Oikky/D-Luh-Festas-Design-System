@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { assinaturaValida, mensagensDe } from "../src/ia/meta.js";
 import { autorizado, conversar, responderBotao, tratarMensagem } from "../src/ia/assistente.js";
 import { executarFerramenta } from "../src/ia/ferramentas.js";
+import { mensagemEvolution } from "../src/ia/evolution.js";
 
 /* Firestore de mentira, em memória, com a mesma forma que o código usa. */
 function bancoFalso(inicial = {}) {
@@ -153,20 +154,55 @@ test("Cancelar não grava nada", async () => {
   assert.match(resposta, /cancelado/i);
 });
 
+const canalFalso = () => {
+  const envios = [];
+  return { envios, texto: async (n, t) => envios.push(["texto", t]), botoes: async (n, t, b) => envios.push(["botoes", t, b]) };
+};
+
 test("mensagem de número não autorizado ou repetida é ignorada", async () => {
   const db = bancoFalso();
-  const env = { IA_NUMEROS: "5538999540665", META_TOKEN: "t", META_PHONE_ID: "1", META_VERSAO: "v23.0" };
-  const envios = [];
-  const fetchFn = async (url, init) => { envios.push(JSON.parse(init.body)); return new Response("{}"); };
-  const claude = claudeFalso([
-    { stop_reason: "end_turn", content: [{ type: "text", text: "Oi!" }] }
-  ]);
+  const env = { IA_NUMEROS: "5538999540665" };
+  const canal = canalFalso();
+  const claude = claudeFalso([{ stop_reason: "end_turn", content: [{ type: "text", text: "Oi!" }] }]);
 
-  await tratarMensagem({ env, db, msg: { id: "w9", de: "5511900000000", tipo: "text", texto: "oi" }, executar: null, claude, fetchFn });
-  assert.equal(envios.length, 0);
+  await tratarMensagem({ env, db, msg: { id: "w9", de: "5511900000000", tipo: "text", texto: "oi" }, executar: null, claude, canal });
+  assert.equal(canal.envios.length, 0);
 
   const msg = { id: "w10", de: "553899540665", tipo: "text", texto: "oi" };
-  await tratarMensagem({ env, db, msg, executar: null, claude, fetchFn });
-  await tratarMensagem({ env, db, msg, executar: null, claude, fetchFn });
-  assert.equal(envios.filter(e => e.type === "text").length, 1);
+  await tratarMensagem({ env, db, msg, executar: null, claude, canal });
+  await tratarMensagem({ env, db, msg, executar: null, claude, canal });
+  assert.deepEqual(canal.envios, [["texto", "Oi!"]]);
+});
+
+test("\"sim\" logo depois da proposta confirma pelo código; sem proposta recente, vai para o modelo", async () => {
+  const db = bancoFalso({ "sis_pedidos/PED-3012": pedido("PED-3012") });
+  const env = { IA_NUMEROS: "5538999540665" };
+  const canal = canalFalso();
+  const executadas = [];
+  const executar = async (acao, dados) => { executadas.push(acao); return { mudou: true }; };
+  const claude = claudeFalso([
+    { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "propor_status", input: { pedido_id: "3012", status: "Pronto" } }] },
+    { stop_reason: "end_turn", content: [{ type: "text", text: "Confirma?" }] },
+    { stop_reason: "end_turn", content: [{ type: "text", text: "Sim o quê?" }] }
+  ]);
+  const de = "553899540665";
+
+  await tratarMensagem({ env, db, msg: { id: "a", de, tipo: "text", texto: "3012 pronto" }, executar, claude, canal });
+  await tratarMensagem({ env, db, msg: { id: "b", de, tipo: "text", texto: "Sim" }, executar, claude, canal });
+  assert.deepEqual(executadas, ["mudarStatus"]);
+
+  // A proposta já foi usada: o próximo "sim" não grava nada e segue para o modelo.
+  await tratarMensagem({ env, db, msg: { id: "c", de, tipo: "text", texto: "sim" }, executar, claude, canal });
+  assert.deepEqual(executadas, ["mudarStatus"]);
+  assert.equal(canal.envios.at(-1)[1], "Sim o quê?");
+});
+
+test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do campo ao lado do @lid", () => {
+  const evento = (key, message = { conversation: "oi" }) => ({ event: "messages.upsert", data: { key, message, messageType: "conversation" } });
+  assert.deepEqual(mensagemEvolution(evento({ id: "1", remoteJid: "553899540665@s.whatsapp.net" })), { id: "1", de: "553899540665", tipo: "text", texto: "oi" });
+  assert.equal(mensagemEvolution(evento({ id: "2", remoteJid: "12345@lid", senderPn: "553899540665@s.whatsapp.net" })).de, "553899540665");
+  assert.equal(mensagemEvolution(evento({ id: "3", remoteJid: "553899540665@s.whatsapp.net", fromMe: true })), null);
+  assert.equal(mensagemEvolution(evento({ id: "4", remoteJid: "120363@g.us" })), null);
+  assert.equal(mensagemEvolution({ event: "connection.update", data: {} }), null);
+  assert.equal(mensagemEvolution(evento({ id: "5", remoteJid: "553899540665@s.whatsapp.net" }, { extendedTextMessage: { text: "e aí" } })).texto, "e aí");
 });

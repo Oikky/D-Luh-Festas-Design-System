@@ -89,6 +89,12 @@ Ligar: no app da Meta (developers.facebook.com → WhatsApp), pegar o **Phone nu
 `ANTHROPIC_API_KEY`. Publicar regras e Worker; no painel da Meta, webhook
 `https://dluh-api.sitedluh.workers.dev/webhook/whatsapp` com o mesmo `META_VERIFY`, assinando `messages`.
 
+**Pelo número da loja (Evolution), enquanto a Meta não libera:** segredo `EVOLUTION_WEBHOOK_TOKEN`
+(qualquer texto de letras/números) e, na Evolution, webhook da instância apontando para
+`https://dluh-api.sitedluh.workers.dev/webhook/evolution/<token>`. Texto de quem está em
+`IA_NUMEROS` vai para a assistente (confirma com "sim"/"não"); o resto é repassado para
+`EVOLUTION_REPASSE` — o webhook que estava configurado antes, para nada do fluxo atual parar.
+
 O prefixo `sis_` existe porque a coleção `pedidos` já é usada pelo site atual ("Meus pedidos").
 
 ## Equipe

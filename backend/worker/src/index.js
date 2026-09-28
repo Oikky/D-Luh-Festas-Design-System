@@ -15,8 +15,9 @@ import * as produtos from "./produtos.js";
 import { enviarImagem } from "./google.js";
 import { whatsappLigado, enviarTexto } from "./whatsapp.js";
 import * as efeitos from "./efeitos.js";
-import { verificarWebhook, assinaturaValida, mensagensDe } from "./ia/meta.js";
-import { iaLigada, tratarMensagem } from "./ia/assistente.js";
+import { metaLigado, verificarWebhook, assinaturaValida, mensagensDe, canalMeta } from "./ia/meta.js";
+import { mensagemEvolution, canalEvolution } from "./ia/evolution.js";
+import { iaPronta, autorizado, tratarMensagem } from "./ia/assistente.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
 
@@ -156,10 +157,22 @@ async function webhookInfinitepay(request, env, ctx) {
   }
 }
 
+/* Ações confirmadas na assistente passam pelas mesmas ACOES e DEPOIS das telas. */
+function executorDaIA(env, ctx, db) {
+  return async (acao, dados, por) => {
+    const r = await ACOES[acao](db, dados, por, env);
+    depois(ctx, DEPOIS[acao]?.(env, db, dados, r) || [], acao, dados.pedidoId || r?.id);
+    return r;
+  };
+}
+
+const conversaDaIA = (env, ctx, db, msg, canal) => tratarMensagem({ env, db, msg, executar: executorDaIA(env, ctx, db), canal })
+  .catch(e => console.error(JSON.stringify({ msg: "assistente falhou", erro: String(e) })));
+
 /* Assistente no WhatsApp da Meta. Responde 200 na hora (a Meta reenvia se demorar) e conversa
-   depois, em waitUntil. Ações confirmadas passam pelas mesmas ACOES e DEPOIS das telas. */
+   depois, em waitUntil. */
 async function webhookWhatsapp(request, env, ctx, url) {
-  if (!iaLigada(env)) return new Response(null, { status: 404 });
+  if (!iaPronta(env) || !metaLigado(env)) return new Response(null, { status: 404 });
   if (request.method === "GET") return verificarWebhook(url, env);
   if (request.method !== "POST") return new Response(null, { status: 405 });
 
@@ -171,14 +184,36 @@ async function webhookWhatsapp(request, env, ctx, url) {
   try { dados = JSON.parse(corpo); } catch { return new Response(null, { status: 400 }); }
 
   const db = banco(env);
-  const executar = async (acao, dadosAcao, por) => {
-    const r = await ACOES[acao](db, dadosAcao, por, env);
-    depois(ctx, DEPOIS[acao]?.(env, db, dadosAcao, r) || [], acao, dadosAcao.pedidoId || r?.id);
-    return r;
-  };
-  const tarefas = mensagensDe(dados).map(msg => tratarMensagem({ env, db, msg, executar })
-    .catch(e => console.error(JSON.stringify({ msg: "webhook whatsapp falhou", erro: String(e) }))));
-  ctx.waitUntil(Promise.all(tarefas));
+  ctx.waitUntil(Promise.all(mensagensDe(dados).map(msg => conversaDaIA(env, ctx, db, msg, canalMeta(env)))));
+  return new Response("ok");
+}
+
+/* Todos os eventos da Evolution (número da loja). Mensagem de texto de quem está em IA_NUMEROS vai
+   para a assistente; todo o resto segue igual para EVOLUTION_REPASSE (quem recebia antes). */
+async function webhookEvolution(request, env, ctx, token) {
+  if (request.method !== "POST") return new Response(null, { status: 405 });
+  if (!env.EVOLUTION_WEBHOOK_TOKEN || token !== env.EVOLUTION_WEBHOOK_TOKEN) return new Response(null, { status: 404 });
+
+  const corpo = await request.text();
+  let dados;
+  try { dados = JSON.parse(corpo); } catch { return new Response(null, { status: 400 }); }
+
+  const msg = mensagemEvolution(dados);
+  const daIA = !!(msg && iaPronta(env) && autorizado(env, msg.de));
+  if (msg) {
+    // Diagnóstico de quem é quem (o WhatsApp pode identificar o contato por @lid): só os 4 últimos dígitos.
+    const mascara = s => (s == null ? undefined : String(s).replace(/\d(?=\d{4})/g, "•"));
+    const k = (Array.isArray(dados.data) ? dados.data[0] : dados.data)?.key || {};
+    console.log(JSON.stringify({ msg: "evolution: mensagem recebida", campos: Object.keys(k), remoteJid: mascara(k.remoteJid),
+      remoteJidAlt: mascara(k.remoteJidAlt), senderPn: mascara(k.senderPn), participant: mascara(k.participant), de: mascara(msg.de), daIA }));
+  }
+  if (daIA) {
+    ctx.waitUntil(conversaDaIA(env, ctx, banco(env), msg, canalEvolution(env)));
+  } else if (env.EVOLUTION_REPASSE) {
+    ctx.waitUntil(fetch(env.EVOLUTION_REPASSE, { method: "POST", headers: { "Content-Type": "application/json" }, body: corpo })
+      .then(r => { if (!r.ok) console.error(JSON.stringify({ msg: "repasse da Evolution recusado", status: r.status, evento: dados?.event })); })
+      .catch(e => console.error(JSON.stringify({ msg: "repasse da Evolution falhou", erro: String(e) }))));
+  }
   return new Response("ok");
 }
 
@@ -187,6 +222,8 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
+    const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
+    if (evo) return webhookEvolution(request, env, ctx, evo[1]);
 
     if (url.pathname === "/webhook/infinitepay") {
       if (request.method !== "POST") return new Response(null, { status: 405 });

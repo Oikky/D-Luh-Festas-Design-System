@@ -1,10 +1,11 @@
-/* Assistente da equipe no WhatsApp (número da Meta), com o Claude Sonnet 5.
+/* Assistente da equipe no WhatsApp, com o Claude Sonnet 5. Funciona por dois canais: o número da
+   Meta (com botões) ou o número da loja pela Evolution (confirma respondendo "sim"/"não").
    Só números de IA_NUMEROS falam com ela. Consulta pedidos e vendas; pedido novo, status e
-   pagamento viram PROPOSTA com botões — só gravam quando a pessoa toca em Confirmar, e aí passam
-   pelo mesmo caminho das telas (evento, Agenda, avisos). A conversa fica em sis_ia/{número}. */
+   pagamento viram PROPOSTA — só gravam quando a pessoa confirma (botão ou "sim", tratados aqui no
+   código, nunca pelo modelo), e aí passam pelo mesmo caminho das telas (evento, Agenda, avisos).
+   A conversa fica em sis_ia/{número}. */
 import Anthropic from "@anthropic-ai/sdk";
 import { ErroDominio } from "../dominio.js";
-import { metaLigado, enviarTexto, enviarBotoes, marcarLida } from "./meta.js";
 import { DEFINICOES, executarFerramenta, hojeSP } from "./ferramentas.js";
 
 const MODELO = "claude-sonnet-5";
@@ -16,7 +17,11 @@ const MAX_HISTORICO = 24;
 const MAX_VOLTAS = 8;
 const PRAZO_TOTAL = 24e3;              // o Worker tem ~30s depois de responder à Meta
 
-const iaLigada = env => metaLigado(env) && !!env.ANTHROPIC_API_KEY && !!env.IA_NUMEROS;
+const iaPronta = env => !!env.ANTHROPIC_API_KEY && !!env.IA_NUMEROS;
+
+// Resposta curta que confirma ou cancela as propostas da última mensagem.
+const SIM = /^(sim|s|confirm[ao]r?|confirmo|pode|pode sim|ok|1)[.!]*$/i;
+const NAO = /^(n[aã]o|n|cancel[ao]r?|2)[.!]*$/i;
 
 /* Compara pelos últimos 8 dígitos: o WhatsApp às vezes entrega o número sem o nono dígito. */
 const ultimos8 = s => String(s || "").replace(/\D/g, "").slice(-8);
@@ -32,9 +37,9 @@ Como responder:
 - Os valores das ferramentas já vêm em reais formatados; use como vieram.
 
 Mudanças (pedido novo, status, pagamento):
-- Use propor_pedido, propor_status ou propor_pagamento. O sistema manda ao usuário o resumo com os botões Confirmar e Cancelar; nada é gravado sem o toque em Confirmar.
+- Use propor_pedido, propor_status ou propor_pagamento. O sistema manda ao usuário o resumo e pede a confirmação; nada é gravado sem ela.
 - Depois de propor, responda no máximo uma frase curta, sem repetir o resumo.
-- Se o usuário escrever "sim"/"pode" em vez de tocar no botão, peça para tocar em Confirmar na mensagem do resumo.
+- A confirmação (botão ou "sim"/"não" logo depois do resumo) é tratada pelo sistema, não por você. Se o usuário disser "sim" e você não vir uma proposta recente, proponha de novo.
 - Pedido novo: consulte o catálogo primeiro. Antes de propor, garanta nome e telefone do cliente, data (e hora, se houver), retirada ou entrega (com endereço e taxa), itens com quantidades e, quando fizer sentido, recheios. Pergunte só o que falta, tudo numa mensagem.
 - Se uma ferramenta devolver erro, explique em palavras simples e peça o que falta para corrigir.`;
 
@@ -60,7 +65,7 @@ async function carregar(db, numero, agora) {
   const recente = d.atualizadoEm && agora - new Date(d.atualizadoEm).getTime() < ESQUECER_APOS;
   const pendentes = Object.fromEntries(Object.entries(d.pendentes || {})
     .filter(([, p]) => agora - new Date(p.criadoEm).getTime() < PRAZO_CONFIRMAR));
-  return { historico: recente ? d.historico || [] : [], pendentes };
+  return { historico: recente ? d.historico || [] : [], pendentes, ultimas: (d.ultimas || []).filter(id => pendentes[id]) };
 }
 
 const textoDe = resp => resp.content.filter(b => b.type === "text").map(b => b.text).join("\n").trim();
@@ -117,6 +122,7 @@ async function conversar({ env, db, numero, texto, agora = Date.now(), claude, e
   await db.collection(CONVERSAS).doc(numero).set({
     historico: aparar([...conv.historico, { role: "user", content: entrada }, { role: "assistant", content: (resposta || "(sem texto)") + nota }]),
     pendentes,
+    ultimas: propostas.map(p => p.id),
     atualizadoEm: new Date(agora)
   }, { merge: true });
   return { resposta, propostas };
@@ -160,14 +166,15 @@ async function responderBotao({ env, db, numero, botao, agora = Date.now(), exec
   const conv = await carregar(db, numero, agora);
   await ref.set({
     historico: aparar([...conv.historico,
-      { role: "user", content: `[${agoraTexto(agora)}]\n(tocou em ${escolha === "ok" ? "Confirmar" : "Cancelar"}${proposta ? `: ${proposta.resumo.split("\n")[0]}` : ""})` },
+      { role: "user", content: `[${agoraTexto(agora)}]\n(${escolha === "ok" ? "confirmou" : "cancelou"}${proposta ? `: ${proposta.resumo.split("\n")[0]}` : ""})` },
       { role: "assistant", content: texto }]),
     atualizadoEm: new Date(agora)
   }, { merge: true });
 }
 
-/* Uma mensagem recebida da Meta: filtra, tira duplicata, e responde. Roda depois do 200 à Meta. */
-async function tratarMensagem({ env, db, msg, executar, claude, fetchFn }) {
+/* Uma mensagem recebida (Meta ou Evolution): filtra, tira duplicata e responde. Roda depois do
+   200 ao webhook. `canal` = { texto(numero, t), botoes(numero, t, botoes), lida(msg) }. */
+async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
   if (!autorizado(env, msg.de)) {
     console.log(JSON.stringify({ msg: "IA: número não autorizado", final: ultimos8(msg.de) }));
     return;
@@ -181,15 +188,21 @@ async function tratarMensagem({ env, db, msg, executar, claude, fetchFn }) {
   if (!nova) return;
 
   const numero = String(msg.de);
-  const enviar = {
-    texto: t => enviarTexto(env, numero, t, fetchFn),
-    botoes: (t, b) => enviarBotoes(env, numero, t, b, fetchFn)
-  };
-  await marcarLida(env, msg.id, fetchFn);
+  const enviar = { texto: t => canal.texto(numero, t), botoes: (t, b) => canal.botoes(numero, t, b) };
+  await canal.lida?.(msg);
 
   try {
     if (msg.botao) return await responderBotao({ env, db, numero, botao: msg.botao, executar, enviar });
     if (msg.tipo !== "text" || !msg.texto) return await enviar.texto("Por enquanto eu só entendo mensagem de texto 🙂");
+
+    const curta = msg.texto.trim();
+    if (SIM.test(curta) || NAO.test(curta)) {
+      const { ultimas } = await carregar(db, numero, Date.now());
+      if (ultimas.length) {
+        for (const id of ultimas) await responderBotao({ env, db, numero, botao: `${SIM.test(curta) ? "ok" : "nao"}:${id}`, executar, enviar });
+        return;
+      }
+    }
     claude ||= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 1 });
     await conversar({ env, db, numero, texto: msg.texto, claude, enviar });
   } catch (e) {
@@ -198,4 +211,4 @@ async function tratarMensagem({ env, db, msg, executar, claude, fetchFn }) {
   }
 }
 
-export { iaLigada, autorizado, conversar, responderBotao, tratarMensagem, agoraTexto, SISTEMA, MODELO };
+export { iaPronta, autorizado, conversar, responderBotao, tratarMensagem, agoraTexto, SISTEMA, MODELO };

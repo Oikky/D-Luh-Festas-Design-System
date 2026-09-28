@@ -79,4 +79,10 @@ const enviarBotoes = (env, para, texto, botoes, fetchFn) =>
 const marcarLida = (env, mensagemId, fetchFn) =>
   chamar(env, { status: "read", message_id: mensagemId, typing_indicator: { type: "text" } }, fetchFn).catch(() => {});
 
-export { metaLigado, verificarWebhook, assinaturaValida, mensagensDe, enviarTexto, enviarBotoes, marcarLida };
+const canalMeta = (env, fetchFn) => ({
+  texto: (numero, t) => enviarTexto(env, numero, t, fetchFn),
+  botoes: (numero, t, b) => enviarBotoes(env, numero, t, b, fetchFn),
+  lida: msg => marcarLida(env, msg.id, fetchFn)
+});
+
+export { canalMeta, metaLigado, verificarWebhook, assinaturaValida, mensagensDe, enviarTexto, enviarBotoes, marcarLida };
