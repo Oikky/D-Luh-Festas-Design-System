@@ -80,7 +80,8 @@ async function pedidoDoSite(db, dados, { agora = new Date() } = {}) {
   const modo = dados?.entrega?.modo;
   return criarPedido(db, {
     entradaPct,
-    cliente: { nome: texto(dados?.cliente?.nome, 80), telefone: texto(dados?.cliente?.telefone, 20) },
+    cliente: { nome: texto(dados?.cliente?.nome, 80), telefone: texto(dados?.cliente?.telefone, 20), email: texto(dados?.cliente?.email, 120) },
+    ...(dados?.clienteUid ? { clienteUid: String(dados.clienteUid) } : {}),
     entrega: {
       modo, data, hora: texto(dados?.entrega?.hora, 5),
       ...(modo === "entrega" ? { endereco: texto(dados?.entrega?.endereco, 300) } : {})

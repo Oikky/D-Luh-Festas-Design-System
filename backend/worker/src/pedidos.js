@@ -19,6 +19,8 @@ function evento(tx, pedidoRef, dados) {
 function normalizar(dados) {
   const nome = String(dados?.cliente?.nome || "").trim();
   const telefone = String(dados?.cliente?.telefone || "").replace(/\D/g, "");
+  // E-mail vem do login Google do site (ou digitado no admin); vai preenchido no checkout.
+  const email = String(dados?.cliente?.email || "").trim().toLowerCase();
   if (!nome) throw new ErroDominio("invalid-argument", "Informe o nome do cliente");
   if (telefone.length < 10) throw new ErroDominio("invalid-argument", "Telefone inválido");
 
@@ -38,7 +40,7 @@ function normalizar(dados) {
   const formaPagamento = MEIOS.includes(dados.formaPagamento) ? dados.formaPagamento : undefined;
 
   return {
-    cliente: { nome, telefone },
+    cliente: { nome, telefone, ...(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? { email } : {}) },
     tipo: dados.tipo === "empresa" ? "empresa" : "pessoa",
     entrega: { modo, data, hora, ...(modo === "entrega" ? { endereco: String(dados.entrega.endereco).trim() } : {}) },
     itens, taxaEntrega, total, entradaPct, formaPagamento,
@@ -89,6 +91,8 @@ async function editarPedido(db, { pedidoId, ...dados }, por) {
     if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
     if (snap.get("status") === "Cancelado") throw new ErroDominio("failed-precondition", "Pedido cancelado não pode ser editado");
     const velho = snap.data();
+    // O admin não mostra o e-mail do login Google: editar não pode apagar.
+    if (velho.cliente?.email && !novo.cliente.email) novo.cliente.email = velho.cliente.email;
     const mudou = EDITAVEIS.filter(k => JSON.stringify(velho[k] ?? null) !== JSON.stringify(novo[k] ?? null));
     if (!mudou.length) return { mudou: false };
 

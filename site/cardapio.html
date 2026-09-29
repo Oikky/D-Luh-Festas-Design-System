@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600..800;1,600..700&family=Urbanist:wght@400..800&display=swap">
-  <link rel="stylesheet" href="css/site.css?v=21">
+  <link rel="stylesheet" href="css/site.css?v=22">
 </head>
 <body>
   <a class="pular" href="#conteudo">Pular para o conteúdo</a>
@@ -159,6 +159,21 @@
         <form class="painel" id="form-revisao" data-passo="revisao" novalidate hidden>
           <h2 class="titulo titulo--m" tabindex="-1">Confira e mande</h2>
           <p class="painel__ajuda">O pedido chega na loja na hora. Você recebe o resumo no WhatsApp deste número.</p>
+          <!-- Login Google (obrigatório): nome e e-mail vão no pedido e já preenchidos no Pix. -->
+          <div class="conta" id="conta">
+            <div class="conta__fora" id="conta-fora">
+              <p><strong>Entre com sua conta Google para mandar o pedido.</strong> Assim seu nome e e-mail já vão preenchidos na hora de pagar.</p>
+              <button class="botao" type="button" id="botao-google">
+                <svg class="icone" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1H12v2.9h5.35c-.25 1.5-1.7 4.4-5.35 4.4-3.2 0-5.8-2.65-5.8-5.9s2.6-5.9 5.8-5.9c1.8 0 3.05.8 3.75 1.45l2.55-2.45C16.7 4.1 14.55 3 12 3 7 3 3 7 3 12s4 9 9 9c5.2 0 8.65-3.65 8.65-8.8 0-.6-.05-1.05-.15-1.5z"/></svg>
+                Entrar com Google
+              </button>
+              <p class="campo__erro" id="conta-erro" hidden></p>
+            </div>
+            <div class="conta__dentro" id="conta-dentro" hidden>
+              <span>Pedido em nome de <strong id="conta-email"></strong></span>
+              <button class="conta__trocar" type="button" id="botao-trocar-conta">Trocar conta</button>
+            </div>
+          </div>
           <div class="campos">
             <div class="campo campo--metade">
               <label for="f-nome">Seu nome</label>
@@ -264,12 +279,13 @@
     <div class="moldura rodape__base">D'Luh Festas · Montes Claros, MG</div>
   </footer>
 
-  <script src="js/comum.js?v=21"></script>
-  <script src="js/marca-dados.js?v=21"></script>
-  <script src="js/marca.js?v=21"></script>
-  <script src="js/catalogo.js?v=21"></script>
-  <script src="js/api.js?v=21"></script>
-  <script src="js/api-teste.js?v=21"></script>
-  <script src="js/cardapio.js?v=21"></script>
+  <script src="js/comum.js?v=22"></script>
+  <script src="js/marca-dados.js?v=22"></script>
+  <script src="js/marca.js?v=22"></script>
+  <script src="js/catalogo.js?v=22"></script>
+  <script src="js/login.js?v=22"></script>
+  <script src="js/api.js?v=22"></script>
+  <script src="js/api-teste.js?v=22"></script>
+  <script src="js/cardapio.js?v=22"></script>
 </body>
 </html>

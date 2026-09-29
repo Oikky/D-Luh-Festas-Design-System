@@ -75,7 +75,9 @@ const ACOES = {
     const url = await infinitepay.criarLink({
       handle: env.INFINITEPAY_HANDLE, pedidoId: snap.id, valor,
       descricao: `${nomeTipo} — Pedido ${snap.id} — ${cliente.nome}`,
-      webhookUrl: `${origem}/webhook/infinitepay`
+      webhookUrl: `${origem}/webhook/infinitepay`,
+      redirectUrl: `https://www.dluhfestas.com/pedido?n=${encodeURIComponent(snap.id)}`,
+      cliente
     });
     await snap.ref.collection("eventos").add({ tipo: "cobranca", cobranca: tipo, valor, url, por, em: new Date() });
     // O cliente recebe o link curto (/pagar/PED-n), que leva ao checkout da InfinitePay.
@@ -207,6 +209,15 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
     if (!(await site.turnstileOk(env, dados.turnstile, ip))) throw new ErroDominio("permission-denied", "Confirme que você não é um robô");
     const db = banco(env);
     if (rota === "consultar") return json(await site.consultarDoSite(db, dados), 200, cors);
+    /* Pedido só com login Google: o e-mail e o nome da conta vão no pedido (e preenchidos no
+       checkout), e o pedido fica ligado à conta. */
+    const bearer = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    const claims = bearer ? await verificarToken(bearer, env.FIREBASE_PROJECT_ID).catch(() => null) : null;
+    if (!claims || claims.firebase?.sign_in_provider !== "google.com" || !claims.email || claims.email_verified !== true) {
+      throw new ErroDominio("unauthenticated", "Entre com sua conta Google para mandar o pedido");
+    }
+    dados.cliente = { ...(dados.cliente || {}), email: claims.email, nome: String(dados.cliente?.nome || claims.name || "").trim() };
+    dados.clienteUid = claims.sub;
     const r = await site.pedidoDoSite(db, dados);
     depois(ctx, [...DEPOIS.criarPedido(env, db, dados, r), efeitos.avisarClienteRecebido(env, db, r.id)], "pedidoDoSite", r.id);
     return json({ id: r.id, total: r.total }, 200, cors);

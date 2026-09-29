@@ -496,6 +496,14 @@ textarea.entrada { min-height: 96px; resize: vertical; }
 .opcao-modo:has(input:checked) { border-color: var(--terracota-forte); background: var(--branco); box-shadow: var(--sombra); }
 .opcao-modo:has(input:focus-visible) { outline: 3px solid var(--terracota-forte); outline-offset: 3px; }
 
+/* Login Google na revisão do pedido */
+.conta { margin: 0 0 24px; padding: 16px 18px; border-radius: var(--r-m); background: var(--blush); }
+.conta__fora { display: grid; gap: 12px; justify-items: start; }
+.conta__fora p { margin: 0; max-width: 60ch; }
+.conta__dentro { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.conta__dentro strong { overflow-wrap: anywhere; }
+.conta__trocar { background: none; border: 0; padding: 10px 0; min-height: 44px; font: inherit; font-weight: 600; color: var(--terracota-forte); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
 .aviso { display: flex; gap: 12px; align-items: flex-start; margin: 16px 0 0; padding: 14px 16px; border-radius: var(--r-m); background: var(--blush); font-weight: 500; font-size: 0.9375rem; }
 .aviso .icone { margin-top: 2px; color: var(--terracota-forte); }
 .aviso--erro { background: var(--erro-fundo); color: var(--erro); }

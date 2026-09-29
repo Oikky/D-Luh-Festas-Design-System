@@ -479,6 +479,40 @@
   const tel = document.getElementById("f-tel");
   tel.addEventListener("input", () => { tel.value = D.mascaraTelefone(tel.value); });
 
+  /* Login Google, obrigatório para mandar (?api=teste dispensa, para testar sem conta). */
+  const L = window.DLuhLogin;
+  const precisaLogin = !!L && !/[?&]api=teste\b/.test(location.search);
+  const contaErro = document.getElementById("conta-erro");
+  document.getElementById("conta").hidden = !precisaLogin;
+  function mostrarConta(u) {
+    document.getElementById("conta-fora").hidden = !!u;
+    document.getElementById("conta-dentro").hidden = !u;
+    document.getElementById("conta-email").textContent = u ? u.email : "";
+    const nome = document.getElementById("f-nome");
+    if (u && !nome.value.trim() && u.displayName) nome.value = u.displayName;
+    if (u) contaErro.hidden = true;
+  }
+  if (precisaLogin) {
+    L.aoMudar(mostrarConta);
+    document.getElementById("botao-google").addEventListener("click", async () => {
+      contaErro.hidden = true;
+      if (L.naoDeixaGoogle) {
+        contaErro.textContent = "O Google não deixa entrar por dentro do Instagram ou do WhatsApp. Abra este site no Chrome ou no Safari (menu ⋯ → Abrir no navegador).";
+        contaErro.hidden = false; return;
+      }
+      try { await L.entrar(); }
+      catch (e) {
+        if (e && /popup-closed|cancelled-popup/.test(e.code || "")) return;
+        console.error("login Google", e && e.code);
+        contaErro.textContent = /admin-restricted/.test((e && e.code) || "")
+          ? "A loja ainda está liberando o cadastro de clientes. Mande seu pedido pelo WhatsApp por enquanto."
+          : "Não deu pra entrar com o Google. Tente de novo.";
+        contaErro.hidden = false;
+      }
+    });
+    document.getElementById("botao-trocar-conta").addEventListener("click", async () => { await L.sair(); L.entrar().catch(() => {}); });
+  }
+
   function montarRevisao() {
     const data = document.getElementById("f-data").value;
     const hora = document.getElementById("f-hora").value;
@@ -529,6 +563,12 @@
     let ruim = false;
     ruim = erroCampo("f-nome", !nome ? "Diga seu nome" : "") || ruim;
     ruim = erroCampo("f-tel", telefone.length < 10 ? "Confira o WhatsApp com DDD, ex.: (38) 99999-9999" : "") || ruim;
+    if (precisaLogin && !L.usuario()) {
+      contaErro.textContent = "Entre com sua conta Google para mandar o pedido.";
+      contaErro.hidden = false;
+      document.getElementById("botao-google").focus();
+      return;
+    }
     if (ruim) return primeiroErro(forms.revisao);
 
     const topo = document.getElementById("f-topo").value.trim();
