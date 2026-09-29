@@ -1,7 +1,7 @@
 /* Alexa na cozinha. Duas partes:
    1. Skill personalizada (modelo em backend/alexa/modelo-pt-BR.json), que a Amazon chama em
       POST /webhook/alexa:
-        "Alexa, abre a cozinha"                  → quantos pedidos tem na fila de hoje
+        "Alexa, abre a fila de produção"         → quantos pedidos tem na fila de hoje
         "o que tem pra fazer?"                   → lê a fila (Em produção, ainda não feitos, de hoje e atrasados)
         "o pedido da Maria está pronto" / "o 3012 está feito" → pergunta "confirma?" e, no sim, marcarFeito
       Só vale requisição assinada pela Amazon para a skill ALEXA_SKILL_ID.
