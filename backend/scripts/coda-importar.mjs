@@ -18,7 +18,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { pagamentoDe } from "../worker/src/dominio.js";
 
-const PASTA = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".coda-export");
+// CODA_PASTA: outra cópia do Coda (coda-conferir.mjs usa uma cópia nova, sem mexer nesta).
+const PASTA = process.env.CODA_PASTA || path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".coda-export");
 const PROJETO = "dluh-festas";
 const API_KEY = "AIzaSyCV7LcTZmCE9MpezCvBah0hHQ245WYcixs";
 const EMAIL = "sistema@dluh-festas.firebaseapp.com";
