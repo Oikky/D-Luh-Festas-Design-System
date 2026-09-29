@@ -4,7 +4,8 @@
      assets/logo) dentro de admin/ds/. Na cópia publicada o admin já abre ligado ao sistema de verdade
      (sem ?fonte=firebase); o modo demonstração fica em ?fonte=demo.
    Não faz commit nem push. Uso:  python tools/publicar-site.py [pasta do repositório do site]"""
-import os, re, shutil, sys
+import os, re, shutil, sys, time
+VERSAO = time.strftime("%Y%m%d%H%M%S")
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESTINO = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/Downloads/dluhfestas"))
@@ -45,6 +46,10 @@ for nome in os.listdir(admin):
     s = re.sub(r'get\("fonte"\)\s*===\s*"firebase"', 'get("fonte") !== "demo"', s)
     if nome == "index.html" and "noindex" not in s:
         s = s.replace("<head>", '<head>\n  <meta name="robots" content="noindex, nofollow">', 1)
+    if nome == "index.html":
+        # O GitHub Pages deixa o navegador guardar os arquivos por 10 min: cada publicação ganha uma
+        # versão nos scripts e estilos locais, e a tela nova chega na hora (inclusive na cozinha).
+        s = re.sub(r'((?:src|href)="(?!https?:|//|#)[^"?]+\.(?:jsx?|css))"', rf'\1?v={VERSAO}"', s)
     open(p, "w", encoding="utf8").write(s)
 
 restos = [n for n in os.listdir(admin) if n.endswith((".html", ".js", ".jsx"))
