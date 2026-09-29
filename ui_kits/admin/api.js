@@ -43,6 +43,19 @@ window.DLUH_API = (() => {
   const MEIO = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão", outro: "Outro" };
   const topoTexto = t => !t ? null : typeof t === "string" ? t : "Topo: " + [t.tema, t.detalhes].filter(Boolean).join(" — ") + (t.imagem ? " · com imagem" : "");
   const resumo = x => (x.itens || []).map(i => `${i.qtd} ${i.nome}`).join(" · ");
+  /* What a printed ticket needs (Catalogo.jsx → imprimirPedidos), straight from the record. */
+  const DIA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const paraImprimir = x => {
+    const e = x.entrega || {}, falta = x.status === "Cancelado" ? 0 : Math.max(0, (x.total || 0) - (x.pago || 0));
+    return {
+      id: x.id, cliente: x.cliente?.nome || "", tel: x.cliente?.telefone || "", status: x.status,
+      dia: e.data ? `${DIA[new Date(e.data + "T12:00:00").getDay()]} ${e.data.slice(8, 10)}/${e.data.slice(5, 7)}` : "", hora: e.hora || "",
+      modo: e.modo === "entrega" ? "Entrega" : "Retirada", endereco: e.modo === "entrega" ? e.endereco || "" : "",
+      itens: (x.itens || []).map(i => ({ qtd: i.qtd, nome: i.nome, cat: i.categoria || "",
+        extras: [i.recheios && i.recheios.length ? "Recheio: " + i.recheios.join(", ") : null, topoTexto(i.topo), i.obs].filter(Boolean) })),
+      obs: x.obs || "", pagamento: x.pagamento || "", total: brl(x.total), falta: falta ? brl(falta) : null
+    };
+  };
   /* Kitchen queue: in production and not yet done, soonest first, in the shape the Cozinha screen reads. */
   const MAPAS = {
     /* All orders, in the shape OrderCard/DetalhesModal read (money as "R$ …" strings), keeping the
@@ -67,6 +80,7 @@ window.DLUH_API = (() => {
             note: [i.recheios && i.recheios.length ? "Recheio: " + i.recheios.join(", ") : null, i.obs].filter(Boolean).join(" · ") || null,
             topper: topoTexto(i.topo) })),
           obs: x.obs || "",
+          imp: paraImprimir(x),
           /* The raw record: what editing, printing and the money actions need, unformatted. */
           _c: { total: x.total || 0, pago: x.pago || 0, falta, entradaPct: x.entradaPct || 50, formaPagamento: x.formaPagamento || null,
             tipo: x.tipo || "pessoa", taxaEntrega: x.taxaEntrega || 0, itens: x.itens || [], obs: x.obs || "" }
@@ -94,7 +108,8 @@ window.DLUH_API = (() => {
         hora: quando(x.entrega),
         itens: resumo(x),
         pago: x.pagamento,
-        entrega: x.entrega?.modo === "entrega" ? "Entrega" : "Retirada"
+        entrega: x.entrega?.modo === "entrega" ? "Entrega" : "Retirada",
+        imp: paraImprimir(x)
       }))
   };
   /* Worker/HTTP failures in the same `tipo` vocabulary the screens already explain. */

@@ -56,6 +56,13 @@ function Cozinha({ compact }) {
     setConfirm(null);
   };
 
+  /* One slip per order, cut apart by the printer (Catalogo.jsx). The queue prints soonest first,
+     the order the kitchen makes them in. */
+  const imprimir = lista => {
+    if (!lista.length) return showToast("A fila está vazia");
+    window.imprimirPedidos(lista).then(n => showToast(n === 1 ? "Pedido enviado para a impressora" : `${n} pedidos enviados para a impressora`));
+  };
+
   if (carga.estado === "erro" && !carga.dados) return <ErroCarga erro={carga.erro} oque="a fila da cozinha" onTentar={carga.tentar} />;
   if (!carga.dados) return <Carregando oque="a fila" />;
 
@@ -64,7 +71,7 @@ function Cozinha({ compact }) {
     <Badge>{fila.length} {fila.length === 1 ? "pedido" : "pedidos"}</Badge>
     <div style={{ flex: 1 }} />
     <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
-    <FilterPill icon="printer" trailingIcon={null} onClick={() => showToast("Fila enviada para impressão")}>Imprimir fila</FilterPill>
+    <FilterPill icon="printer" trailingIcon={null} onClick={() => imprimir(fila)}>Imprimir fila</FilterPill>
   </div>;
   const vazia = <Card padded={false}><EmptyState icon="chef-hat" title="Fila vazia"
     description="Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos." /></Card>;
@@ -72,7 +79,8 @@ function Cozinha({ compact }) {
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", minHeight: "100%" }}>
       {!online || carga.doCache ? <SemConexao /> : null}
-      <FilaTrilho fila={fila} atual={atual} p={p} setFeature={setFeature} setConfirm={setConfirm} pendente={pendente} compact={compact} barra={barra} vazia={vazia} />
+      <FilaTrilho fila={fila} atual={atual} p={p} setFeature={setFeature} setConfirm={setConfirm} pendente={pendente} compact={compact} barra={barra} vazia={vazia}
+        onImprimir={x => imprimir([x])} />
       {confirm ? <ConfirmDialog tone="delivered" icon="check" title="Marcar como feito?"
         message={[confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila."}
         cancelLabel="Voltar" confirmLabel="Sim, marcar feito" pending={pendente === "feito-" + confirm.id}
@@ -121,7 +129,7 @@ const Selos = ({ x }) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap"
 /* The order to make now stays pinned on the left, read at arm's length on the counter tablet;
    the rest of the queue is a rail of rows on the right, latest first. Tapping a row brings it
    to the left. On a phone the two stack. */
-function FilaTrilho({ fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia }) {
+function FilaTrilho({ fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia, onImprimir }) {
   const q = quando(p && p.hora);
   return <div style={{ display: "grid", gridTemplateColumns: compact || !p ? "1fr" : "minmax(0, 5fr) minmax(0, 4fr)", gap: "var(--gap-section)", alignItems: "start" }}>
     {p ? <section aria-label="Fazer agora" style={{
@@ -142,7 +150,10 @@ function FilaTrilho({ fila, atual, p, setFeature, setConfirm, pendente, compact,
       </div>
       <Itens itens={p.itens} grande />
       <Selos x={p} />
-      <Button size="lg" tone="delivered" icon="check" block loading={pendente === "feito-" + p.id} onClick={() => setConfirm(p)}>Feito</Button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button size="lg" variant="ghost" icon="printer" onClick={() => onImprimir(p)}>Imprimir</Button>
+        <Button size="lg" tone="delivered" icon="check" block loading={pendente === "feito-" + p.id} onClick={() => setConfirm(p)} style={{ flex: 1 }}>Feito</Button>
+      </div>
     </section> : null}
     <section>
       {barra}
@@ -164,7 +175,10 @@ function FilaTrilho({ fila, atual, p, setFeature, setConfirm, pendente, compact,
               <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-body)", marginTop: 3, lineHeight: "var(--lh-snug)",
                 display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{x.itens || "Itens não informados"}</div>
             </div>
-            <Button tone="delivered" icon="check" loading={pendente === "feito-" + x.id} onClick={e => { e.stopPropagation(); setConfirm(x); }}>Feito</Button>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <IconButton icon="printer" label={`Imprimir pedido de ${x.cliente || "cliente sem nome"}`} onClick={e => { e.stopPropagation(); onImprimir(x); }} />
+              <Button tone="delivered" icon="check" loading={pendente === "feito-" + x.id} onClick={e => { e.stopPropagation(); setConfirm(x); }}>Feito</Button>
+            </div>
           </div>;
         })}
       </div> : vazia}
