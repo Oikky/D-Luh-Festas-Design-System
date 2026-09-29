@@ -53,7 +53,7 @@ function mensagem(p, valor, url, hoje) {
       ? `Faltam ${faltam === 1 ? "1 dia" : `${faltam} dias`} para o seu pedido ${p.id} na D'Luh Festas (${e.modo === "entrega" ? "entrega" : "retirada"} ${quando}).`
       : `Seu pedido ${p.id} na D'Luh Festas está confirmado${quando ? ` para ${quando}` : ""}.`,
     "",
-    `Para começarmos a produção, falta o pagamento da entrada de ${brl(valor)}.`,
+    `Para começarmos a produção, falta ${p.entradaPct === 100 ? "o pagamento do pedido" : "o pagamento da entrada"}, de ${brl(valor)}.`,
     `Pague por aqui: ${url}`,
     "",
     "Se você já pagou, pode desconsiderar esta mensagem."
@@ -110,7 +110,7 @@ async function avisarConfirmado({ env, db, pedidoId, gerarCobranca, esperaMs = 2
     `${e.modo === "entrega" ? `Entrega em ${e.endereco}` : "Retirada na loja"} · ${dataBR(e.data)}${e.hora ? ` às ${e.hora}` : ""}`,
     `Total ${brl(p.total)}`,
     "",
-    url ? `Para começarmos a produção, pague a entrada de ${brl(valor)} por aqui: ${url}` : "O pagamento já está em dia. Obrigada!",
+    url ? `Para começarmos a produção, pague ${p.entradaPct === 100 ? "o pedido" : "a entrada"} (${brl(valor)}) por aqui: ${url}` : "O pagamento já está em dia. Obrigada!",
     `Acompanhe: https://www.dluhfestas.com/pedido?n=${p.id}`
   ].join("\n"));
   await snap.ref.collection("eventos").add({ tipo: "aviso", canal: "whatsapp", motivo: "confirmado", valor, por: "sistema", em: new Date() });

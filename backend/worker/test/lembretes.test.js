@@ -37,7 +37,8 @@ test("automático: só pedidos de amanhã até 3 dias, uma vez", async () => {
 test("mensagem diz quantos dias faltam e leva o link", () => {
   const m = mensagem(p("PED-1", "2026-10-04"), 5000, "https://x/pagar/PED-1", "2026-10-01");
   assert.match(m, /Faltam 3 dias para o seu pedido PED-1/);
-  assert.match(m, /entrada de R\$ 50,00/);
+  assert.match(m, /pagamento da entrada, de R\$ 50,00/);
+  assert.match(mensagem(p("PED-3", "2026-10-02", { entradaPct: 100 }), 10000, "u", "2026-10-01"), /pagamento do pedido, de R\$ 100,00/);
   assert.match(m, /https:\/\/x\/pagar\/PED-1/);
   assert.match(mensagem(p("PED-2", "2026-10-20"), 5000, "u", "2026-10-01"), /está confirmado para/);
 });
@@ -54,7 +55,7 @@ test("estoque confirmado: cliente recebe a confirmação com o link curto da ent
   assert.equal(corpo.number, "5538999990000");
   assert.match(corpo.text, /PED-9 na D'Luh Festas foi confirmado/);
   assert.match(corpo.text, /50× Brigadeiro/);
-  assert.match(corpo.text, /entrada de R\$ 50,00 por aqui: https:\/\/api\/pagar\/PED-9/);
+  assert.match(corpo.text, /pague a entrada \(R\$ 50,00\) por aqui: https:\/\/api\/pagar\/PED-9/);
 });
 
 test("envio: usa o link curto, gera cobrança só se a última não serve, marca o automático", async () => {

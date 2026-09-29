@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600..800;1,600..700&family=Urbanist:wght@400..800&display=swap">
-  <link rel="stylesheet" href="css/site.css?v=20">
+  <link rel="stylesheet" href="css/site.css?v=21">
 </head>
 <body>
   <a class="pular" href="#conteudo">Pular para o conteúdo</a>
@@ -182,6 +182,24 @@
 
           <div class="revisao" id="revisao"></div>
 
+          <!-- Só a entrada (50%) vale para pedido acima de R$ 100 ou para daqui a mais de 1 dia; fora disso é tudo. -->
+          <div id="bloco-pagamento">
+            <p class="painel__ajuda"><strong>Como você quer pagar?</strong></p>
+            <fieldset class="opcoes-modo" id="opcoes-pagamento">
+              <legend class="sr-only">Como você quer pagar</legend>
+              <label class="opcao-modo">
+                <input type="radio" name="pagamento" value="50" checked>
+                <svg class="icone" aria-hidden="true"><use href="#i-relogio"/></svg>
+                <strong>Só a entrada agora</strong><span id="pg-entrada-texto">Metade agora, o resto no dia</span>
+              </label>
+              <label class="opcao-modo">
+                <input type="radio" name="pagamento" value="100">
+                <svg class="icone" aria-hidden="true"><use href="#i-check"/></svg>
+                <strong>Tudo agora</strong><span>O pedido já fica pago</span>
+              </label>
+            </fieldset>
+          </div>
+
           <div class="total">
             <span>Total dos itens</span>
             <strong class="num" id="revisao-total">R$ 0,00</strong>
@@ -204,7 +222,7 @@
       <div class="moldura">
         <div class="recebido__selo" aria-hidden="true"><svg class="icone"><use href="#i-check"/></svg></div>
         <h1 class="titulo" id="titulo-recebido" tabindex="-1">Pedido recebido!</h1>
-        <p>Guarde o número. A loja confere o estoque e confirma pelo WhatsApp; aí chega o link pra pagar a entrada.</p>
+        <p>Guarde o número. A loja confere o estoque e confirma pelo WhatsApp; aí chega o link de pagamento.</p>
         <div class="ficha" id="ficha"></div>
         <div class="recebido__acoes">
           <a class="botao botao--grande" id="recebido-whats" href="#" target="_blank" rel="noopener">
@@ -246,12 +264,12 @@
     <div class="moldura rodape__base">D'Luh Festas · Montes Claros, MG</div>
   </footer>
 
-  <script src="js/comum.js?v=20"></script>
-  <script src="js/marca-dados.js?v=20"></script>
-  <script src="js/marca.js?v=20"></script>
-  <script src="js/catalogo.js?v=20"></script>
-  <script src="js/api.js?v=20"></script>
-  <script src="js/api-teste.js?v=20"></script>
-  <script src="js/cardapio.js?v=20"></script>
+  <script src="js/comum.js?v=21"></script>
+  <script src="js/marca-dados.js?v=21"></script>
+  <script src="js/marca.js?v=21"></script>
+  <script src="js/catalogo.js?v=21"></script>
+  <script src="js/api.js?v=21"></script>
+  <script src="js/api-teste.js?v=21"></script>
+  <script src="js/cardapio.js?v=21"></script>
 </body>
 </html>

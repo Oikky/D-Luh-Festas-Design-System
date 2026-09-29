@@ -87,7 +87,7 @@ async function telegramConfirmado(env, db, pedidoId) {
   return enviarTelegram(env, "confirmados", [
     `✅ ${p.id} confirmado — esperando pagamento`,
     `${p.cliente?.nome} · ${dataBR(e.data)}${e.hora ? ` ${e.hora}` : ""} · ${e.modo === "entrega" ? "Entrega" : "Retirada"}`,
-    `Total ${brl(p.total)} · entrada de ${brl(Math.round(p.total * (p.entradaPct || 50) / 100))}`
+    p.entradaPct === 100 ? `Total ${brl(p.total)} · paga tudo antes` : `Total ${brl(p.total)} · entrada de ${brl(Math.round(p.total * (p.entradaPct || 50) / 100))}`
   ].join("\n"));
 }
 
@@ -150,7 +150,7 @@ async function avisarClienteRecebido(env, db, pedidoId) {
     `${e.modo === "entrega" ? `Entrega em ${e.endereco}` : "Retirada na loja"} · ${dataBR(e.data)}${e.hora ? ` às ${e.hora}` : ""}`,
     `Total ${brl(p.total)}${e.modo === "entrega" ? " (a taxa de entrega vem na confirmação)" : ""}`,
     "",
-    "Agora a loja confere o estoque e confirma por aqui, com o link para pagar a entrada.",
+    `Agora a loja confere o estoque e confirma por aqui, com o link para pagar ${p.entradaPct === 100 ? "o pedido" : "a entrada (metade)"}.`,
     `Acompanhe: https://www.dluhfestas.com/pedido?n=${p.id}`
   ].join("\n"));
 }

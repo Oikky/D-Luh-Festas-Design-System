@@ -70,8 +70,16 @@ async function pedidoDoSite(db, dados, { agora = new Date() } = {}) {
     if (soma < (p.qtdMin || 1)) throw new ErroDominio("invalid-argument", `${p.nome}: o mínimo é ${p.qtdMin}`);
   }
 
+  /* Só a entrada (50%) vale para pedido acima de R$ 100 ou para daqui a mais de 1 dia; fora disso
+     o pagamento é do total. A escolha do cliente só vale quando a regra deixa. */
+  const totalItens = itens.reduce((s, it) => s + it.qtd * it.valorUnit, 0);
+  const depoisDeAmanha = new Date(agora.getTime() - 3 * 3600e3 + 2 * 864e5).toISOString().slice(0, 10);
+  const podeEntrada = totalItens > 10000 || data >= depoisDeAmanha;
+  const entradaPct = podeEntrada && dados?.entradaPct !== 100 ? 50 : 100;
+
   const modo = dados?.entrega?.modo;
   return criarPedido(db, {
+    entradaPct,
     cliente: { nome: texto(dados?.cliente?.nome, 80), telefone: texto(dados?.cliente?.telefone, 20) },
     entrega: {
       modo, data, hora: texto(dados?.entrega?.hora, 5),

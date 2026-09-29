@@ -86,8 +86,8 @@
     let acao = "";
     if (p.status === "Confirmado — Esperando pagamento" && faltaEntrada > 0) {
       acao = p.linkPagamento
-        ? `<a class="botao botao--grande" href="${D.esc(p.linkPagamento)}" target="_blank" rel="noopener">Pagar a entrada de ${D.brl(faltaEntrada)}</a>`
-        : `<p class="aviso">${D.icone("info")}<span>O link da entrada (${D.brl(faltaEntrada)}) chega pelo WhatsApp.</span></p>`;
+        ? `<a class="botao botao--grande" href="${D.esc(p.linkPagamento)}" target="_blank" rel="noopener">${p.entradaPct === 100 ? "Pagar o pedido" : "Pagar a entrada"} de ${D.brl(faltaEntrada)}</a>`
+        : `<p class="aviso">${D.icone("info")}<span>O link ${p.entradaPct === 100 ? "de pagamento" : "da entrada"} (${D.brl(faltaEntrada)}) chega pelo WhatsApp.</span></p>`;
     } else if (p.status === "Entregue — Esperando restante" && falta > 0 && p.linkPagamento) {
       acao = `<a class="botao botao--grande" href="${D.esc(p.linkPagamento)}" target="_blank" rel="noopener">Pagar o restante de ${D.brl(falta)}</a>`;
     }

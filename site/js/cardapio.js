@@ -497,10 +497,23 @@
         <p>${modo === "entrega" ? D.esc(enderecoTexto()) : "Você busca na loja na hora marcada."}</p>
       </div>`;
     document.getElementById("revisao-total").textContent = D.brl(totalCarrinho());
-    document.getElementById("revisao-nota").textContent = modo === "entrega"
-      ? "A taxa de entrega entra na confirmação. A entrada é paga depois que a loja confirmar."
-      : "A entrada é paga depois que a loja confirmar.";
+    const pode = podeSoEntrada(data);
+    document.getElementById("bloco-pagamento").hidden = !pode;
+    document.getElementById("pg-entrada-texto").textContent =
+      `${D.brl(Math.round(totalCarrinho() / 2))} agora, o resto na ${modo === "entrega" ? "entrega" : "retirada"}`;
+    const taxa = modo === "entrega" ? "A taxa de entrega entra na confirmação. " : "";
+    document.getElementById("revisao-nota").textContent = pode
+      ? `${taxa}O link de pagamento chega pelo WhatsApp depois que a loja confirmar.`
+      : `${taxa}Para pedidos de até ${D.brl(LIMITE_ENTRADA)} para hoje ou amanhã, o pagamento é do valor total. O link chega pelo WhatsApp depois que a loja confirmar.`;
   }
+  /* Pagar só a entrada (50%) vale para pedido acima de R$ 100 ou para daqui a mais de 1 dia.
+     O servidor confere a mesma regra. */
+  const LIMITE_ENTRADA = 10000;
+  function podeSoEntrada(data) {
+    const depoisDeAmanha = new Date(); depoisDeAmanha.setDate(depoisDeAmanha.getDate() + 2);
+    return totalCarrinho() > LIMITE_ENTRADA || data >= isoLocal(depoisDeAmanha);
+  }
+  const entradaEscolhida = data => podeSoEntrada(data) && forms.revisao.querySelector('input[name="pagamento"]:checked')?.value === "50" ? 50 : 100;
   document.getElementById("revisao").addEventListener("click", e => {
     if (e.target.closest("[data-voltar-itens]")) irPara("montar");
     const b = e.target.closest("[data-ir-passo]");
@@ -536,6 +549,7 @@
       cliente: { nome, telefone },
       entrega: { modo, data: document.getElementById("f-data").value, hora: document.getElementById("f-hora").value, ...(modo === "entrega" ? { endereco: enderecoTexto() } : {}) },
       itens,
+      entradaPct: entradaEscolhida(document.getElementById("f-data").value),
       obs: document.getElementById("f-obs").value.trim()
     };
 
