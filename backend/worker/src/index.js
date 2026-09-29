@@ -27,6 +27,7 @@ import * as lembretes from "./lembretes.js";
 import * as alexa from "./alexa.js";
 
 const CRON_LEMBRETE = "0 12 * * *";
+const CRON_COZINHA = "*/15 * * * *";
 import * as site from "./site.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
@@ -444,10 +445,15 @@ export default {
     }
   },
 
-  /* Dois crons (wrangler.jsonc): 06:00 UTC = backup; 12:00 UTC (9h de Brasília) = lembrete
-     automático da entrada, para quem tem pedido em até 3 dias. */
+  /* Três crons (wrangler.jsonc): 06:00 UTC = backup; 12:00 UTC (9h de Brasília) = lembrete
+     automático da entrada, para quem tem pedido em até 3 dias; de 15 em 15 min = a Alexa da
+     cozinha lembra dos pedidos da próxima hora. */
   async scheduled(evento, env, ctx) {
     const db = banco(env);
+    if (evento.cron === CRON_COZINHA) {
+      ctx.waitUntil(alexa.lembrarProximos(env, db).catch(e => console.error(JSON.stringify({ msg: "lembrete da cozinha falhou", erro: String(e) }))));
+      return;
+    }
     if (evento.cron === CRON_LEMBRETE) {
       if (!whatsappLigado(env)) return;
       ctx.waitUntil(lembretes.paraLembrar(db, { automatico: true })

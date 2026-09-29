@@ -96,7 +96,7 @@ Ligar: no app da Meta (developers.facebook.com → WhatsApp), pegar o **Phone nu
 `EVOLUTION_REPASSE` — o webhook que estava configurado antes, para nada do fluxo atual parar.
 
 ### Alexa na cozinha
-`worker/src/alexa.js`. **Skill** "cozinha de lu": "Alexa, abre a cozinha de lu" → "o que tem pra
+`worker/src/alexa.js`. **Skill** "a cozinha": "Alexa, abre a cozinha" → "o que tem pra
 fazer?" lê a fila de hoje (em produção, não feitos, com os atrasados); "o pedido da Maria está
 pronto" / "o 3012 está pronto" pergunta "confirma?" e, no "sim", chama `marcarFeito` (evento com
 `por: alexa`), igual ao botão da tela da Cozinha. Só aceita chamadas assinadas pela Amazon para

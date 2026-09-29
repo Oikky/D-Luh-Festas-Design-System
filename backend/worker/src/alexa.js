@@ -1,7 +1,7 @@
 /* Alexa na cozinha. Duas partes:
    1. Skill personalizada (modelo em backend/alexa/modelo-pt-BR.json), que a Amazon chama em
       POST /webhook/alexa:
-        "Alexa, abre a cozinha de lu"           → quantos pedidos tem na fila de hoje
+        "Alexa, abre a cozinha"                  → quantos pedidos tem na fila de hoje
         "o que tem pra fazer?"                   → lê a fila (Em produção, ainda não feitos, de hoje e atrasados)
         "o pedido da Maria está pronto" / "o 3012 está feito" → pergunta "confirma?" e, no sim, marcarFeito
       Só vale requisição assinada pela Amazon para a skill ALEXA_SKILL_ID.
@@ -69,13 +69,76 @@ const horaFalada = h => {
   if (!Number.isFinite(hh)) return "";
   return mm ? `às ${hh} e ${mm}` : hh === 1 ? "à uma hora" : `às ${hh} horas`;
 };
-const itensFalados = p => (p.itens || []).map(i => `${i.qtd} ${i.nome}`).join(", ");
+/* A cozinha só quer as quantidades: "100 salgados, 100 doces e 1 bolo com topper". Vale a
+   categoria do produto; pedido antigo sem categoria cai no nome. Outros itens vão pelo nome. */
+const SALGADO = /salgad|coxinh|kibe|quibe|risol|pastel|esfi|empad|enroladinh|bolinha|croquete|mini ?pizza|salsich|p[aã]o de queijo/;
+const DOCE = /doce|brigadeir|beijinh|cajuzinh|bombo|trufa|casadinh|bicho de p|surpresa de uva|olho de sogra|palha italiana/;
+const BOLO = /bolo|torta/;
+const semAcentoMin = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+const juntar = partes => partes.length <= 1 ? partes.join("") : `${partes.slice(0, -1).join(", ")} e ${partes.at(-1)}`;
+
+function itensFalados(p) {
+  let salgados = 0, doces = 0, bolosCom = 0, bolosSem = 0;
+  const outros = [];
+  for (const i of p.itens || []) {
+    const qtd = Number(i.qtd) || 0;
+    const cat = semAcentoMin(i.categoria), nome = semAcentoMin(i.nome);
+    const tipo = /pacote/.test(cat) ? null
+      : BOLO.test(cat) || (!cat && BOLO.test(nome)) ? "bolo"
+      : SALGADO.test(cat) || (!cat && SALGADO.test(nome)) ? "salgado"
+      : DOCE.test(cat) || (!cat && DOCE.test(nome)) ? "doce" : null;
+    if (tipo === "salgado") salgados += qtd;
+    else if (tipo === "doce") doces += qtd;
+    else if (tipo === "bolo") i.topo ? (bolosCom += qtd) : (bolosSem += qtd);
+    else outros.push(`${qtd} ${i.nome}`);
+  }
+  return juntar([
+    salgados ? plural(salgados, "salgado", "salgados") : "",
+    doces ? plural(doces, "doce", "doces") : "",
+    bolosCom ? `${plural(bolosCom, "bolo", "bolos")} com topper` : "",
+    bolosSem ? `${plural(bolosSem, "bolo", "bolos")} sem topper` : "",
+    ...outros
+  ].filter(Boolean));
+}
 const primeiroNome = p => String(p.cliente?.nome || "").trim().split(/\s+/)[0] || "sem nome";
 
+/* "Pedido de Fernanda, às 14 horas: 100 salgados e 1 bolo com topper." */
 function pedidoFalado(p, hoje) {
   const e = p.entrega || {};
   const quando = [e.data && e.data < hoje ? "atrasado" : "", horaFalada(e.hora)].filter(Boolean).join(", ");
-  return `Pedido ${numero(p.id)}, de ${primeiroNome(p)}${quando ? `, ${quando}` : ""}: ${itensFalados(p)}.`;
+  return `Pedido de ${primeiroNome(p)}${quando ? `, ${quando}` : ""}: ${itensFalados(p)}.`;
+}
+
+/* Lembrete de 15 em 15 minutos na última hora antes do horário (cron a cada 15 min). Pedidos do
+   mesmo horário saem juntos. Só o que ainda está na fila: marcado como feito, para de avisar. */
+const minutosAte = (p, agora) => {
+  const e = p.entrega || {};
+  if (!e.data || !/^\d{2}:\d{2}$/.test(e.hora || "")) return null;
+  return Math.round((Date.parse(`${e.data}T${e.hora}:00-03:00`) - agora) / 60e3);
+};
+
+function lembreteFalado(fila, agora) {
+  const porHora = new Map();
+  for (const p of fila) {
+    const m = minutosAte(p, agora);
+    if (m === null || m < 5 || m > 62) continue; // 60, 45, 30 e 15 minutos antes (com folga do cron)
+    const h = p.entrega.hora;
+    if (!porHora.has(h)) porHora.set(h, { minutos: m, pedidos: [] });
+    porHora.get(h).pedidos.push(p);
+  }
+  if (!porHora.size) return null;
+  return [...porHora.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([hora, { minutos, pedidos }]) => {
+    const falta = `Daqui a ${Math.round(minutos / 5) * 5} minutos`;
+    if (pedidos.length === 1) return `${falta}: pedido de ${primeiroNome(pedidos[0])}, ${horaFalada(hora)}: ${itensFalados(pedidos[0])}.`;
+    return `${falta}, ${horaFalada(hora)}, ${pedidos.length} pedidos: ${pedidos.map(p => `de ${primeiroNome(p)}, ${itensFalados(p)}`).join("; ")}.`;
+  }).join(" ");
+}
+
+async function lembrarProximos(env, db, { agora = Date.now(), fetchFn } = {}) {
+  if (!anuncioLigado(env)) return;
+  const texto = lembreteFalado(await filaDeHoje(db, agora), agora);
+  if (texto) await anunciar(env, texto, fetchFn);
 }
 
 const LIDOS_POR_VEZ = 5;
@@ -151,15 +214,16 @@ async function responder(dados, { db, marcarFeito, agora = Date.now() }) {
         return resposta(`Achei ${achados.length}: ${achados.map(p => `o ${numero(p.id)}, ${itensFalados(p)}`).join("; ")}. Qual é o número?`);
       }
       const p = achados[0];
-      return resposta(`Marcar como feito o pedido ${numero(p.id)}, de ${primeiroNome(p)}: ${itensFalados(p)}?`, { sessao: { pendente: p.id } });
+      return resposta(`Marcar como feito o pedido de ${primeiroNome(p)}${p.entrega?.hora ? `, ${horaFalada(p.entrega.hora)}` : ""}?`, { sessao: { pendente: p.id, nome: primeiroNome(p) } });
     }
     case "AMAZON.YesIntent": {
       if (!sessao.pendente) return resposta("Sim para quê? Fale qual pedido ficou pronto.");
       try {
         const r = await marcarFeito(sessao.pendente);
-        return resposta(r?.mudou === false ? `O ${numero(sessao.pendente)} já estava marcado como feito.` : `Pronto, o ${numero(sessao.pendente)} saiu da fila.`);
+        const de = sessao.nome ? `de ${sessao.nome}` : numero(sessao.pendente);
+        return resposta(r?.mudou === false ? `O pedido ${de} já estava marcado como feito.` : `Pronto, o pedido ${de} saiu da fila.`);
       } catch (e) {
-        return resposta(e?.codigo === "failed-precondition" ? `O ${numero(sessao.pendente)} não está mais em produção.` : "Não deu para marcar agora. Tente pelo tablet.");
+        return resposta(e?.codigo === "failed-precondition" ? `Esse pedido não está mais em produção.` : "Não deu para marcar agora. Tente pelo tablet.");
       }
     }
     case "AMAZON.NoIntent":
@@ -194,7 +258,7 @@ async function avisarNovoNaFila(env, db, pedidoId, { agora = Date.now(), fetchFn
   const p = snap.data();
   const e = p.entrega || {};
   const dia = !e.data || e.data <= hojeSP(agora) ? "para hoje" : `para o dia ${Number(e.data.slice(8, 10))}`;
-  return anunciar(env, `Novo pedido na cozinha: ${numero(p.id)}, de ${primeiroNome(p)}, ${dia}${e.hora ? ` ${horaFalada(e.hora)}` : ""}. ${itensFalados(p)}.`, fetchFn);
+  return anunciar(env, `Novo pedido na cozinha: de ${primeiroNome(p)}, ${dia}${e.hora ? ` ${horaFalada(e.hora)}` : ""}: ${itensFalados(p)}.`, fetchFn);
 }
 
-export { alexaLigada, anuncioLigado, urlDoCertificadoOk, requisicaoValida, filaDeHoje, filaFalada, acharNaFila, responder, anunciar, avisarNovoNaFila };
+export { alexaLigada, anuncioLigado, urlDoCertificadoOk, requisicaoValida, filaDeHoje, filaFalada, acharNaFila, responder, anunciar, avisarNovoNaFila, itensFalados, lembreteFalado, lembrarProximos };
