@@ -157,7 +157,10 @@ const DEPOIS = {
   mudarStatus: (env, db, dados, r) => !r.mudou ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId),
     ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : []),
-    ...(r.status === "Confirmado — Esperando pagamento" ? [efeitos.telegramConfirmado(env, db, dados.pedidoId)] : [])
+    ...(r.status === "Confirmado — Esperando pagamento" ? [
+      efeitos.telegramConfirmado(env, db, dados.pedidoId),
+      lembretes.avisarConfirmado({ env, db, pedidoId: dados.pedidoId, gerarCobranca: gerarEntrada(env, db, por) })
+    ] : [])
   ],
   lembrarEntrada: (env, db, dados, r, por) => [lembretes.enviarLembretes({ env, db, lista: r.lista, por, gerarCobranca: gerarEntrada(env, db, por) })],
   registrarPagamentoManual: (env, db, dados, r, por) => r.duplicado ? [] : [

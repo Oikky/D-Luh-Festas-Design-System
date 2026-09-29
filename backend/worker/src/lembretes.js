@@ -8,7 +8,7 @@ import { PEDIDOS } from "./pedidos.js";
 import { ErroDominio } from "./dominio.js";
 import { whatsappLigado, enviarTexto } from "./whatsapp.js";
 import { telegramLigado, enviar as enviarTelegram } from "./telegram.js";
-import { brl, dataBR } from "./efeitos.js";
+import { brl, dataBR, linhasItens } from "./efeitos.js";
 
 const ESPERANDO = "Confirmado — Esperando pagamento";
 const DIAS_ANTES = 3;
@@ -91,8 +91,34 @@ async function enviarLembretes({ env, db, lista, gerarCobranca, automatico = fal
   return r;
 }
 
+/* Estoque confirmado (admin, Telegram ou assistente): o cliente recebe no WhatsApp a confirmação
+   com o link curto da entrada, como no sistema antigo. Espera um instante antes de olhar as
+   cobranças: o admin gera o link logo depois de mudar o status, e assim ele é reaproveitado. */
+async function avisarConfirmado({ env, db, pedidoId, gerarCobranca, esperaMs = 2500 }) {
+  if (!whatsappLigado(env)) return;
+  await espera(esperaMs);
+  const snap = await db.collection(PEDIDOS).doc(String(pedidoId)).get();
+  if (!snap.exists) return;
+  const p = { id: snap.id, ...snap.data() };
+  if (p.status !== ESPERANDO || !temTelefone(p)) return;
+  const e = p.entrega || {}, valor = entradaDe(p);
+  const url = valor > 0 ? await linkDaEntrada(db, p, valor, gerarCobranca) : null;
+  await enviarTexto(env, p.cliente.telefone, [
+    `Olá, ${p.cliente?.nome}! 🩷`,
+    `Seu pedido ${p.id} na D'Luh Festas foi confirmado! 🎉`,
+    "", ...linhasItens(p), "",
+    `${e.modo === "entrega" ? `Entrega em ${e.endereco}` : "Retirada na loja"} · ${dataBR(e.data)}${e.hora ? ` às ${e.hora}` : ""}`,
+    `Total ${brl(p.total)}`,
+    "",
+    url ? `Para começarmos a produção, pague a entrada de ${brl(valor)} por aqui: ${url}` : "O pagamento já está em dia. Obrigada!",
+    `Acompanhe: https://www.dluhfestas.com/pedido?n=${p.id}`
+  ].join("\n"));
+  await snap.ref.collection("eventos").add({ tipo: "aviso", canal: "whatsapp", motivo: "confirmado", valor, por: "sistema", em: new Date() });
+  return true;
+}
+
 function exigirWhatsapp(env) {
   if (!whatsappLigado(env)) throw new ErroDominio("failed-precondition", "O WhatsApp automático ainda não foi configurado");
 }
 
-export { paraLembrar, enviarLembretes, mensagem, exigirWhatsapp, hojeSP, DIAS_ANTES };
+export { paraLembrar, enviarLembretes, avisarConfirmado, mensagem, exigirWhatsapp, hojeSP, DIAS_ANTES };

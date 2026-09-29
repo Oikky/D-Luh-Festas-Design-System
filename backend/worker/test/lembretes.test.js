@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { paraLembrar, enviarLembretes, mensagem } from "../src/lembretes.js";
+import { paraLembrar, enviarLembretes, avisarConfirmado, mensagem } from "../src/lembretes.js";
 
 /* Firestore de mentira: só o que os lembretes usam. */
 function banco(pedidos) {
   const docs = new Map(pedidos.map(p => [`sis_pedidos/${p.id}`, p]));
   const col = path => ({
     doc: id => ({
+      get: async () => { const d = docs.get(`${path}/${id}`); return { id, exists: !!d, data: () => d, ref: { collection: n => col(`${path}/${id}/${n}`) } }; },
       collection: n => col(`${path}/${id}/${n}`),
       set: async (v, o) => docs.set(`${path}/${id}`, { ...(docs.get(`${path}/${id}`) || {}), ...v })
     }),
@@ -39,6 +40,21 @@ test("mensagem diz quantos dias faltam e leva o link", () => {
   assert.match(m, /entrada de R\$ 50,00/);
   assert.match(m, /https:\/\/x\/pagar\/PED-1/);
   assert.match(mensagem(p("PED-2", "2026-10-20"), 5000, "u", "2026-10-01"), /está confirmado para/);
+});
+
+test("estoque confirmado: cliente recebe a confirmação com o link curto da entrada", async () => {
+  const db = banco([p("PED-9", "2026-10-10", { itens: [{ qtd: 50, nome: "Brigadeiro" }] })]);
+  const gerar = Object.assign(async id => ({ url: `https://api/pagar/${id}` }), { curto: id => `https://api/pagar/${id}` });
+  const env = { EVOLUTION_URL: "https://evo", EVOLUTION_KEY: "k", EVOLUTION_INSTANCE: "i" };
+  let corpo;
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { corpo = JSON.parse(init.body); return { ok: true, text: async () => "" }; };
+  try { assert.equal(await avisarConfirmado({ env, db, pedidoId: "PED-9", gerarCobranca: gerar, esperaMs: 0 }), true); }
+  finally { globalThis.fetch = fetchOriginal; }
+  assert.equal(corpo.number, "5538999990000");
+  assert.match(corpo.text, /PED-9 na D'Luh Festas foi confirmado/);
+  assert.match(corpo.text, /50× Brigadeiro/);
+  assert.match(corpo.text, /entrada de R\$ 50,00 por aqui: https:\/\/api\/pagar\/PED-9/);
 });
 
 test("envio: usa o link curto, gera cobrança só se a última não serve, marca o automático", async () => {

@@ -35,7 +35,7 @@ const CONFIRMA = {
   /* Confirming stock moves the order on and prepares the entry link in one go; the link opens
      in a dialog so the atendente sends it on WhatsApp. */
   estoque: p => ({ tone: "accent", icon: "circle-check", title: "Confirmar estoque?",
-    message: "O pedido vai para Esperando pagamento e o link da entrada fica pronto para enviar ao cliente.",
+    message: "O pedido vai para Esperando pagamento e o cliente recebe no WhatsApp a confirmação com o link da entrada.",
     confirmLabel: "Sim, confirmar", ok: "Estoque confirmado", falhou: "Não deu pra confirmar o estoque",
     aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Confirmado — Esperando pagamento" } : x),
     pedido: async chamar => {
