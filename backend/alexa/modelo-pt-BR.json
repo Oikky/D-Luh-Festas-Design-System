@@ -3,13 +3,44 @@
     "languageModel": {
       "invocationName": "fila de produção",
       "intents": [
-        { "name": "AMAZON.CancelIntent", "samples": [] },
-        { "name": "AMAZON.HelpIntent", "samples": [] },
-        { "name": "AMAZON.StopIntent", "samples": [] },
-        { "name": "AMAZON.NavigateHomeIntent", "samples": [] },
-        { "name": "AMAZON.FallbackIntent", "samples": [] },
-        { "name": "AMAZON.YesIntent", "samples": ["pode", "pode marcar", "isso", "confirma", "confirmo"] },
-        { "name": "AMAZON.NoIntent", "samples": ["não marca", "deixa", "errado"] },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": [
+            "pode",
+            "pode marcar",
+            "isso",
+            "confirma",
+            "confirmo"
+          ]
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": [
+            "não marca",
+            "deixa",
+            "errado"
+          ]
+        },
         {
           "name": "FilaIntent",
           "slots": [],
@@ -32,8 +63,14 @@
         {
           "name": "FeitoIntent",
           "slots": [
-            { "name": "numero", "type": "AMAZON.NUMBER" },
-            { "name": "cliente", "type": "AMAZON.FirstName" }
+            {
+              "name": "numero",
+              "type": "AMAZON.NUMBER"
+            },
+            {
+              "name": "cliente",
+              "type": "AMAZON.FirstName"
+            }
           ],
           "samples": [
             "o pedido {numero} está pronto",
@@ -61,6 +98,33 @@
             "o do {cliente} está pronto",
             "o da {cliente} tá pronto",
             "o do {cliente} tá pronto"
+          ]
+        },
+        {
+          "name": "ProximoIntent",
+          "slots": [],
+          "samples": [
+            "pronto",
+            "tá pronto",
+            "está pronto",
+            "ficou pronto",
+            "terminei",
+            "acabei",
+            "acabou",
+            "feito",
+            "tá feito",
+            "está feito",
+            "marca como feito",
+            "marcar como feito",
+            "marca o próximo",
+            "marca o primeiro",
+            "o próximo está pronto",
+            "o primeiro está pronto",
+            "terminei o pedido",
+            "o pedido está pronto",
+            "o pedido tá pronto",
+            "pode marcar o próximo",
+            "terminei o próximo"
           ]
         }
       ],

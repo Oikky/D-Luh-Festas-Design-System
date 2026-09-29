@@ -192,8 +192,9 @@ async function responder(dados, { db, marcarFeito, agora = Date.now() }) {
   if (req.type === "SessionEndedRequest") return { version: "1.0", response: {} };
   if (req.type === "LaunchRequest") {
     const fila = await filaDeHoje(db, agora);
-    const qtd = fila.length === 0 ? "A fila de hoje está vazia." : fila.length === 1 ? "Tem 1 pedido na fila." : `Tem ${fila.length} pedidos na fila.`;
-    return resposta(`Cozinha D'Luh. ${qtd} Quer que eu leia, ou marque algum como feito?`);
+    if (!fila.length) return resposta("Cozinha D'Luh. A fila de hoje está vazia.");
+    const qtd = fila.length === 1 ? "Tem 1 pedido na fila." : `Tem ${fila.length} pedidos na fila.`;
+    return resposta(`Cozinha D'Luh. ${qtd} O próximo é ${pedidoFalado(fila[0], hoje).replace(/^Pedido/, "o pedido")} Quando terminar, é só dizer: pronto.`);
   }
   if (req.type !== "IntentRequest") return resposta("Não entendi.", { continuar: false });
 
@@ -204,9 +205,12 @@ async function responder(dados, { db, marcarFeito, agora = Date.now() }) {
       const texto = filaFalada(fila, hoje);
       return resposta(texto, { cartao: texto });
     }
+    case "ProximoIntent":
     case "FeitoIntent": {
       const fila = await filaDeHoje(db, agora);
-      const achados = acharNaFila(fila, { numero: valorDoSlot(intent, "numero"), cliente: valorDoSlot(intent, "cliente") });
+      const busca = { numero: valorDoSlot(intent, "numero"), cliente: valorDoSlot(intent, "cliente") };
+      // Sem nome nem número ("pronto", "terminei"): o primeiro da fila — o atrasado ou o de horário mais cedo.
+      const achados = busca.numero || busca.cliente ? acharNaFila(fila, busca) : fila.slice(0, 1);
       if (!achados.length) {
         return resposta(fila.length ? "Não achei esse pedido na fila de hoje. Pode falar o número do pedido?" : "A fila de hoje está vazia.");
       }
@@ -229,7 +233,7 @@ async function responder(dados, { db, marcarFeito, agora = Date.now() }) {
     case "AMAZON.NoIntent":
       return resposta(sessao.pendente ? "Tá bom, não marquei." : "Tá bom.");
     case "AMAZON.HelpIntent":
-      return resposta("Você pode perguntar: o que tem pra fazer? Ou dizer: o pedido da Maria está pronto, ou, o pedido 3012 está feito.");
+      return resposta("Você pode perguntar: o que tem pra fazer? Quando terminar um pedido, diga: pronto, e eu marco o primeiro da fila. Ou diga: o pedido da Maria está pronto.");
     case "AMAZON.StopIntent":
     case "AMAZON.CancelIntent":
       return resposta("Até mais.", { continuar: false });

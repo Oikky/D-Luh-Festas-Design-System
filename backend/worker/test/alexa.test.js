@@ -131,3 +131,16 @@ test("lembrete: de 15 em 15 na última hora, pedidos do mesmo horário juntos", 
   assert.equal(lembreteFalado(fila, em("14:00")), "Daqui a 60 minutos: pedido de Lia, às 15 horas: 50 doces.");  // o das 14h já passou
   assert.equal(lembreteFalado(fila, em("13:00") + 40e3), lembreteFalado(fila, em("13:00")));  // cron atrasado
 });
+
+test("'pronto' sem nome: pergunta pelo primeiro da fila (o atrasado) e marca no sim", async () => {
+  const marcados = [];
+  const ctx = { db: banco(PEDIDOS), agora, marcarFeito: async id => { marcados.push(id); return { mudou: true }; } };
+  let r = await responder({ request: { type: "IntentRequest", intent: { name: "ProximoIntent" } } }, ctx);
+  assert.equal(r.response.outputSpeech.text, "Marcar como feito o pedido de Joana, às 10 e 30?");
+  r = await responder({ session: { attributes: r.sessionAttributes }, request: { type: "IntentRequest", intent: { name: "AMAZON.YesIntent" } } }, ctx);
+  assert.deepEqual(marcados, ["PED-3009"]);
+  r = await responder({ request: { type: "LaunchRequest" } }, ctx);
+  assert.match(r.response.outputSpeech.text, /O próximo é o pedido de Joana, atrasado, às 10 e 30: 50 doces\. Quando terminar, é só dizer: pronto\.$/);
+  r = await responder({ request: { type: "IntentRequest", intent: { name: "ProximoIntent" } } }, { ...ctx, db: banco([]) });
+  assert.equal(r.response.outputSpeech.text, "A fila de hoje está vazia.");
+});
