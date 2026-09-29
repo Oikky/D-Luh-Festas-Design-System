@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Acompanhar pedido · D'Luh Festas</title>
+  <meta name="description" content="Veja em que pé está o seu pedido na D'Luh Festas com o número do pedido e o WhatsApp usado.">
+  <meta name="theme-color" content="#ffffff">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="D'Luh Festas">
+  <meta property="og:title" content="Acompanhar pedido · D'Luh Festas">
+  <meta property="og:description" content="Veja a situação do seu pedido com o número e o seu WhatsApp.">
+  <meta property="og:url" content="https://www.dluhfestas.com/pedido">
+  <meta property="og:image" content="https://www.dluhfestas.com/midia/galeria-mesa-flores.jpg">
+  <link rel="canonical" href="https://www.dluhfestas.com/pedido">
+  <link rel="icon" href="img/d-dluh.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="img/logo-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600..800;1,600..700&family=Urbanist:wght@400..800&display=swap">
+  <link rel="stylesheet" href="css/site.css?v=19">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <div class="moldura topo__dentro">
+      <a class="marca" href="/" aria-label="D'Luh Festas, página inicial">
+        <span class="marca__d" data-marca-d><img src="img/d-dluh.svg" alt="" width="859" height="648"></span>
+        <span class="marca__nome">D'Luh <em>Festas</em></span>
+      </a>
+      <nav class="menu" aria-label="Principal">
+        <a href="/cardapio" class="so-largo">Cardápio</a>
+        <a href="/#salao" class="so-largo">Nosso salão</a>
+        <a href="/pedido" class="so-largo" aria-current="page">Acompanhar pedido</a>
+      </nav>
+      <a class="sacola so-estreito" href="/pedido" aria-label="Acompanhar pedido" aria-current="page">
+        <svg class="icone" aria-hidden="true"><use href="#i-recebido"/></svg>
+      </a>
+      <a class="sacola" href="/cardapio" aria-label="Seu pedido" data-sacola>
+        <svg class="icone" aria-hidden="true"><use href="#i-sacola"/></svg>
+        <span class="sacola__n" data-sacola-n hidden>0</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="conteudo" class="moldura pagina-pedido">
+    <div class="cabeca-pagina">
+      <h1 class="titulo">Acompanhar pedido</h1>
+      <p>Use o número que apareceu quando você mandou o pedido e o WhatsApp que você informou.</p>
+    </div>
+
+    <section class="consulta" aria-label="Buscar pedido">
+      <form id="form-consulta" novalidate>
+        <div class="campo">
+          <label for="c-numero">Número do pedido</label>
+          <input class="entrada num" type="text" id="c-numero" name="numero" placeholder="PED-3104" autocapitalize="characters" autocomplete="off" required>
+          <p class="campo__erro" id="c-numero-erro" hidden></p>
+        </div>
+        <div class="campo">
+          <label for="c-tel">WhatsApp</label>
+          <input class="entrada num" type="tel" id="c-tel" name="telefone" inputmode="tel" autocomplete="tel-national" placeholder="(38) 99999-9999" required>
+          <p class="campo__erro" id="c-tel-erro" hidden></p>
+        </div>
+        <button class="botao" type="submit" id="c-botao">
+          <svg class="icone" aria-hidden="true"><use href="#i-lupa"/></svg> Ver pedido
+        </button>
+      </form>
+    </section>
+
+    <div id="resultado" aria-live="polite"></div>
+  </main>
+
+  <footer class="rodape">
+    <div class="moldura rodape__dentro">
+      <div>
+        <img src="img/logo-192.png" alt="D'Luh Festas" width="192" height="192">
+        <p>Doces e salgados pra festas, feitos em Montes Claros, MG.</p>
+      </div>
+      <div>
+        <h2>Site</h2>
+        <ul>
+          <li><a href="/">Início</a></li>
+          <li><a href="/cardapio">Cardápio</a></li>
+          <li><a href="/pedido">Acompanhar pedido</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Contato</h2>
+        <ul>
+          <li><a href="https://wa.me/5538992229178" target="_blank" rel="noopener">WhatsApp (38) 99222-9178</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Salão</h2>
+        <ul>
+          <li><a href="https://www.instagram.com/dromafestas/" target="_blank" rel="noopener"><svg class="icone" aria-hidden="true"><use href="#i-insta"/></svg>&nbsp;D' Roma Festas no Instagram</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="moldura rodape__base">D'Luh Festas · Montes Claros, MG</div>
+  </footer>
+
+  <script src="js/comum.js?v=19"></script>
+  <script src="js/marca-dados.js?v=19"></script>
+  <script src="js/marca.js?v=19"></script>
+  <script src="js/api.js?v=19"></script>
+  <script src="js/api-teste.js?v=19"></script>
+  <script src="js/pedido.js?v=19"></script>
+</body>
+</html>

@@ -60,6 +60,18 @@ transaction; this models a commitment with a date, a kitchen, and a remaining ba
 - **Adjacent customer-facing surfaces** in the same product family, out of scope for this repo's
   admin work: `cardapio.html` (ordering), `empresas.html` (B2B), `index.html` (landing), and
   **Bia**, a separate customer-facing WhatsApp assistant persona.
+- **New public site (since 28/09/2026):** `site/` in this repo replaces `index.html` and
+  `cardapio.html` and adds order tracking. Its audience is the customer, not the team: the voice
+  there talks to whoever is organizing the party, still *você*, still pt-BR. Strategy and
+  direction live in its surface brief (`.impeccable/surfaces/site-index-html.md`).
+- **Standing preference for the public site (owner, 28/09/2026):** follow the category standard
+  of the three Behance references (Cake Shop Web Design, Seja Doce, Sweets Ordering App): light
+  grounds, photo-led hero, product cards with a round add button, cart panel beside the menu.
+  The painted-sign direction was tried and rejected. Terracotta + Playfair stay as the brand.
+  Real photos and video come from the shop's own hall, **D' Roma Festas • Buffet & Espaço**
+  (instagram.com/dromafestas), the buffet/hall side of the business. The owner confirmed
+  (28/09/2026) that the hall is theirs ("o salão é nosso") and that customer service runs
+  **8h às 19h**.
 
 ## Capabilities and Constraints
 

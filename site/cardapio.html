@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cardápio · D'Luh Festas</title>
+  <meta name="description" content="Salgados, docinhos e bolos por cento. Monte seu pedido, escolha o dia e receba o resumo no WhatsApp.">
+  <meta name="theme-color" content="#ffffff">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="D'Luh Festas">
+  <meta property="og:title" content="Cardápio · D'Luh Festas">
+  <meta property="og:description" content="Salgados a partir de 25 de cada sabor, docinhos a partir de 50 e bolo pelo tamanho. Monte seu pedido.">
+  <meta property="og:url" content="https://www.dluhfestas.com/cardapio">
+  <meta property="og:image" content="https://www.dluhfestas.com/midia/galeria-mesa-flores.jpg">
+  <link rel="canonical" href="https://www.dluhfestas.com/cardapio">
+  <link rel="icon" href="img/d-dluh.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="img/logo-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600..800;1,600..700&family=Urbanist:wght@400..800&display=swap">
+  <link rel="stylesheet" href="css/site.css?v=19">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <div class="moldura topo__dentro">
+      <a class="marca" href="/" aria-label="D'Luh Festas, página inicial">
+        <span class="marca__d" data-marca-d><img src="img/d-dluh.svg" alt="" width="859" height="648"></span>
+        <span class="marca__nome">D'Luh <em>Festas</em></span>
+      </a>
+      <nav class="menu" aria-label="Principal">
+        <a href="/cardapio" class="so-largo" aria-current="page">Cardápio</a>
+        <a href="/#salao" class="so-largo">Nosso salão</a>
+        <a href="/pedido" class="so-largo">Acompanhar pedido</a>
+      </nav>
+      <a class="sacola so-estreito" href="/pedido" aria-label="Acompanhar pedido">
+        <svg class="icone" aria-hidden="true"><use href="#i-recebido"/></svg>
+      </a>
+      <a class="sacola" href="/cardapio" aria-label="Seu pedido" data-sacola>
+        <svg class="icone" aria-hidden="true"><use href="#i-sacola"/></svg>
+        <span class="sacola__n" data-sacola-n hidden>0</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <!-- 1. Montar o pedido -->
+    <div id="vista-montar">
+      <div class="moldura cabeca-pagina">
+        <h1 class="titulo">Nosso cardápio</h1>
+        <p>Salgados a partir de 25 de cada sabor, docinhos a partir de 50, bolo pelo tamanho. Toque no + e o pedido vai se montando ao lado.</p>
+      </div>
+
+      <nav class="abas" aria-label="Categorias">
+        <div class="moldura abas__lista" id="abas"></div>
+      </nav>
+
+      <div class="moldura balcao">
+        <div class="categorias" id="categorias">
+          <div class="carregando" aria-label="Carregando o cardápio"><div></div><div></div><div></div></div>
+        </div>
+        <div class="comanda-coluna">
+          <aside class="comanda" aria-labelledby="titulo-comanda" data-comanda></aside>
+        </div>
+      </div>
+
+      <div class="barra-pedido" id="barra-pedido">
+        <p><small data-barra="qtd">0 itens</small><strong class="num repinta" data-barra="total">R$ 0,00</strong></p>
+        <button class="botao botao--pequeno" type="button" id="abrir-folha" aria-controls="folha" aria-expanded="false">Ver pedido</button>
+      </div>
+      <div class="veu" id="veu"></div>
+      <aside class="comanda folha" id="folha" aria-label="Seu pedido" data-comanda data-folha></aside>
+    </div>
+
+    <!-- 2. Finalizar -->
+    <div id="vista-finalizar" hidden>
+      <div class="moldura finalizar">
+        <ol class="etapas" id="etapas">
+          <li class="etapa feita"><span>Itens</span></li>
+          <li class="etapa" data-etapa="data"><span>Data</span></li>
+          <li class="etapa" data-etapa="entrega"><span>Entrega</span></li>
+          <li class="etapa" data-etapa="revisao"><span>Revisão</span></li>
+        </ol>
+
+        <form class="painel" id="form-data" data-passo="data" novalidate>
+          <h2 class="titulo titulo--m" tabindex="-1">Pra quando é a festa?</h2>
+          <p class="painel__ajuda">Escolha o dia e a hora em que você quer receber ou buscar. A loja confirma se o horário está livre.</p>
+          <div class="campos">
+            <div class="campo campo--metade">
+              <label for="f-data">Dia</label>
+              <input class="entrada" type="date" id="f-data" name="data" required>
+              <p class="campo__erro" id="f-data-erro" hidden></p>
+            </div>
+            <div class="campo campo--metade">
+              <label for="f-hora">Hora</label>
+              <input class="entrada" type="time" id="f-hora" name="hora" step="900" required>
+              <p class="campo__erro" id="f-hora-erro" hidden></p>
+            </div>
+          </div>
+          <div class="painel__acoes">
+            <button class="botao botao--contorno" type="button" data-voltar>
+              <svg class="icone" aria-hidden="true"><use href="#i-voltar"/></svg> Voltar aos itens
+            </button>
+            <button class="botao" type="submit">Continuar <svg class="icone" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          </div>
+        </form>
+
+        <form class="painel" id="form-entrega" data-passo="entrega" novalidate hidden>
+          <h2 class="titulo titulo--m" tabindex="-1">Entrega ou retirada?</h2>
+          <p class="painel__ajuda">A taxa de entrega é calculada pela loja e vem junto com a confirmação.</p>
+          <fieldset class="opcoes-modo">
+            <legend class="sr-only">Como você quer receber</legend>
+            <label class="opcao-modo">
+              <input type="radio" name="modo" value="entrega" checked>
+              <svg class="icone" aria-hidden="true"><use href="#i-moto"/></svg>
+              <strong>Entrega</strong><span>No endereço da festa</span>
+            </label>
+            <label class="opcao-modo">
+              <input type="radio" name="modo" value="retirada">
+              <svg class="icone" aria-hidden="true"><use href="#i-loja"/></svg>
+              <strong>Retirada na loja</strong><span>Você busca na hora marcada</span>
+            </label>
+          </fieldset>
+          <div class="campos" id="campos-endereco">
+            <div class="campo campo--terco">
+              <label for="f-cep">CEP</label>
+              <input class="entrada num" type="text" id="f-cep" name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="39400-000" maxlength="9">
+              <small id="f-cep-ajuda">Preenche a rua e o bairro sozinho.</small>
+            </div>
+            <div class="campo campo--largo">
+              <label for="f-rua">Rua</label>
+              <input class="entrada" type="text" id="f-rua" name="rua" autocomplete="address-line1" required>
+              <p class="campo__erro" id="f-rua-erro" hidden></p>
+            </div>
+            <div class="campo campo--terco">
+              <label for="f-numero">Número</label>
+              <input class="entrada" type="text" id="f-numero" name="numero" inputmode="numeric" required>
+              <p class="campo__erro" id="f-numero-erro" hidden></p>
+            </div>
+            <div class="campo campo--largo">
+              <label for="f-bairro">Bairro</label>
+              <input class="entrada" type="text" id="f-bairro" name="bairro" required>
+              <p class="campo__erro" id="f-bairro-erro" hidden></p>
+            </div>
+            <div class="campo">
+              <label for="f-complemento">Complemento ou ponto de referência <small>(opcional)</small></label>
+              <input class="entrada" type="text" id="f-complemento" name="complemento" autocomplete="address-line2">
+            </div>
+          </div>
+          <div class="painel__acoes">
+            <button class="botao botao--contorno" type="button" data-ir="data">
+              <svg class="icone" aria-hidden="true"><use href="#i-voltar"/></svg> Voltar
+            </button>
+            <button class="botao" type="submit">Continuar <svg class="icone" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          </div>
+        </form>
+
+        <form class="painel" id="form-revisao" data-passo="revisao" novalidate hidden>
+          <h2 class="titulo titulo--m" tabindex="-1">Confira e mande</h2>
+          <p class="painel__ajuda">O pedido chega na loja na hora. Você recebe o resumo no WhatsApp deste número.</p>
+          <div class="campos">
+            <div class="campo campo--metade">
+              <label for="f-nome">Seu nome</label>
+              <input class="entrada" type="text" id="f-nome" name="nome" autocomplete="name" required>
+              <p class="campo__erro" id="f-nome-erro" hidden></p>
+            </div>
+            <div class="campo campo--metade">
+              <label for="f-tel">WhatsApp</label>
+              <input class="entrada num" type="tel" id="f-tel" name="telefone" autocomplete="tel-national" inputmode="tel" placeholder="(38) 99999-9999" required>
+              <p class="campo__erro" id="f-tel-erro" hidden></p>
+            </div>
+            <div class="campo" id="campo-topo" hidden>
+              <label for="f-topo">Tema do topo do bolo <small>(opcional)</small></label>
+              <input class="entrada" type="text" id="f-topo" name="topo" placeholder="Ex.: Patrulha Canina, nome Theo, 4 anos">
+            </div>
+            <div class="campo">
+              <label for="f-obs">Alguma observação? <small>(opcional)</small></label>
+              <textarea class="entrada" id="f-obs" name="obs"></textarea>
+            </div>
+          </div>
+
+          <div class="revisao" id="revisao"></div>
+
+          <div class="total">
+            <span>Total dos itens</span>
+            <strong class="num" id="revisao-total">R$ 0,00</strong>
+          </div>
+          <p class="total__nota" id="revisao-nota"></p>
+          <p class="aviso aviso--erro" id="erro-envio" role="alert" hidden></p>
+
+          <div class="painel__acoes">
+            <button class="botao botao--contorno" type="button" data-ir="entrega">
+              <svg class="icone" aria-hidden="true"><use href="#i-voltar"/></svg> Voltar
+            </button>
+            <button class="botao botao--grande" type="submit" id="botao-enviar">Mandar pedido</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 3. Pedido recebido -->
+    <section class="recebido" id="vista-recebido" hidden aria-labelledby="titulo-recebido">
+      <div class="moldura">
+        <div class="recebido__selo" aria-hidden="true"><svg class="icone"><use href="#i-check"/></svg></div>
+        <h1 class="titulo" id="titulo-recebido" tabindex="-1">Pedido recebido!</h1>
+        <p>Guarde o número. A loja confere o estoque e confirma pelo WhatsApp; aí chega o link pra pagar a entrada.</p>
+        <div class="ficha" id="ficha"></div>
+        <div class="recebido__acoes">
+          <a class="botao botao--grande" id="recebido-whats" href="#" target="_blank" rel="noopener">
+            <svg class="icone" aria-hidden="true"><use href="#i-whats"/></svg> Abrir o WhatsApp da loja
+          </a>
+          <a class="botao botao--contorno botao--grande" id="recebido-acompanhar" href="/pedido">Acompanhar pedido</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="moldura rodape__dentro">
+      <div>
+        <img src="img/logo-192.png" alt="D'Luh Festas" width="192" height="192">
+        <p>Doces e salgados pra festas, feitos em Montes Claros, MG.</p>
+      </div>
+      <div>
+        <h2>Site</h2>
+        <ul>
+          <li><a href="/">Início</a></li>
+          <li><a href="/cardapio">Cardápio</a></li>
+          <li><a href="/pedido">Acompanhar pedido</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Contato</h2>
+        <ul>
+          <li><a href="https://wa.me/5538992229178" target="_blank" rel="noopener">WhatsApp (38) 99222-9178</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Salão</h2>
+        <ul>
+          <li><a href="https://www.instagram.com/dromafestas/" target="_blank" rel="noopener"><svg class="icone" aria-hidden="true"><use href="#i-insta"/></svg>&nbsp;D' Roma Festas no Instagram</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="moldura rodape__base">D'Luh Festas · Montes Claros, MG</div>
+  </footer>
+
+  <script src="js/comum.js?v=19"></script>
+  <script src="js/marca-dados.js?v=19"></script>
+  <script src="js/marca.js?v=19"></script>
+  <script src="js/catalogo.js?v=19"></script>
+  <script src="js/api.js?v=19"></script>
+  <script src="js/api-teste.js?v=19"></script>
+  <script src="js/cardapio.js?v=19"></script>
+</body>
+</html>

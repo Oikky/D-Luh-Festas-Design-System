@@ -18,3 +18,10 @@ tools/.cache/
 
 # Cópia do Coda para a migração (dados de clientes)
 backend/.coda-export/
+
+# referências do Behance (direitos dos autores; só consulta local)
+site/_refs/
+site/_ig/
+
+# intermediários do traçado da marca (regeráveis pelos scripts de site/_logo)
+site/_logo/*.npy

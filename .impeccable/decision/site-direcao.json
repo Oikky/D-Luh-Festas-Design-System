@@ -1,0 +1,131 @@
+{
+  "title": "Site D'Luh — escolha o mundo visual",
+  "question": "O sorteio escolheu o Letreiro pintado. Fique com ele, pegue uma alternativa ou sorteie de novo. Terracota #C0725A e Playfair são fixos em qualquer opção.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Letreiro pintado",
+      "kicker": "THE ROLL",
+      "lineage": "abridores de letras e cartazes de preço das padarias e lanchonetes do Norte de Minas",
+      "thesis": "O cardápio como a parede pintada da loja: preço por cento em letra enorme, e o pedido se monta como uma lista de balcão.",
+      "palette": ["#C0725A", "#2A1810", "#F4C53D", "#1E5B47", "#FFFFFF"],
+      "materials": ["esmalte sintético sobre reboco liso", "letra com contorno e sombra chapada", "placas de preço recortadas"],
+      "viewport": "Parede terracota de ponta a ponta; 'Sua festa começa aqui' pintado em Playfair Black branco com contorno café; ao lado, uma placa amarela 'Cento de coxinha R$ 75' e o botão 'Montar meu pedido'.",
+      "risk": "Se a letra sair tímida ou limpa demais, vira só mais uma página terracota com serifa.",
+      "raised": [
+        {"from": "challenger-splitflap", "raise": "Preços e quantidades em células fixas com algarismos tabulares: a coluna do cento nunca dança."},
+        {"from": "challenger-ligneclaire", "raise": "Um único peso de contorno em tudo que é pintado, cores chapadas, zero degradê e zero sombra borrada."},
+        {"from": "challenger-cape", "raise": "Checkout em etapas com nome (Itens · Data · Entrega · Revisão), uma por vez no celular."},
+        {"from": "challenger-algorave", "raise": "Ao mudar a quantidade, o novo total aparece antes de você confirmar."},
+        {"from": "challenger-quarry", "raise": "Seções como placas pintadas empilhadas, com faixa de parede entre elas em vez de cards flutuando."}
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Mesa posta",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "a mesa de festa de aniversário vista de cima: forminhas em fileira, bolo no centro",
+      "thesis": "Cada item que você pede aparece na mesa; o pedido é ver a festa ficar pronta.",
+      "palette": ["#C0725A", "#7A2E3A", "#E9A6A0", "#3C2A21", "#FFFFFF"],
+      "materials": ["forminha de papel plissado", "toalha lisa", "fotografia de cima"],
+      "viewport": "Mesa vista de cima ocupando a tela, fileiras de doces e salgados fotografadas; o título em Playfair sobre a toalha e o botão 'Montar minha mesa'.",
+      "risk": "É onde a maioria dos sites de doceria chega, e depende de fotos de cima que o catálogo ainda não tem."
+    },
+    {
+      "id": "challenger-boardingpass",
+      "label": "Comanda e painel",
+      "verdict": "competitive",
+      "lineage": "cartão de embarque segmentado + painel de portões, trazido para a comanda de pedido",
+      "thesis": "Cada pedido vira uma comanda destacável com número, data e saldo, e o acompanhamento é um painel que atualiza no lugar.",
+      "palette": ["#FFFFFF", "#1C1C1C", "#C0725A", "#E23B2E"],
+      "materials": ["papel de comanda com picote", "algarismos tabulares", "uma cor só para mudança de estado"],
+      "viewport": "Uma comanda grande 'PED-3104 · 12/10 · 15h' no centro, com o quadro 'Seu pedido' ao lado; o cardápio vem logo abaixo.",
+      "case": "Casa muito bem com Acompanhar pedido e com o ciclo do pedido; perde em identificação — quem organiza festa não se vê num aeroporto.",
+      "risk": "Pode parecer sistema, frio demais para vender festa.",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board.webp"
+    },
+    {
+      "id": "challenger-splitflap",
+      "label": "Painel split-flap",
+      "verdict": "declined",
+      "lineage": "painel de partidas de estação",
+      "thesis": "Cardápio como painel de partidas que vira letra a letra.",
+      "palette": ["#111111", "#FFFFFF", "#F2A33A"],
+      "materials": ["plaquetas pretas", "letra branca condensada"],
+      "viewport": "Painel preto com os produtos em linhas.",
+      "risk": "Nada a ver com festa.",
+      "case": "Perde nos dois eixos para o Letreiro.",
+      "kept": "Células fixas e algarismos tabulares para preço e quantidade.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp"
+    },
+    {
+      "id": "challenger-ligneclaire",
+      "label": "Linha clara",
+      "verdict": "declined",
+      "lineage": "álbum de quadrinhos belga",
+      "thesis": "Produtos desenhados com um só traço e cor chapada.",
+      "palette": ["#1A1A1A", "#7FB2D9", "#E3C58B", "#D2352B"],
+      "materials": ["traço uniforme", "cor chapada"],
+      "viewport": "Página de álbum com a festa em quadrinhos.",
+      "risk": "Tiraria as fotos, que são a prova do produto.",
+      "case": "Perde nos dois eixos.",
+      "kept": "Um só peso de contorno, cor chapada, sem sombra nem degradê.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-ligne-claire-album-hero.webp"
+    },
+    {
+      "id": "challenger-cape",
+      "label": "Capa com cordão",
+      "verdict": "declined",
+      "lineage": "moda que se transforma puxando um cordão",
+      "thesis": "Um plano que vira volume em estados nomeados.",
+      "palette": ["#111111", "#C9A24A", "#5A6470"],
+      "materials": ["seda preta", "cordão dourado"],
+      "viewport": "Semicírculo preto com um cordão dourado.",
+      "risk": "Luxo frio, longe do público.",
+      "case": "Perde nos dois eixos.",
+      "kept": "Estados com nome, avançados um passo por vez no celular.",
+      "hero": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-drawcord-transforming-cape-hero.webp"
+    },
+    {
+      "id": "challenger-algorave",
+      "label": "Algorave",
+      "verdict": "declined",
+      "lineage": "código ao vivo projetado na pista",
+      "thesis": "A mudança aparece antes de soar.",
+      "palette": ["#0A0A0A", "#39FF88", "#FF3DAE"],
+      "materials": ["monoespaçada", "fósforo"],
+      "viewport": "Buffer de código na tela toda.",
+      "risk": "Estranho ao público.",
+      "case": "Perde nos dois eixos.",
+      "kept": "Mostrar o efeito da mudança (o novo total) antes de confirmar.",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-algorave-source-floor-hero.webp"
+    },
+    {
+      "id": "challenger-quarry",
+      "label": "Pedreira de nuvens",
+      "verdict": "declined",
+      "lineage": "mundo onírico de blocos de nuvem",
+      "thesis": "Seções como blocos cortados com vãos entre eles.",
+      "palette": ["#F4F6F8", "#6FA8DC", "#8A9099"],
+      "materials": ["blocos de nuvem", "estêncil industrial"],
+      "viewport": "Blocos brancos empilhados sobre céu.",
+      "risk": "Sem relação com o produto.",
+      "case": "Perde nos dois eixos.",
+      "kept": "Seções empilhadas como placas, com vão visível entre elas.",
+      "hero": "https://impeccable.style/worlds/cards/dream-surreal-impossible-worlds-cloud-quarry-hero.webp"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code", "toggle": false},
+  "canon": true,
+  "canonCard": {
+    "label": "O padrão de doceria",
+    "thesis": "O que as referências do Behance fazem, com acabamento impecável.",
+    "palette": ["#FFFFFF", "#C0725A", "#F6E3DC", "#2A1810"],
+    "materials": ["fundo branco", "cards com foto", "botão redondo de adicionar"],
+    "viewport": "Foto grande de bolo à direita, título à esquerda, abas de categoria e grade de cards logo abaixo.",
+    "risk": "Igual a qualquer doceria, por definição."
+  },
+  "steer": true
+}

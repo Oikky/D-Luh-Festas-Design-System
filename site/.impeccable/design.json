@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-28T16:58:52.887Z",
+  "title": "Design System: D'Luh Festas · Site público",
+  "scope": "site/ (site público do cliente). O admin em ui_kits/admin não segue este sidecar.",
+  "extensions": {
+    "colorMeta": {
+      "terracota-forte": {
+        "role": "primary",
+        "displayName": "Terracota escuro",
+        "canonical": "#a45b45",
+        "oklch": "oklch(55.1% 0.102 37)",
+        "tonalRamp": [
+          "#290000",
+          "#4c0900",
+          "#712d18",
+          "#974f39",
+          "#be725c",
+          "#e6977f",
+          "#edccc2",
+          "#ffe6dc"
+        ]
+      },
+      "terracota-funda": {
+        "role": "primary",
+        "displayName": "Terracota queimado",
+        "canonical": "#8c4d3a",
+        "oklch": "oklch(49.1% 0.090 37)",
+        "tonalRamp": [
+          "#260000",
+          "#490f00",
+          "#6d311f",
+          "#92523f",
+          "#b97561",
+          "#e09a85",
+          "#edccc2",
+          "#ffe6dc"
+        ]
+      },
+      "terracota": {
+        "role": "primary",
+        "displayName": "Terracota da marca",
+        "canonical": "#c0725a",
+        "oklch": "oklch(63.2% 0.105 37)",
+        "tonalRamp": [
+          "#290000",
+          "#4d0700",
+          "#722c15",
+          "#984e37",
+          "#bf7159",
+          "#e8967d",
+          "#edccc2",
+          "#ffe6dc"
+        ]
+      },
+      "salmao": {
+        "role": "secondary",
+        "displayName": "Salmão",
+        "canonical": "#eecabd",
+        "oklch": "oklch(86.6% 0.045 40)",
+        "tonalRamp": [
+          "#1a0400",
+          "#391f15",
+          "#5a3d32",
+          "#7d5e52",
+          "#a28175",
+          "#c8a599",
+          "#edccc1",
+          "#ffe6da"
+        ]
+      },
+      "rosa": {
+        "role": "neutral",
+        "displayName": "Rosa-chá",
+        "canonical": "#f7e3dc",
+        "oklch": "oklch(93.0% 0.024 40)",
+        "tonalRamp": [
+          "#140804",
+          "#31231e",
+          "#51413b",
+          "#73625c",
+          "#97857e",
+          "#bca9a3",
+          "#e3cfc9",
+          "#feeae3"
+        ]
+      },
+      "blush": {
+        "role": "neutral",
+        "displayName": "Blush",
+        "canonical": "#fdf3f0",
+        "oklch": "oklch(97.1% 0.012 37)",
+        "tonalRamp": [
+          "#100a08",
+          "#2c2522",
+          "#4b4341",
+          "#6c6461",
+          "#908784",
+          "#b5aca9",
+          "#dbd2cf",
+          "#f6ece9"
+        ]
+      },
+      "branco": {
+        "role": "neutral",
+        "displayName": "Branco",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100% 0 0)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#262626",
+          "#454545",
+          "#666666",
+          "#898989",
+          "#aeaeae",
+          "#d4d4d4",
+          "#eeeeee"
+        ]
+      },
+      "cafe": {
+        "role": "neutral",
+        "displayName": "Café",
+        "canonical": "#2a1810",
+        "oklch": "oklch(23.1% 0.033 44)",
+        "tonalRamp": [
+          "#160602",
+          "#342119",
+          "#544037",
+          "#776057",
+          "#9b8379",
+          "#c1a89d",
+          "#e8cec3",
+          "#ffe8dd"
+        ]
+      },
+      "cafe-2": {
+        "role": "neutral",
+        "displayName": "Café claro",
+        "canonical": "#6b4a3e",
+        "oklch": "oklch(44.2% 0.049 40)",
+        "tonalRamp": [
+          "#1b0300",
+          "#3b1d13",
+          "#5c3c30",
+          "#7f5d50",
+          "#a48072",
+          "#caa496",
+          "#edccc1",
+          "#ffe6da"
+        ]
+      },
+      "linha": {
+        "role": "neutral",
+        "displayName": "Linha",
+        "canonical": "#ecd9d1",
+        "oklch": "oklch(89.9% 0.024 44)",
+        "tonalRamp": [
+          "#130804",
+          "#31231d",
+          "#50413b",
+          "#72625b",
+          "#96857e",
+          "#bcaaa2",
+          "#e3d0c8",
+          "#fdeae2"
+        ]
+      },
+      "verde": {
+        "role": "status",
+        "displayName": "Verde feito",
+        "canonical": "#1e6b4f",
+        "oklch": "oklch(47.4% 0.087 164)",
+        "tonalRamp": [
+          "#001403",
+          "#00331b",
+          "#005339",
+          "#2b7659",
+          "#519a7c",
+          "#77c0a0",
+          "#bdddce",
+          "#d7f8e8"
+        ]
+      },
+      "verde-fundo": {
+        "role": "status",
+        "displayName": "Verde de fundo",
+        "canonical": "#e3f1ea",
+        "oklch": "oklch(94.6% 0.017 164)",
+        "tonalRamp": [
+          "#050e09",
+          "#1f2924",
+          "#3d4843",
+          "#5d6963",
+          "#808d86",
+          "#a4b2ab",
+          "#cad8d1",
+          "#e4f2eb"
+        ]
+      },
+      "erro": {
+        "role": "status",
+        "displayName": "Vermelho de erro",
+        "canonical": "#b3261e",
+        "oklch": "oklch(50.1% 0.178 28)",
+        "tonalRamp": [
+          "#3a0000",
+          "#630000",
+          "#8c0000",
+          "#b62921",
+          "#e05446",
+          "#ff7b6a",
+          "#eecbc5",
+          "#ffe5df"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Só o título do banner com vídeo."
+      },
+      "headline": {
+        "displayName": "Título de seção",
+        "purpose": "Títulos de seção e de página, itálico colorido no destaque."
+      },
+      "headline-m": {
+        "displayName": "Título médio",
+        "purpose": "Categorias do cardápio e etapas."
+      },
+      "title-serif": {
+        "displayName": "Título serifado",
+        "purpose": "Cabeça da comanda, nome do aro, número dos passos."
+      },
+      "title": {
+        "displayName": "Nome",
+        "purpose": "Nome do produto e título do passo."
+      },
+      "body": {
+        "displayName": "Texto",
+        "purpose": "Texto corrido; 16px abaixo de 640px."
+      },
+      "body-lead": {
+        "displayName": "Apoio",
+        "purpose": "Parágrafo de apoio sob títulos, em café claro."
+      },
+      "price": {
+        "displayName": "Preço",
+        "purpose": "Preço do card em terracota escuro, tabular."
+      },
+      "label": {
+        "displayName": "Rótulo",
+        "purpose": "Botões, abas, rótulos de campo."
+      },
+      "label-s": {
+        "displayName": "Rótulo pequeno",
+        "purpose": "Selos, chips, legendas."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sombra",
+        "value": "0 1px 2px rgb(42 24 16 / 0.06), 0 12px 32px -14px rgb(42 24 16 / 0.28)",
+        "purpose": "Repouso de cards, aros, selos, detalhe, opção marcada."
+      },
+      {
+        "name": "sombra-alta",
+        "value": "0 2px 4px rgb(42 24 16 / 0.08), 0 24px 48px -18px rgb(42 24 16 / 0.35)",
+        "purpose": "Comanda, painel, ficha, consulta, hover de card, barra e recado flutuantes."
+      },
+      {
+        "name": "botao-contador",
+        "value": "0 1px 2px rgb(42 24 16 / 0.12)",
+        "purpose": "Botões brancos do contador."
+      },
+      {
+        "name": "halo-foco-campo",
+        "value": "0 0 0 4px rgb(192 114 90 / 0.18)",
+        "purpose": "Campo em foco."
+      },
+      {
+        "name": "anel-foco",
+        "value": "outline: 3px solid #a45b45; outline-offset: 3px",
+        "purpose": "Foco visível de todo elemento interativo."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Estados, pressão, hover de card (140 a 300ms), recado (280ms)."
+      },
+      {
+        "name": "ease-drawer",
+        "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "Barra de pedido (360ms) e folha (400ms) entrando de baixo."
+      },
+      {
+        "name": "pressao",
+        "value": "scale(0.97); 0.92 no +; 0.9 no contador",
+        "purpose": "Resposta ao toque."
+      },
+      {
+        "name": "pulsar",
+        "value": "420ms ease-out, translateY(6px) para 0, opacidade 0 para 1",
+        "purpose": "Repintar o total quando muda."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "durações a 1ms",
+        "purpose": "Respeita prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "estreito",
+        "value": "1080px"
+      },
+      {
+        "name": "celular",
+        "value": "900px"
+      },
+      {
+        "name": "pequeno",
+        "value": "640px"
+      },
+      {
+        "name": "hover",
+        "value": "(hover: hover) and (pointer: fine)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Pílula terracota escuro para a ação principal (Fazer pedido, Enviar pedido).",
+      "html": "<div class=\"ds-raiz\"><a class=\"ds-botao ds-botao-primario\" href=\"#\">Fazer pedido</a></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-botao{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:12px 26px;border-radius:999px;border:2px solid transparent;font:700 1.0625rem/1 Urbanist,system-ui,sans-serif;cursor:pointer;text-decoration:none;transition:background-color 180ms ease,color 180ms ease,border-color 180ms ease,transform 160ms var(--ease-out)} .ds-botao:active{transform:scale(.97)} .ds-botao:focus-visible{outline:3px solid var(--terracota-forte);outline-offset:3px} .ds-botao-primario{background:var(--terracota-forte);color:var(--branco)} .ds-botao-primario:hover{background:var(--terracota-funda)}"
+    },
+    {
+      "name": "Botão branco",
+      "kind": "button",
+      "refersTo": "button-branco",
+      "description": "Pílula branca com texto café, para ficar sobre vídeo ou sobre a faixa terracota.",
+      "html": "<div class=\"ds-raiz\" style=\"background:#a45b45;padding:24px\"><a class=\"ds-botao ds-botao-branco\" href=\"#\">Falar no WhatsApp</a></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-botao{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:12px 26px;border-radius:999px;border:2px solid transparent;font:700 1.0625rem/1 Urbanist,system-ui,sans-serif;cursor:pointer;text-decoration:none;transition:background-color 180ms ease,color 180ms ease,border-color 180ms ease,transform 160ms var(--ease-out)} .ds-botao:active{transform:scale(.97)} .ds-botao:focus-visible{outline:3px solid var(--terracota-forte);outline-offset:3px} .ds-botao-branco{background:var(--branco);color:var(--cafe)} .ds-botao-branco:hover{background:var(--rosa)}"
+    },
+    {
+      "name": "Botão contorno",
+      "kind": "button",
+      "refersTo": "button-contorno",
+      "description": "Ação secundária na cabeça das seções (Ver cardápio completo); preenche no hover.",
+      "html": "<div class=\"ds-raiz\"><a class=\"ds-botao ds-botao-contorno\" href=\"#\">Ver cardápio completo</a></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-botao{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:12px 26px;border-radius:999px;border:2px solid transparent;font:700 1.0625rem/1 Urbanist,system-ui,sans-serif;cursor:pointer;text-decoration:none;transition:background-color 180ms ease,color 180ms ease,border-color 180ms ease,transform 160ms var(--ease-out)} .ds-botao:active{transform:scale(.97)} .ds-botao:focus-visible{outline:3px solid var(--terracota-forte);outline-offset:3px} .ds-botao-contorno{background:transparent;color:var(--terracota-forte);border-color:var(--terracota-forte)} .ds-botao-contorno:hover{background:var(--terracota-forte);color:var(--branco)}"
+    },
+    {
+      "name": "Card de produto com +",
+      "kind": "card",
+      "refersTo": "card-produto",
+      "description": "Foto em cima, nome, descrição, preço por cento em terracota e o botão redondo de adicionar.",
+      "html": "<div class=\"ds-raiz\"><article class=\"ds-card\"><div class=\"ds-card-foto\"></div><span class=\"ds-selo\">mín. 25</span><div class=\"ds-card-corpo\"><h3 class=\"ds-card-nome\">Coxinha de frango</h3><p class=\"ds-card-desc\">Massa de batata, recheio cremoso</p><div class=\"ds-card-pe\"><p class=\"ds-preco\"><strong>R$ 75,00</strong><small>o cento</small></p><button class=\"ds-mais\" type=\"button\" aria-label=\"Pôr 25 Coxinha no pedido\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg></button></div></div></article></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-card{position:relative;display:flex;flex-direction:column;width:260px;background:var(--branco);border-radius:24px;box-shadow:var(--sombra);overflow:hidden;transition:box-shadow 260ms var(--ease-out),transform 260ms var(--ease-out)} .ds-card:hover{box-shadow:var(--sombra-alta);transform:translateY(-3px)} .ds-card-foto{aspect-ratio:1;background:var(--rosa)} .ds-selo{position:absolute;top:12px;left:12px;padding:4px 12px;border-radius:999px;background:var(--branco);color:var(--cafe);font-size:.8125rem;font-weight:700;box-shadow:var(--sombra)} .ds-card-corpo{display:flex;flex-direction:column;gap:4px;padding:16px 18px 18px} .ds-card-nome{margin:0;font-weight:700;font-size:1.125rem;line-height:1.25} .ds-card-desc{margin:0;color:var(--cafe-2);font-size:.9375rem;line-height:1.4} .ds-card-pe{display:flex;align-items:end;justify-content:space-between;gap:12px;padding-top:12px} .ds-preco{margin:0;line-height:1.2;font-variant-numeric:tabular-nums lining-nums} .ds-preco strong{font-weight:800;font-size:1.25rem;color:var(--terracota-forte)} .ds-preco small{display:block;color:var(--cafe-2);font-size:.875rem;font-weight:500} .ds-mais{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;border:0;background:var(--terracota-forte);color:var(--branco);cursor:pointer;transition:background-color 180ms ease,transform 160ms var(--ease-out)} .ds-mais:hover{background:var(--terracota-funda)} .ds-mais:active{transform:scale(.92)} .ds-mais:focus-visible{outline:3px solid var(--terracota-forte);outline-offset:3px}"
+    },
+    {
+      "name": "Contador",
+      "kind": "custom",
+      "refersTo": "contador",
+      "description": "Pílula blush com menos e mais circulares brancos; substitui o + depois do primeiro toque.",
+      "html": "<div class=\"ds-raiz\"><div class=\"ds-contador\" role=\"group\" aria-label=\"Quantidade\"><button type=\"button\" aria-label=\"Menos\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/></svg></button><input value=\"50\" inputmode=\"numeric\" aria-label=\"Quantidade\"><button type=\"button\" aria-label=\"Mais\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg></button></div></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-contador{display:inline-grid;grid-template-columns:40px 56px 40px;align-items:center;height:48px;padding:4px;border-radius:999px;background:var(--blush)} .ds-contador button{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:0;background:var(--branco);color:var(--cafe);box-shadow:0 1px 2px rgb(42 24 16 / .12);cursor:pointer;transition:transform 140ms var(--ease-out)} .ds-contador button:active{transform:scale(.9)} .ds-contador button:focus-visible{outline:3px solid var(--terracota-forte);outline-offset:3px} .ds-contador input{width:100%;height:40px;border:0;background:transparent;text-align:center;font:800 1.0625rem Urbanist,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--cafe)}"
+    },
+    {
+      "name": "Chip de recheio",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Escolha de recheio; marcado vira terracota escuro.",
+      "html": "<div class=\"ds-raiz\"><div class=\"ds-chips\"><label class=\"ds-chip\"><input type=\"checkbox\" checked> Brigadeiro</label><label class=\"ds-chip\"><input type=\"checkbox\"> Ninho</label><label class=\"ds-chip\"><input type=\"checkbox\"> Doce de leite</label></div></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-chips{display:flex;flex-wrap:wrap;gap:6px} .ds-chip{position:relative;display:inline-flex;align-items:center;min-height:36px;padding:4px 12px;border-radius:999px;background:var(--branco);border:1.5px solid var(--linha);font-weight:600;font-size:.875rem;cursor:pointer;transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease} .ds-chip input{position:absolute;opacity:0;pointer-events:none} .ds-chip:has(input:checked){background:var(--terracota-forte);border-color:var(--terracota-forte);color:var(--branco)} .ds-chip:has(input:focus-visible){outline:3px solid var(--terracota-forte);outline-offset:2px}"
+    },
+    {
+      "name": "Campo",
+      "kind": "input",
+      "refersTo": "entrada",
+      "description": "Campo blush de 52px; no foco fica branco com borda e halo terracota.",
+      "html": "<div class=\"ds-raiz\"><label class=\"ds-campo\"><span>Seu nome</span><input class=\"ds-entrada\" placeholder=\"Como te chamamos\"></label></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-campo{display:grid;gap:6px;width:320px} .ds-campo span{font-weight:700;font-size:.9375rem} .ds-entrada{min-height:52px;padding:12px 16px;border-radius:14px;background:var(--blush);border:1.5px solid var(--linha);font:500 1.0625rem Urbanist,system-ui,sans-serif;color:var(--cafe);caret-color:var(--terracota-forte);transition:border-color 160ms ease,background-color 160ms ease,box-shadow 160ms ease} .ds-entrada::placeholder{color:#9a7b70} .ds-entrada:hover{border-color:var(--salmao)} .ds-entrada:focus-visible{outline:none;background:var(--branco);border-color:var(--terracota-forte);box-shadow:0 0 0 4px rgb(192 114 90 / .18)}"
+    },
+    {
+      "name": "Abas do cardápio",
+      "kind": "nav",
+      "refersTo": "aba",
+      "description": "Fila horizontal de pílulas; a categoria atual em terracota escuro.",
+      "html": "<div class=\"ds-raiz\"><nav class=\"ds-abas\" aria-label=\"Categorias\"><a class=\"ds-aba\" href=\"#\" aria-current=\"true\">Salgados</a><a class=\"ds-aba\" href=\"#\">Docinhos</a><a class=\"ds-aba\" href=\"#\">Bolos</a><a class=\"ds-aba\" href=\"#\">Congelados</a></nav></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-abas{display:flex;gap:8px;overflow-x:auto;padding:2px} .ds-aba{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:8px 18px;border-radius:999px;background:var(--blush);color:var(--cafe-2);font-weight:700;text-decoration:none;white-space:nowrap;transition:background-color 180ms ease,color 180ms ease} .ds-aba:hover{background:var(--rosa);color:var(--cafe)} .ds-aba[aria-current=true]{background:var(--terracota-forte);color:var(--branco)} .ds-aba:focus-visible{outline:3px solid var(--terracota-forte);outline-offset:3px}"
+    },
+    {
+      "name": "Barra de pedido (celular)",
+      "kind": "custom",
+      "refersTo": "barra-pedido",
+      "description": "Pílula café fixa no rodapé do celular com quantidade, total e o botão que abre a folha.",
+      "html": "<div class=\"ds-raiz\"><div class=\"ds-barra\"><p><small>3 itens</small><strong>R$ 212,50</strong></p><button class=\"ds-barra-botao\" type=\"button\">Ver pedido</button></div></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-barra{display:flex;align-items:center;justify-content:space-between;gap:12px;width:340px;padding:10px 10px 10px 20px;border-radius:999px;background:var(--cafe);color:var(--branco);box-shadow:var(--sombra-alta)} .ds-barra p{margin:0;line-height:1.15} .ds-barra small{display:block;opacity:.8;font-size:.8125rem} .ds-barra strong{font-weight:800;font-size:1.25rem;font-variant-numeric:tabular-nums} .ds-barra-botao{min-height:44px;padding:8px 18px;border-radius:999px;border:0;background:var(--terracota-forte);color:var(--branco);font:700 .9375rem Urbanist,system-ui,sans-serif;cursor:pointer;transition:transform 160ms var(--ease-out)} .ds-barra-botao:hover{background:var(--terracota-funda)} .ds-barra-botao:active{transform:scale(.97)} .ds-barra-botao:focus-visible{outline:3px solid var(--terracota-forte);outline-offset:3px}"
+    },
+    {
+      "name": "Trilha do pedido",
+      "kind": "custom",
+      "refersTo": "trilha",
+      "description": "Andamento do pedido em blocos: feito em verde, atual em terracota, futuro em blush.",
+      "html": "<div class=\"ds-raiz\"><ol class=\"ds-trilha\"><li class=\"feito\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12l5 5L20 7\"/></svg><span>Recebido</span><small>feito</small></li><li class=\"agora\" aria-current=\"step\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg><span>Confirmado</span><small>agora</small></li><li><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M4 7h16v12H4zM8 7V5h8v2\"/></svg><span>Pronto</span><small>a seguir</small></li></ol></div>",
+      "css": ":host,.ds-raiz{--terracota:#c0725a;--terracota-forte:#a45b45;--terracota-funda:#8c4d3a;--salmao:#eecabd;--rosa:#f7e3dc;--blush:#fdf3f0;--branco:#fff;--cafe:#2a1810;--cafe-2:#6b4a3e;--linha:#ecd9d1;--verde:#1e6b4f;--verde-fundo:#e3f1ea;--erro:#b3261e;--sombra:0 1px 2px rgb(42 24 16 / .06),0 12px 32px -14px rgb(42 24 16 / .28);--sombra-alta:0 2px 4px rgb(42 24 16 / .08),0 24px 48px -18px rgb(42 24 16 / .35);--ease-out:cubic-bezier(.23,1,.32,1);font-family:Urbanist,system-ui,sans-serif;color:#2a1810} .ds-trilha{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,150px);gap:8px} .ds-trilha li{display:grid;gap:4px;justify-items:start;padding:14px;border-radius:16px;background:var(--blush);color:var(--cafe-2);font-weight:700} .ds-trilha small{font-weight:500;font-size:.8125rem} .ds-trilha li.feito{background:var(--verde-fundo);color:var(--verde)} .ds-trilha li.agora{background:var(--terracota-forte);color:var(--branco)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A vitrine da doceria, com a festa de verdade",
+    "overview": "O site é a vitrine clara de uma doceria de festa: fundo branco alternando com faixas blush, a foto e o vídeo reais do salão e dos produtos sempre na frente, e o pedido montado por quantidade com o total à vista. A linguagem é a das docerias de referência da categoria (cards com foto em cima e botão redondo de \"+\", carrinho ao lado do cardápio), feita com acabamento: cantos generosos, sombra macia e deslocada para baixo, títulos em Playfair Display com destaque em itálico e texto em Urbanist.\n\nA densidade é de loja, não de revista: grades de cards, preço forte em terracota, rótulos curtos. O terracota escuro carrega toda ação e todo preço; o café é a cor do texto e só vira superfície como véu sobre foto ou como pílula flutuante. Tudo que se toca é pílula ou círculo.\n\nNo celular o mundo não encolhe, se reorganiza: carrosséis horizontais sem barra de rolagem, o carrinho vira uma barra café fixa no rodapé que abre uma folha de baixo para cima, e o botão \"+\" dos cards vira uma pílula de largura toda.",
+    "keyCharacteristics": [
+      "Fundo branco com faixas blush alternadas; seções terracota cheias só no salão e no rodapé.",
+      "Foto real em cima do card, fundo rosa-chá quando falta foto (com a marca esmaecida no lugar).",
+      "Ação e preço em terracota escuro; texto em café; apoio em café claro.",
+      "Cantos de 16 a 32px nas superfícies, pílula em botões, abas, chips e contador; círculo no \"+\", na sacola e nos números de passo.",
+      "Sombra macia com deslocamento vertical, em dois níveis; foco sempre visível em terracota.",
+      "Movimento curto e com mola de saída; pressão com leve encolhimento; respeita redução de movimento."
+    ],
+    "rules": [
+      {
+        "name": "The Terracota Escuro Rule",
+        "body": "Botão, preço e texto em terracota usam sempre o terracota escuro, nunca o terracota da marca; o terracota da marca não passa contraste com branco.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fundo Claro Rule",
+        "body": "Nenhuma página ou seção tem fundo escuro. O café só vira superfície como véu sobre foto ou vídeo, ou como pílula e folha flutuantes (barra de pedido, recado, véu da folha).",
+        "section": "colors"
+      },
+      {
+        "name": "The Verde É Estado Rule",
+        "body": "Verde nunca decora; aparece só quando algo já foi feito ou já está no pedido.",
+        "section": "colors"
+      },
+      {
+        "name": "The Itálico Destaque Rule",
+        "body": "Em cada título, no máximo uma expressão em itálico, e é ela que leva a cor (terracota escuro no claro, salmão sobre vídeo, branco sobre terracota).",
+        "section": "typography"
+      },
+      {
+        "name": "The Número Tabular Rule",
+        "body": "Todo preço, quantidade, total e número de pedido usa algarismos tabulares, para a coluna não dançar ao mudar a quantidade.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sobe No Hover Rule",
+        "body": "Card que responde a hover sobe 3 a 4px e passa para a sombra alta; só em dispositivos com hover e ponteiro fino.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do usar terracota escuro (#a45b45) em todo botão principal, \"+\", preço, link e seleção; terracota queimado só no hover.",
+      "Do pôr a foto ou o vídeo real na frente: foto em cima do card, rosa-chá com a marca esmaecida quando faltar.",
+      "Do fazer todo controle tocável em pílula ou círculo, com alvo mínimo de 44px.",
+      "Do usar as duas sombras macias tingidas de café; subir o card 3px com a sombra alta no hover, só com ponteiro fino.",
+      "Do mostrar preço, quantidade e total com algarismos tabulares, e a prévia do novo total antes de confirmar.",
+      "Do manter o anel de foco de 3px em terracota escuro em tudo que recebe foco.",
+      "Do usar a curva de saída cubic-bezier(0.23, 1, 0.32, 1) em 140 a 300ms para estados e a de gaveta cubic-bezier(0.32, 0.72, 0, 1) em 360 a 400ms para barra e folha; respeitar redução de movimento.",
+      "Do usar ícones SVG de traço com pontas redondas, nunca caracteres como ícone."
+    ],
+    "donts": [
+      "Don't usar o terracota da marca (#c0725a) como fundo de botão com texto branco ou como texto; ele não passa contraste.",
+      "Don't dar fundo escuro a página ou seção; café como superfície só em véu sobre mídia, barra de pedido, recado e véu da folha.",
+      "Don't usar verde fora de estado concluído ou \"no pedido\".",
+      "Don't usar sombra dura, chapada ou deslocada sem desfoque, nem borda grossa como contorno de card.",
+      "Don't usar cantos retos ou pequenos em superfícies: nada abaixo de 12px fora de miniaturas e do botão de pular.",
+      "Don't voltar ao letreiro pintado (letras com contorno e sombra chapada, placas de preço), rejeitado pela dona."
+    ]
+  }
+}

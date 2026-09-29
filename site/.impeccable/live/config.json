@@ -1,0 +1,6 @@
+{
+  "files": ["index.html", "cardapio.html", "pedido.html"],
+  "insertBefore": "</body>",
+  "commentSyntax": "html",
+  "cspChecked": true
+}
