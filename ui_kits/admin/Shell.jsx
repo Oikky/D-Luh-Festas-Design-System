@@ -65,8 +65,9 @@ function Sidebar({ view, onView, onSettings, onNotif, hasNotif }) {
         boxShadow: open ? "0 12px 40px rgba(40,24,16,.16)" : "none", overflow: "hidden",
         transition: viaTeclado ? "none" : "width var(--dur-move) var(--ease-out), box-shadow var(--dur-base) var(--ease-out)"
       }}>
-        <div style={{ display: "flex", alignItems: "center", padding: "var(--space-2) 0 var(--space-8)" }}>
-          <img src="../../assets/logo-dluh-festas.png" alt="D'Luh Festas" style={{ width: 44, height: 44, objectFit: "contain", marginLeft: 2 }} />
+        <div aria-label="D'Luh admin" role="img" style={{ width: 48, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "var(--space-2) 0 var(--space-8)" }}>
+          <img src="icones/d.svg" alt="" style={{ width: 44, height: "auto", display: "block" }} />
+          <span style={{ fontSize: 9.5, fontWeight: "var(--fw-bold)", letterSpacing: ".14em", paddingLeft: ".14em", lineHeight: 1, color: "#c29a48" }}>admin</span>
         </div>
         {navItems().map(it => <RailItem key={it.id} {...it} open={open} instant={viaTeclado} active={it.id === view} onClick={() => onView(it.id)} />)}
         <div style={{ flex: 1 }} />
