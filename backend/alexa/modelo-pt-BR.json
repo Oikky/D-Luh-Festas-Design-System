@@ -1,0 +1,70 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "cozinha de lu",
+      "intents": [
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.NavigateHomeIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] },
+        { "name": "AMAZON.YesIntent", "samples": ["pode", "pode marcar", "isso", "confirma", "confirmo"] },
+        { "name": "AMAZON.NoIntent", "samples": ["não marca", "deixa", "errado"] },
+        {
+          "name": "FilaIntent",
+          "slots": [],
+          "samples": [
+            "o que tem pra fazer",
+            "o que tem para fazer",
+            "o que tem pra hoje",
+            "quais os pedidos",
+            "quais são os pedidos",
+            "quais pedidos tem",
+            "lê a fila",
+            "ler a fila",
+            "a fila",
+            "fila de hoje",
+            "pedidos de hoje",
+            "o que falta",
+            "o que falta fazer"
+          ]
+        },
+        {
+          "name": "FeitoIntent",
+          "slots": [
+            { "name": "numero", "type": "AMAZON.NUMBER" },
+            { "name": "cliente", "type": "AMAZON.FirstName" }
+          ],
+          "samples": [
+            "o pedido {numero} está pronto",
+            "o pedido {numero} tá pronto",
+            "o pedido {numero} está feito",
+            "o pedido {numero} ficou pronto",
+            "marca o pedido {numero} como feito",
+            "marca o {numero} como feito",
+            "marcar o pedido {numero}",
+            "terminei o pedido {numero}",
+            "o {numero} está pronto",
+            "o {numero} tá pronto",
+            "o pedido da {cliente} está pronto",
+            "o pedido da {cliente} tá pronto",
+            "o pedido do {cliente} está pronto",
+            "o pedido do {cliente} tá pronto",
+            "o pedido de {cliente} está pronto",
+            "o pedido da {cliente} ficou pronto",
+            "o pedido do {cliente} ficou pronto",
+            "marca o pedido da {cliente} como feito",
+            "marca o pedido do {cliente} como feito",
+            "terminei o pedido da {cliente}",
+            "terminei o pedido do {cliente}",
+            "o da {cliente} está pronto",
+            "o do {cliente} está pronto",
+            "o da {cliente} tá pronto",
+            "o do {cliente} tá pronto"
+          ]
+        }
+      ],
+      "types": []
+    }
+  }
+}

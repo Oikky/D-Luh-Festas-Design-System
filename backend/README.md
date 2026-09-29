@@ -95,6 +95,27 @@ Ligar: no app da Meta (developers.facebook.com → WhatsApp), pegar o **Phone nu
 `IA_NUMEROS` vai para a assistente (confirma com "sim"/"não"); o resto é repassado para
 `EVOLUTION_REPASSE` — o webhook que estava configurado antes, para nada do fluxo atual parar.
 
+### Alexa na cozinha
+`worker/src/alexa.js`. **Skill** "cozinha de lu": "Alexa, abre a cozinha de lu" → "o que tem pra
+fazer?" lê a fila de hoje (em produção, não feitos, com os atrasados); "o pedido da Maria está
+pronto" / "o 3012 está pronto" pergunta "confirma?" e, no "sim", chama `marcarFeito` (evento com
+`por: alexa`), igual ao botão da tela da Cozinha. Só aceita chamadas assinadas pela Amazon para
+`ALEXA_SKILL_ID`.
+
+Ligar: developer.amazon.com/alexa/console/ask (mesma conta Amazon do Echo) → Create Skill, nome
+"Cozinha D'Luh", idioma **Portuguese (BR)**, modelo **Custom**, hospedagem **Provision your own**.
+Em *Interaction Model → JSON Editor*, colar `backend/alexa/modelo-pt-BR.json` e *Build*. Em
+*Endpoint*: HTTPS, `https://dluh-api.sitedluh.workers.dev/webhook/alexa`, certificado "My development
+endpoint is a sub-domain of a domain that has a wildcard certificate". Copiar o Skill ID
+(`amzn1.ask.skill.…`) para `ALEXA_SKILL_ID` em `wrangler.jsonc` e publicar o Worker. Em *Test*, mudar
+para **Development**: a skill já funciona nos Echos da conta, sem certificação.
+
+**Aviso falado** (a skill não pode falar sem ser chamada): quando um pedido entra em produção, o Echo
+fala "Novo pedido na cozinha: 3012, de Maria, para hoje às 15 horas…". Usa o Voice Monkey
+(voicemonkey.io): ativar a skill "Voice Monkey" na Alexa, entrar no painel com a mesma conta Amazon,
+pegar o token da API (segredo `VOICEMONKEY_TOKEN`) e o ID do Echo da cozinha (em *Devices*, tipo
+Speaker → `VOICEMONKEY_DEVICE`).
+
 O prefixo `sis_` existe porque a coleção `pedidos` já é usada pelo site atual ("Meus pedidos").
 
 ## Equipe

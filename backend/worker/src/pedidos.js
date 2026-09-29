@@ -160,7 +160,7 @@ async function registrarPagamento(db, { pedidoId, valor, chave, meio, comprovant
     tx.update(ref, { pago, pagamento, status, atualizadoEm: agora() });
     evento(tx, ref, { tipo: "pagamento", valor, meio: String(meio || ""), pagamento, por });
     if (status !== statusAntes) evento(tx, ref, { tipo: "status", de: statusAntes, para: status, por: "sistema" });
-    return { duplicado: false, pago, pagamento, status };
+    return { duplicado: false, pago, pagamento, status, de: statusAntes };
   });
 }
 

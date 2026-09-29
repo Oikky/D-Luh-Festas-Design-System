@@ -6,6 +6,7 @@
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
      POST /webhook/telegram    grupo da equipe no Telegram: botão "Confirmar estoque" e tópico IA (telegram.js)
+     POST /webhook/alexa       skill da Alexa na cozinha: lê a fila e marca feito (alexa.js)
      cron diário               backup no Google Drive; lembrete da entrada (lembretes.js)
    As telas LEEM direto do Firestore (tempo real); toda ESCRITA passa por aqui e deixa evento. */
 import { criarFirestore } from "./firestore.js";
@@ -23,6 +24,7 @@ import { mensagemEvolution, canalEvolution } from "./ia/evolution.js";
 import { iaPronta, iaNoTelegram, autorizado, tratarMensagem } from "./ia/assistente.js";
 import * as telegram from "./telegram.js";
 import * as lembretes from "./lembretes.js";
+import * as alexa from "./alexa.js";
 
 const CRON_LEMBRETE = "0 12 * * *";
 import * as site from "./site.js";
@@ -150,6 +152,9 @@ const gerarEntrada = (env, db, por) => Object.assign(
   pedidoId => ACOES.gerarCobranca(db, { pedidoId, tipo: "entrada" }, por, env, ORIGEM_API),
   { curto: pedidoId => linkCurto(pedidoId) });
 
+/* O pagamento que tirou o pedido da espera e o mandou para a cozinha. */
+const entrouNaFila = r => r.status === "Em produção" && r.de !== "Em produção";
+
 /* Depois de uma ação dar certo: Agenda e avisos, sem segurar a resposta da tela. */
 const DEPOIS = {
   criarPedido: (env, db, dados, r) => [
@@ -159,6 +164,7 @@ const DEPOIS = {
   mudarStatus: (env, db, dados, r, por) => !r.mudou ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId),
     ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : []),
+    ...(r.status === "Em produção" ? [alexa.avisarNovoNaFila(env, db, dados.pedidoId)] : []),
     ...(r.status === "Confirmado — Esperando pagamento" ? [
       efeitos.telegramConfirmado(env, db, dados.pedidoId),
       lembretes.avisarConfirmado({ env, db, pedidoId: dados.pedidoId, gerarCobranca: gerarEntrada(env, db, por) })
@@ -167,7 +173,8 @@ const DEPOIS = {
   lembrarEntrada: (env, db, dados, r, por) => [lembretes.enviarLembretes({ env, db, lista: r.lista, por, gerarCobranca: gerarEntrada(env, db, por) })],
   registrarPagamentoManual: (env, db, dados, r, por) => r.duplicado ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId), efeitos.avisarClientePagamento(env, db, dados.pedidoId, dados.valor),
-    efeitos.telegramPagamento(env, db, dados.pedidoId, dados.valor, dados.meio, por)
+    efeitos.telegramPagamento(env, db, dados.pedidoId, dados.valor, dados.meio, por),
+    ...(entrouNaFila(r) ? [alexa.avisarNovoNaFila(env, db, dados.pedidoId)] : [])
   ]
 };
 
@@ -244,7 +251,8 @@ async function webhookInfinitepay(request, env, ctx) {
       pedidoId: order_nsu, valor: conf.valor, chave: `ip-${transaction_nsu}`, meio: conf.meio, comprovante: receipt_url
     }, "infinitepay");
     if (!r.duplicado) depois(ctx, [efeitos.sincronizarAgenda(env, db, order_nsu), efeitos.avisarClientePagamento(env, db, order_nsu, conf.valor),
-      efeitos.telegramPagamento(env, db, order_nsu, conf.valor, conf.meio, "infinitepay")], "webhook", order_nsu);
+      efeitos.telegramPagamento(env, db, order_nsu, conf.valor, conf.meio, "infinitepay"),
+      ...(entrouNaFila(r) ? [alexa.avisarNovoNaFila(env, db, order_nsu)] : [])], "webhook", order_nsu);
     return ok(r.duplicado ? "já registrado" : null);
   } catch (e) {
     if (e instanceof ErroDominio && e.codigo === "not-found") {
@@ -368,6 +376,35 @@ async function webhookTelegram(request, env, ctx, url) {
   return new Response("ok");
 }
 
+/* Skill da Alexa na cozinha. A Amazon espera a resposta na hora (até 8 s), então aqui não há waitUntil. */
+async function webhookAlexa(request, env, ctx) {
+  if (!alexa.alexaLigada(env)) return new Response(null, { status: 404 });
+  if (request.method !== "POST") return new Response(null, { status: 405 });
+  const corpo = await request.text();
+  let dados;
+  try { dados = JSON.parse(corpo); } catch { return new Response(null, { status: 400 }); }
+  const valida = await alexa.requisicaoValida({
+    corpo, dados, env,
+    urlCert: request.headers.get("SignatureCertChainUrl"),
+    assinatura: request.headers.get("Signature-256")
+  });
+  if (!valida) return new Response(null, { status: 400 });
+
+  const db = banco(env);
+  const por = "alexa";
+  const marcarFeito = async pedidoId => {
+    const r = await ACOES.marcarFeito(db, { pedidoId }, por, env);
+    depois(ctx, DEPOIS.marcarFeito?.(env, db, { pedidoId }, r, por) || [], "marcarFeito", pedidoId);
+    return r;
+  };
+  try {
+    return json(await alexa.responder(dados, { db, marcarFeito }));
+  } catch (e) {
+    console.error(JSON.stringify({ msg: "Alexa falhou", erro: String(e) }));
+    return json({ version: "1.0", response: { outputSpeech: { type: "PlainText", text: "Não consegui ver a fila agora. Tente de novo." }, shouldEndSession: true } });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -381,6 +418,7 @@ export default {
     }
     if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
+    if (url.pathname === "/webhook/alexa") return webhookAlexa(request, env, ctx);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
     if (evo) return webhookEvolution(request, env, ctx, evo[1]);
 

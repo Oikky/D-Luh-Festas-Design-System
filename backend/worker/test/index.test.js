@@ -49,3 +49,10 @@ test("ação da conta sistema existe e pede login", async () => {
   const r = await chamar("/api/trocarFotoProduto", { method: "POST", body: "{}" });
   assert.equal(r.status, 401);
 });
+
+test("webhook da Alexa: desligado sem a skill e recusa pedido sem assinatura da Amazon", async () => {
+  const corpo = JSON.stringify({ session: { application: { applicationId: "s" } }, request: { type: "LaunchRequest", timestamp: new Date().toISOString() } });
+  assert.equal((await chamar("/webhook/alexa", { method: "POST", body: corpo })).status, 404);
+  const ligado = worker.fetch(new Request("https://dluh-api.test/webhook/alexa", { method: "POST", body: corpo }), { ...env, ALEXA_SKILL_ID: "s" }, { waitUntil() {} });
+  assert.equal((await ligado).status, 400);
+});
