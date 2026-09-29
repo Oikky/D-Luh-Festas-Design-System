@@ -1,5 +1,5 @@
 const DS = window.DLuhFestasDesignSystem_c861a2;
-const { Card, Button, Badge, StatusBadge, IconButton, FilterPill, Icon, ConfirmDialog, Toast, EmptyState } = DS;
+const { Card, Button, Badge, StatusBadge, IconButton, FilterPill, Icon, ConfirmDialog, Toast, EmptyState, Modal, Field, Input } = DS;
 
 const PAGO_TONE = { "Totalmente pago": "success", "Só entrada": "warn", "Não pago": "danger" };
 
@@ -39,17 +39,17 @@ function Cozinha({ compact }) {
   const carga = useAoVivo("fila");
   const online = useOnline();
   useTelaAcesa();
-  /* One day at a time. "Hoje" is today plus anything late; the other days with orders in
-     production sit next to it, so the kitchen can get ahead (a cake made the day before). */
+  /* One day at a time, any day of the calendar. "Hoje" is today plus anything late; the days
+     that have orders in production are one tap away, so the kitchen can get ahead. */
   const todos = carga.dados || [];
   const hoje = window.DLUH_API.hoje();
   const diaDe = x => !x.data || x.data < hoje ? hoje : x.data;
-  const dias = [...new Set([hoje, ...todos.map(diaDe)])].sort();
-  const [escolhido, setEscolhido] = React.useState(hoje);
-  const dia = dias.includes(escolhido) ? escolhido : hoje;
+  const diasComPedido = [...new Set(todos.map(diaDe))].sort();
+  const [dia, setDia] = React.useState(hoje);
   const fila = todos.filter(x => diaDe(x) === dia);
   const [feature, setFeature] = React.useState(0);
-  const trocarDia = d => { setEscolhido(d); setFeature(0); };
+  const trocarDia = d => { if (/^\d{4}-\d{2}-\d{2}$/.test(d || "")) { setDia(d); setFeature(0); } };
+  const [imprimirVarios, setImprimirVarios] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
@@ -80,19 +80,32 @@ function Cozinha({ compact }) {
     <Badge>{fila.length} {fila.length === 1 ? "pedido" : "pedidos"}</Badge>
     <div style={{ flex: 1 }} />
     <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
-    <FilterPill icon="printer" trailingIcon={null} onClick={() => imprimir(fila)}>Imprimir fila</FilterPill>
+    <FilterPill icon="printer" trailingIcon={null} onClick={() => imprimir(fila)}>Imprimir dia</FilterPill>
+    <FilterPill icon="calendar-range" trailingIcon={null} onClick={() => setImprimirVarios(true)}>Imprimir vários dias</FilterPill>
   </div>;
   const outros = todos.length - fila.length;
   const vazia = <Card padded={false}><EmptyState icon="chef-hat" title={`Nada para ${nomeDia(dia, hoje).toLowerCase()}`}
     description={outros
-      ? `Tudo o que era para esse dia já foi feito. ${outros === 1 ? "Há 1 pedido" : `Há ${outros} pedidos`} em outros dias, nos botões acima.`
+      ? `Não há pedido em produção para esse dia. ${outros === 1 ? "Há 1 pedido" : `Há ${outros} pedidos`} em outros dias, nos botões acima.`
       : "Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos."} /></Card>;
-  const seletorDias = dias.length > 1 ? <div role="group" aria-label="Dia da fila" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-    {dias.map(d => {
-      const n = todos.filter(x => diaDe(x) === d).length;
-      return <FilterPill key={d} icon={d === hoje ? "flame" : "calendar-days"} trailingIcon={null} active={d === dia} onClick={() => trocarDia(d)}>{nomeDia(d, hoje)} · {n}</FilterPill>;
-    })}
-  </div> : null;
+  const seletorDias = <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+    <IconButton icon="chevron-left" label="Dia anterior" onClick={() => trocarDia(somarDias(dia, -1))} />
+    <label style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 8, height: "var(--tap-min)", padding: "0 14px", borderRadius: "var(--radius-sm)",
+      border: "var(--border-hairline) solid var(--color-border-strong)", background: "var(--color-surface)", cursor: "pointer",
+      fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-semibold)", minWidth: 150 }}>
+      <Icon name="calendar-days" size={17} /> {nomeDia(dia, hoje)}
+      {/* The native date picker opens over the whole label: the full calendar, any day. */}
+      <input type="date" aria-label="Escolher o dia" value={dia} onChange={e => trocarDia(e.target.value)}
+        onClick={e => e.currentTarget.showPicker?.()}
+        style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", colorScheme: "dark light" }} />
+    </label>
+    <IconButton icon="chevron-right" label="Próximo dia" onClick={() => trocarDia(somarDias(dia, 1))} />
+    {dia !== hoje ? <Button variant="ghost" icon="flame" onClick={() => trocarDia(hoje)}>Hoje</Button> : null}
+    {diasComPedido.filter(d => d !== dia).length ? <div role="group" aria-label="Dias com pedido" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: 4 }}>
+      {diasComPedido.filter(d => d !== dia).map(d =>
+        <FilterPill key={d} trailingIcon={null} onClick={() => trocarDia(d)}>{nomeDia(d, hoje)} · {todos.filter(x => diaDe(x) === d).length}</FilterPill>)}
+    </div> : null}
+  </div>;
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", minHeight: "100%" }}>
@@ -104,9 +117,40 @@ function Cozinha({ compact }) {
         message={[confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila."}
         cancelLabel="Voltar" confirmLabel="Sim, marcar feito" pending={pendente === "feito-" + confirm.id}
         onCancel={() => setConfirm(null)} onConfirm={() => feito(confirm)} /> : null}
+      {imprimirVarios ? <ImprimirPeriodo todos={todos} diaDe={diaDe} hoje={hoje} inicio={dia} onClose={() => setImprimirVarios(false)}
+        onImprimir={lista => { setImprimirVarios(false); imprimir(lista); }} /> : null}
       {toastNode}
     </div>
   );
+}
+
+/* Pick a range of days and print every order in it, day by day and hour by hour, each on its
+   own cut slip. Late orders count as today. */
+function ImprimirPeriodo({ todos, diaDe, hoje, inicio, onClose, onImprimir }) {
+  const [de, setDe] = React.useState(inicio);
+  const [ate, setAte] = React.useState(somarDias(inicio, 6));
+  const [a, b] = de <= ate ? [de, ate] : [ate, de];
+  const lista = todos.filter(x => diaDe(x) >= a && diaDe(x) <= b)
+    .sort((x, y) => `${diaDe(x)} ${x.imp?.hora || ""}`.localeCompare(`${diaDe(y)} ${y.imp?.hora || ""}`));
+  const porDia = [...new Set(lista.map(diaDe))].map(d => [d, lista.filter(x => diaDe(x) === d).length]);
+  return <Modal width={460} title="Imprimir vários dias" onClose={onClose}
+    subtitle="Cada pedido sai num papel cortado, em ordem de dia e horário."
+    footer={<>
+      <Button variant="ghost" block onClick={onClose}>Voltar</Button>
+      <Button block icon="printer" disabled={!lista.length} onClick={() => onImprimir(lista)}>
+        {lista.length ? `Imprimir ${lista.length} ${lista.length === 1 ? "pedido" : "pedidos"}` : "Nada para imprimir"}</Button>
+    </>}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <Field label="De"><Input type="date" value={de} onChange={e => e.target.value && setDe(e.target.value)} /></Field>
+      <Field label="Até"><Input type="date" value={ate} onChange={e => e.target.value && setAte(e.target.value)} /></Field>
+    </div>
+    <div style={{ marginTop: 14, fontSize: "var(--fs-body-s)", color: "var(--text-body)", lineHeight: "var(--lh-normal)" }}>
+      {porDia.length
+        ? porDia.map(([d, n]) => <div key={d} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: "var(--border-hairline) solid var(--color-border)" }}>
+            <span>{nomeDia(d, hoje)}</span><span style={{ fontWeight: "var(--fw-semibold)" }}>{n} {n === 1 ? "pedido" : "pedidos"}</span></div>)
+        : "Nenhum pedido em produção nesses dias."}
+    </div>
+  </Modal>;
 }
 
 /* "50 Kibe · 25 Coxinha" → one line per item, quantity split out so it can be read at a glance. */
@@ -120,13 +164,14 @@ const quando = h => {
   return i < 0 ? { dia: "Hoje", hora: s } : { dia: s.slice(0, i), hora: s.slice(i + 3) };
 };
 const num = { fontVariantNumeric: "tabular-nums" };
-/* "2026-10-01" → "Hoje", "Amanhã" or "Qua 01/10". */
+const somarDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+/* "2026-10-01" → "Hoje", "Amanhã", "Ontem" or "Qua 01/10". */
 const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 function nomeDia(iso, hoje) {
   if (iso === hoje) return "Hoje";
-  const d = new Date(iso + "T12:00:00"), amanha = new Date(hoje + "T12:00:00");
-  amanha.setDate(amanha.getDate() + 1);
-  if (d.toDateString() === amanha.toDateString()) return "Amanhã";
+  const d = new Date(iso + "T12:00:00");
+  if (iso === somarDias(hoje, 1)) return "Amanhã";
+  if (iso === somarDias(hoje, -1)) return "Ontem";
   return `${SEMANA[d.getDay()]} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 }
 
