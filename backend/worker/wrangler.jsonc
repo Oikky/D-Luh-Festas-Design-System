@@ -40,7 +40,7 @@
     // Alexa na cozinha (src/alexa.js): ID da skill (amzn1.ask.skill.…) e o ID do Echo no Voice Monkey
     // que fala quando um pedido entra na fila. Vazios = desligados.
     "ALEXA_SKILL_ID": "amzn1.ask.skill.22ac3f92-d68f-4dfb-b7aa-adf53cdd361f",
-    "VOICEMONKEY_DEVICE": ""
+    "VOICEMONKEY_DEVICE": "alexa-de-ikky-xg7ad"
   }
   // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
   // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY; TURNSTILE_SECRET (opcional: liga o anti-robô do site); META_TOKEN, META_APP_SECRET, META_VERIFY, ANTHROPIC_API_KEY;
