@@ -1,6 +1,7 @@
 /* API do sistema D'Luh.
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
+     POST /site/pedido, /site/consultar  site dos clientes, sem login (site.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
      cron diário               backup no Google Drive
@@ -18,6 +19,7 @@ import * as efeitos from "./efeitos.js";
 import { metaLigado, verificarWebhook, assinaturaValida, mensagensDe, canalMeta } from "./ia/meta.js";
 import { mensagemEvolution, canalEvolution } from "./ia/evolution.js";
 import { iaPronta, autorizado, tratarMensagem } from "./ia/assistente.js";
+import * as site from "./site.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
 
@@ -95,6 +97,21 @@ const ACOES_CLIENTE = {
   enviarTopo: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "topo" })
 };
 
+/* Ações só da conta "sistema" (e-mail/senha de SISTEMA_EMAIL), para scripts de manutenção como
+   backend/scripts/fotos-para-drive.mjs. */
+const ACOES_SISTEMA = {
+  /* Troca a foto de um produto: sobe a imagem pro Drive e grava o link em sis_produtos/{id}.imagem. */
+  async trocarFotoProduto(db, { id, dataUrl }, por, env) {
+    const ref = db.collection(produtos.PRODUTOS).doc(String(id || ""));
+    const snap = await ref.get();
+    if (!snap.exists) throw new ErroDominio("not-found", `Produto ${id} não existe`);
+    const { url } = await enviarImagem(env, { dataUrl, prefixo: `produto-${snap.id}` });
+    await ref.set({ imagem: url, por }, { merge: true });
+    return { id: snap.id, imagem: url };
+  }
+};
+const ehSistema = (claims, env) => !!claims && claims.email === env.SISTEMA_EMAIL && claims.firebase?.sign_in_provider === "password";
+
 /* Depois de uma ação dar certo: Agenda e avisos, sem segurar a resposta da tela. */
 const DEPOIS = {
   criarPedido: (env, db, dados, r) => [efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id)],
@@ -115,12 +132,15 @@ async function api(request, env, ctx, acao) {
   try { claims = await verificarToken(bearer, env.FIREBASE_PROJECT_ID); }
   catch { throw new ErroDominio("unauthenticated", "Login expirado. Entre de novo."); }
   const doCliente = Object.hasOwn(ACOES_CLIENTE, acao);
-  if (!doCliente && !ehEquipe(claims)) throw new ErroDominio("permission-denied", "Só a equipe da D'Luh pode fazer isso");
+  const doSistema = Object.hasOwn(ACOES_SISTEMA, acao);
+  if (doSistema ? !ehSistema(claims, env) : (!doCliente && !ehEquipe(claims))) {
+    throw new ErroDominio("permission-denied", "Só a equipe da D'Luh pode fazer isso");
+  }
 
   const dados = (await request.json().catch(() => { throw new ErroDominio("invalid-argument", "Corpo não é JSON"); })) || {};
   const db = banco(env);
   const quem = claims.email || `uid:${claims.sub}`;
-  const r = await (doCliente ? ACOES_CLIENTE : ACOES)[acao](db, dados, quem, env, new URL(request.url).origin);
+  const r = await (doSistema ? ACOES_SISTEMA : doCliente ? ACOES_CLIENTE : ACOES)[acao](db, dados, quem, env, new URL(request.url).origin);
   depois(ctx, (DEPOIS[acao]?.(env, db, dados, r) || []), acao, dados.pedidoId || r?.id);
   return r;
 }
@@ -128,6 +148,29 @@ async function api(request, env, ctx, acao) {
 function depois(ctx, promessas, oque, pedidoId) {
   const todas = Promise.all(promessas.map(p => Promise.resolve(p).catch(efeitos.falhou(oque, pedidoId))));
   if (ctx?.waitUntil) ctx.waitUntil(todas);
+}
+
+/* Site dos clientes: sem login, com limite por IP e (se configurado) Turnstile. */
+async function rotaDoSite(request, env, ctx, rota, cors) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  if (request.method !== "POST") return json({ erro: "Use POST" }, 405, cors);
+  const ip = request.headers.get("CF-Connecting-IP") || "";
+  if (!(await site.dentroDoLimite(env, rota, ip))) {
+    return json({ erro: "Muitas tentativas seguidas. Espere um minuto e tente de novo.", codigo: "limite" }, 429, cors);
+  }
+  try {
+    const dados = (await request.json().catch(() => { throw new ErroDominio("invalid-argument", "Corpo não é JSON"); })) || {};
+    if (!(await site.turnstileOk(env, dados.turnstile, ip))) throw new ErroDominio("permission-denied", "Confirme que você não é um robô");
+    const db = banco(env);
+    if (rota === "consultar") return json(await site.consultarDoSite(db, dados), 200, cors);
+    const r = await site.pedidoDoSite(db, dados);
+    depois(ctx, [...DEPOIS.criarPedido(env, db, dados, r), efeitos.avisarClienteRecebido(env, db, r.id)], "pedidoDoSite", r.id);
+    return json({ id: r.id, total: r.total }, 200, cors);
+  } catch (e) {
+    if (e instanceof ErroDominio) return json({ erro: e.message, codigo: e.codigo }, STATUS_HTTP[e.codigo] || 400, cors);
+    console.error(JSON.stringify({ msg: "erro no site", rota, erro: String(e), chamada: e.chamada }));
+    return json({ erro: "Não deu certo. Tente de novo.", codigo: "internal" }, 500, cors);
+  }
 }
 
 async function webhookInfinitepay(request, env, ctx) {
@@ -232,8 +275,10 @@ export default {
     }
 
     const cors = corsDe(request, env);
+    const rotaSite = url.pathname.match(/^\/site\/(pedido|consultar)$/)?.[1];
+    if (rotaSite) return rotaDoSite(request, env, ctx, rotaSite, cors);
     const acao = url.pathname.match(/^\/api\/(\w+)$/)?.[1];
-    if (!acao || !(Object.hasOwn(ACOES, acao) || Object.hasOwn(ACOES_CLIENTE, acao))) return json({ erro: "Não encontrado" }, 404, cors);
+    if (!acao || ![ACOES, ACOES_CLIENTE, ACOES_SISTEMA].some(a => Object.hasOwn(a, acao))) return json({ erro: "Não encontrado" }, 404, cors);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method !== "POST") return json({ erro: "Use POST" }, 405, cors);
 

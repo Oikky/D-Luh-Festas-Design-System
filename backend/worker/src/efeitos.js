@@ -94,6 +94,24 @@ async function avisarClientePagamento(env, db, pedidoId, valor) {
 const momento = p => p.entrega?.modo === "entrega" ? "entrega" : "retirada";
 
 /* Status virou "Pronto": avisa o cliente e lembra o restante, se houver. */
+/* Pedido feito pelo site: o cliente recebe no WhatsApp o resumo e o link para acompanhar. */
+async function avisarClienteRecebido(env, db, pedidoId) {
+  if (!whatsappLigado(env)) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  const e = p.entrega || {};
+  return enviarTexto(env, p.cliente?.telefone, [
+    `Olá, ${p.cliente?.nome}! 🩷`,
+    `Recebemos seu pedido ${p.id} na D'Luh Festas:`,
+    "", ...linhasItens(p), "",
+    `${e.modo === "entrega" ? `Entrega em ${e.endereco}` : "Retirada na loja"} · ${dataBR(e.data)}${e.hora ? ` às ${e.hora}` : ""}`,
+    `Total ${brl(p.total)}${e.modo === "entrega" ? " (a taxa de entrega vem na confirmação)" : ""}`,
+    "",
+    "Agora a loja confere o estoque e confirma por aqui, com o link para pagar a entrada.",
+    `Acompanhe: https://www.dluhfestas.com/pedido?n=${p.id}`
+  ].join("\n"));
+}
+
 async function avisarClientePronto(env, db, pedidoId) {
   if (!whatsappLigado(env)) return;
   const p = await lerPedido(db, pedidoId);
@@ -136,4 +154,4 @@ async function backup(env, db) {
   return r;
 }
 
-export { brl, dataBR, linhasItens, sincronizarAgenda, avisarLojaNovoPedido, avisarClientePagamento, avisarClientePronto, resumoParaCliente, backup, falhou, lerPedido };
+export { brl, dataBR, linhasItens, sincronizarAgenda, avisarLojaNovoPedido, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };

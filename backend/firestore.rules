@@ -9,7 +9,7 @@ service cloud.firestore {
     // Quem é da equipe. Mesma lista de worker/src/equipe.js — mudar nos dois lugares.
     function equipe() {
       return logado() && request.auth.token.email_verified == true
-        && request.auth.token.email in ['ikkysousa5@gmail.com'];
+        && request.auth.token.email in ['ikkysousa5@gmail.com', 'sitedluh@gmail.com', 'luguilar86@gmail.com'];
     }
     // A conta (e-mail/senha) com que o Worker dluh-api entra para gravar. Mesma de SISTEMA_EMAIL no wrangler.jsonc.
     function sistema() {

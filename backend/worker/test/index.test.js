@@ -44,3 +44,8 @@ test("ações de cliente existem e também pedem login", async () => {
   const r = await chamar("/api/enviarTopo", { method: "POST", body: "{}" });
   assert.equal(r.status, 401);
 });
+
+test("ação da conta sistema existe e pede login", async () => {
+  const r = await chamar("/api/trocarFotoProduto", { method: "POST", body: "{}" });
+  assert.equal(r.status, 401);
+});

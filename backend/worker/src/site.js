@@ -1,0 +1,126 @@
+/* Rotas públicas do site dos clientes (sem login):
+     POST /site/pedido     cria o pedido — preço, nome e mínimo vêm do catálogo (sis_produtos), nunca do navegador
+     POST /site/consultar  "Acompanhar pedido": nº do pedido + telefone de quem pediu
+   Quem protege: limite por IP (binding LIMITE_SITE no wrangler.jsonc) e, se TURNSTILE_SECRET existir,
+   o desafio do Turnstile. O pedido nasce "Aguardando confirmação", como os do admin. */
+import { ErroDominio } from "./dominio.js";
+import { criarPedido, PEDIDOS } from "./pedidos.js";
+import { PRODUTOS, RECHEIOS } from "./produtos.js";
+
+const MAX_ITENS = 60;
+const texto = (v, max) => String(v ?? "").trim().slice(0, max);
+
+/* Hoje em Brasília, AAAA-MM-DD. */
+function hojeBrasilia(agora = new Date()) {
+  return new Date(agora.getTime() - 3 * 3600e3).toISOString().slice(0, 10);
+}
+
+async function pedidoDoSite(db, dados, { agora = new Date() } = {}) {
+  const itensEntrada = Array.isArray(dados?.itens) ? dados.itens : [];
+  if (!itensEntrada.length) throw new ErroDominio("invalid-argument", "O pedido precisa de pelo menos um item");
+  if (itensEntrada.length > MAX_ITENS) throw new ErroDominio("invalid-argument", "Itens demais num pedido só");
+
+  const data = String(dados?.entrega?.data || "");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(data) && data < hojeBrasilia(agora)) {
+    throw new ErroDominio("invalid-argument", "Escolha um dia a partir de hoje");
+  }
+
+  // Catálogo: só produtos que existem e estão ativos; o preço é o de lá.
+  const ids = [...new Set(itensEntrada.map(it => String(it?.produtoId || "")))];
+  if (ids.some(id => !id)) throw new ErroDominio("invalid-argument", "Item sem produto");
+  const catalogo = new Map();
+  await Promise.all(ids.map(async id => {
+    const snap = await db.collection(PRODUTOS).doc(id).get();
+    if (!snap.exists || snap.get("ativo") === false) throw new ErroDominio("failed-precondition", "Um item do seu pedido saiu do cardápio. Atualize a página.");
+    catalogo.set(id, snap.data());
+  }));
+  const recheiosSnap = await db.doc(RECHEIOS).get();
+  const recheiosValidos = new Set((recheiosSnap.exists ? recheiosSnap.get("lista") || [] : []).map(r => r.toLowerCase()));
+
+  const somaPorProduto = new Map();
+  const itens = itensEntrada.map((it, i) => {
+    const p = catalogo.get(String(it.produtoId));
+    const qtd = Number(it.qtd);
+    if (!Number.isInteger(qtd) || qtd < 1 || qtd > 100000) throw new ErroDominio("invalid-argument", `Item ${i + 1}: quantidade inválida`);
+    somaPorProduto.set(it.produtoId, (somaPorProduto.get(it.produtoId) || 0) + qtd);
+    // Recheios (bolos) ou tipos (pacotes): só o que existe no catálogo, até 3.
+    const tipos = new Set((p.tiposPacote || []).map(t => t.toLowerCase()));
+    const escolhas = Array.isArray(it.recheios) ? it.recheios.map(r => texto(r, 80)).filter(Boolean) : [];
+    if (escolhas.length > 3) throw new ErroDominio("invalid-argument", `Item ${i + 1}: escolhas demais`);
+    const validas = escolhas.filter(r => recheiosValidos.has(r.toLowerCase()) || tipos.size > 0);
+    const tema = texto(it?.topo?.tema, 200);
+    return {
+      nome: String(p.nome).replace(/^[^\p{L}\p{N}]+/u, "").trim(),
+      qtd, valorUnit: p.valorUnit, produtoId: String(it.produtoId), categoria: p.categoria,
+      ...(validas.length ? { recheios: validas } : {}),
+      ...(tema ? { topo: { tema } } : {})
+    };
+  });
+  for (const [id, soma] of somaPorProduto) {
+    const p = catalogo.get(String(id));
+    if (soma < (p.qtdMin || 1)) throw new ErroDominio("invalid-argument", `${p.nome}: o mínimo é ${p.qtdMin}`);
+  }
+
+  const modo = dados?.entrega?.modo;
+  return criarPedido(db, {
+    cliente: { nome: texto(dados?.cliente?.nome, 80), telefone: texto(dados?.cliente?.telefone, 20) },
+    entrega: {
+      modo, data, hora: texto(dados?.entrega?.hora, 5),
+      ...(modo === "entrega" ? { endereco: texto(dados?.entrega?.endereco, 300) } : {})
+    },
+    itens,
+    taxaEntrega: 0,
+    obs: texto(dados?.obs, 1000),
+    origem: "site"
+  }, "site");
+}
+
+/* Mesmas regras do site: DDD + 8 dígitos finais (o 9 extra e o 55 não importam). */
+function telIguais(a, b) {
+  const limpa = s => String(s || "").replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+  const x = limpa(a), y = limpa(b);
+  if (x.length < 10 || y.length < 10) return false;
+  return x.slice(0, 2) === y.slice(0, 2) && x.slice(-8) === y.slice(-8);
+}
+
+/* Devolve só o que o cliente precisa ver; nº ou telefone errados dão a mesma resposta. */
+async function consultarDoSite(db, { numero, telefone }) {
+  const n = String(numero || "").toUpperCase().replace(/[^\d]/g, "");
+  if (!n) return { erro: "nao-encontrado" };
+  const snap = await db.collection(PEDIDOS).doc(`PED-${Number(n)}`).get();
+  if (!snap.exists || !telIguais(snap.get("cliente")?.telefone, telefone)) return { erro: "nao-encontrado" };
+  const p = snap.data();
+  return {
+    pedido: {
+      id: p.id, status: p.status, pagamento: p.pagamento, pago: p.pago || 0, total: p.total,
+      entradaPct: p.entradaPct || 50, taxaEntrega: p.taxaEntrega || 0,
+      cliente: { nome: p.cliente?.nome || "" },
+      entrega: p.entrega,
+      itens: (p.itens || []).map(it => ({
+        nome: it.nome, qtd: it.qtd, valorUnit: it.valorUnit,
+        ...(it.recheios ? { recheios: it.recheios } : {}),
+        ...(it.topo ? { topo: typeof it.topo === "string" ? it.topo : it.topo.tema } : {})
+      }))
+    }
+  };
+}
+
+async function turnstileOk(env, token, ip) {
+  if (!env.TURNSTILE_SECRET) return true;
+  if (!token) return false;
+  const corpo = new FormData();
+  corpo.append("secret", env.TURNSTILE_SECRET);
+  corpo.append("response", token);
+  if (ip) corpo.append("remoteip", ip);
+  const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: corpo });
+  return !!(await r.json().catch(() => ({}))).success;
+}
+
+/* Limite por IP: 8 chamadas por minuto em cada rota (o binding é opcional nos testes). */
+async function dentroDoLimite(env, rota, ip) {
+  if (!env.LIMITE_SITE) return true;
+  const { success } = await env.LIMITE_SITE.limit({ key: `${rota}:${ip || "?"}` });
+  return success;
+}
+
+export { pedidoDoSite, consultarDoSite, telIguais, hojeBrasilia, turnstileOk, dentroDoLimite };

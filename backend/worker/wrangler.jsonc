@@ -9,6 +9,8 @@
   // Workers AI: transcrição dos áudios da assistente (Whisper).
   "ai": { "binding": "AI" },
   "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // Limite do site dos clientes (/site/*): 8 chamadas por minuto por IP em cada rota.
+  "ratelimits": [{ "name": "LIMITE_SITE", "namespace_id": "1001", "simple": { "limit": 8, "period": 60 } }],
   // Backup diário às 03:00 de Brasília (06:00 UTC) no Google Drive.
   "triggers": { "crons": ["0 6 * * *"] },
   "vars": {
@@ -33,7 +35,7 @@
     "IA_NUMEROS": "5538999540665,5538997457788"
   }
   // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-  // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY; META_TOKEN, META_APP_SECRET, META_VERIFY, ANTHROPIC_API_KEY;
+  // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY; TURNSTILE_SECRET (opcional: liga o anti-robô do site); META_TOKEN, META_APP_SECRET, META_VERIFY, ANTHROPIC_API_KEY;
   // EVOLUTION_WEBHOOK_TOKEN (fim da URL /webhook/evolution/<token>) e EVOLUTION_REPASSE (o webhook que
   // a Evolution usava antes, com o token dele — por isso é segredo): o que não é da assistente segue para lá.
 }
