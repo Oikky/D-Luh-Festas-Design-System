@@ -154,7 +154,7 @@ const DEPOIS = {
     efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id), efeitos.telegramNovoPedido(env, db, r.id)
   ],
   editarPedido: (env, db, dados, r) => r.mudou ? [efeitos.sincronizarAgenda(env, db, dados.pedidoId)] : [],
-  mudarStatus: (env, db, dados, r) => !r.mudou ? [] : [
+  mudarStatus: (env, db, dados, r, por) => !r.mudou ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId),
     ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : []),
     ...(r.status === "Confirmado — Esperando pagamento" ? [
