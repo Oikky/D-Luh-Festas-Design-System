@@ -19,6 +19,7 @@ const MAX_VOLTAS = 8;
 const PRAZO_TOTAL = 24e3;              // o Worker tem ~30s depois de responder à Meta
 
 const iaPronta = env => !!env.ANTHROPIC_API_KEY && !!env.IA_NUMEROS;
+const iaNoTelegram = env => !!env.ANTHROPIC_API_KEY;
 
 // Resposta curta que confirma ou cancela as propostas da última mensagem.
 const SIM = /^(sim|s|confirm[ao]r?|confirmo|pode|pode sim|ok|1)[.!]*$/i;
@@ -177,7 +178,8 @@ async function responderBotao({ env, db, numero, botao, agora = Date.now(), exec
 /* Uma mensagem recebida (Meta ou Evolution): filtra, tira duplicata e responde. Roda depois do
    200 ao webhook. `canal` = { texto(numero, t), botoes(numero, t, botoes), lida(msg) }. */
 async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
-  if (!autorizado(env, msg.de)) {
+  // Canal confiável (tópico IA do grupo da equipe no Telegram) não passa pela lista de números.
+  if (!canal.confiavel && !autorizado(env, msg.de)) {
     console.log(JSON.stringify({ msg: "IA: número não autorizado", final: ultimos8(msg.de) }));
     return;
   }
@@ -220,4 +222,4 @@ async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
   }
 }
 
-export { iaPronta, autorizado, conversar, responderBotao, tratarMensagem, agoraTexto, SISTEMA, MODELO };
+export { iaPronta, iaNoTelegram, autorizado, conversar, responderBotao, tratarMensagem, agoraTexto, SISTEMA, MODELO };

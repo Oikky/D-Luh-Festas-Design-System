@@ -4,6 +4,7 @@
      POST /site/pedido, /site/consultar  site dos clientes, sem login (site.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
+     POST /webhook/telegram    grupo da equipe no Telegram: botão "Confirmar estoque" e tópico IA (telegram.js)
      cron diário               backup no Google Drive
    As telas LEEM direto do Firestore (tempo real); toda ESCRITA passa por aqui e deixa evento. */
 import { criarFirestore } from "./firestore.js";
@@ -18,7 +19,8 @@ import { whatsappLigado, enviarTexto } from "./whatsapp.js";
 import * as efeitos from "./efeitos.js";
 import { metaLigado, verificarWebhook, assinaturaValida, mensagensDe, canalMeta } from "./ia/meta.js";
 import { mensagemEvolution, canalEvolution } from "./ia/evolution.js";
-import { iaPronta, autorizado, tratarMensagem } from "./ia/assistente.js";
+import { iaPronta, iaNoTelegram, autorizado, tratarMensagem } from "./ia/assistente.js";
+import * as telegram from "./telegram.js";
 import * as site from "./site.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
@@ -114,14 +116,18 @@ const ehSistema = (claims, env) => !!claims && claims.email === env.SISTEMA_EMAI
 
 /* Depois de uma ação dar certo: Agenda e avisos, sem segurar a resposta da tela. */
 const DEPOIS = {
-  criarPedido: (env, db, dados, r) => [efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id)],
+  criarPedido: (env, db, dados, r) => [
+    efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id), efeitos.telegramNovoPedido(env, db, r.id)
+  ],
   editarPedido: (env, db, dados, r) => r.mudou ? [efeitos.sincronizarAgenda(env, db, dados.pedidoId)] : [],
   mudarStatus: (env, db, dados, r) => !r.mudou ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId),
-    ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : [])
+    ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : []),
+    ...(r.status === "Confirmado — Esperando pagamento" ? [efeitos.telegramConfirmado(env, db, dados.pedidoId)] : [])
   ],
-  registrarPagamentoManual: (env, db, dados, r) => r.duplicado ? [] : [
-    efeitos.sincronizarAgenda(env, db, dados.pedidoId), efeitos.avisarClientePagamento(env, db, dados.pedidoId, dados.valor)
+  registrarPagamentoManual: (env, db, dados, r, por) => r.duplicado ? [] : [
+    efeitos.sincronizarAgenda(env, db, dados.pedidoId), efeitos.avisarClientePagamento(env, db, dados.pedidoId, dados.valor),
+    efeitos.telegramPagamento(env, db, dados.pedidoId, dados.valor, dados.meio, por)
   ]
 };
 
@@ -141,7 +147,7 @@ async function api(request, env, ctx, acao) {
   const db = banco(env);
   const quem = claims.email || `uid:${claims.sub}`;
   const r = await (doSistema ? ACOES_SISTEMA : doCliente ? ACOES_CLIENTE : ACOES)[acao](db, dados, quem, env, new URL(request.url).origin);
-  depois(ctx, (DEPOIS[acao]?.(env, db, dados, r) || []), acao, dados.pedidoId || r?.id);
+  depois(ctx, (DEPOIS[acao]?.(env, db, dados, r, quem) || []), acao, dados.pedidoId || r?.id);
   return r;
 }
 
@@ -188,7 +194,8 @@ async function webhookInfinitepay(request, env, ctx) {
     const r = await pedidos.registrarPagamento(db, {
       pedidoId: order_nsu, valor: conf.valor, chave: `ip-${transaction_nsu}`, meio: conf.meio, comprovante: receipt_url
     }, "infinitepay");
-    if (!r.duplicado) depois(ctx, [efeitos.sincronizarAgenda(env, db, order_nsu), efeitos.avisarClientePagamento(env, db, order_nsu, conf.valor)], "webhook", order_nsu);
+    if (!r.duplicado) depois(ctx, [efeitos.sincronizarAgenda(env, db, order_nsu), efeitos.avisarClientePagamento(env, db, order_nsu, conf.valor),
+      efeitos.telegramPagamento(env, db, order_nsu, conf.valor, conf.meio, "infinitepay")], "webhook", order_nsu);
     return ok(r.duplicado ? "já registrado" : null);
   } catch (e) {
     if (e instanceof ErroDominio && e.codigo === "not-found") {
@@ -204,7 +211,7 @@ async function webhookInfinitepay(request, env, ctx) {
 function executorDaIA(env, ctx, db) {
   return async (acao, dados, por) => {
     const r = await ACOES[acao](db, dados, por, env);
-    depois(ctx, DEPOIS[acao]?.(env, db, dados, r) || [], acao, dados.pedidoId || r?.id);
+    depois(ctx, DEPOIS[acao]?.(env, db, dados, r, por) || [], acao, dados.pedidoId || r?.id);
     return r;
   };
 }
@@ -261,10 +268,62 @@ async function webhookEvolution(request, env, ctx, token) {
   return new Response("ok");
 }
 
+/* Grupo da equipe no Telegram: toque em "Confirmar estoque" (tópico Pendentes), botões da
+   assistente e mensagens do tópico IA. Responde 200 na hora; o trabalho segue em waitUntil. */
+const ESPERANDO_ESTOQUE = ["Aguardando confirmação", "Verificando Estoque"];
+
+async function confirmarEstoquePeloTelegram(env, ctx, db, toque, pedidoId, origem) {
+  const quem = telegram.quemE(toque.de);
+  const p = await efeitos.lerPedido(db, pedidoId);
+  if (!p) return telegram.responderToque(env, toque.id, `Pedido ${pedidoId} não existe`);
+  if (!ESPERANDO_ESTOQUE.includes(p.status)) {
+    await telegram.responderToque(env, toque.id, `${pedidoId} já está em "${p.status}"`);
+    return telegram.fecharMensagem(env, toque.mensagem, `ℹ️ Já estava em "${p.status}".`);
+  }
+  const por = `telegram:${quem}`;
+  const dados = { pedidoId, status: "Confirmado — Esperando pagamento" };
+  const r = await ACOES.mudarStatus(db, dados, por, env);
+  depois(ctx, DEPOIS.mudarStatus(env, db, dados, r, por), "mudarStatus", pedidoId);
+  await telegram.responderToque(env, toque.id, "Estoque confirmado");
+  // O mesmo que o admin faz: já deixa o link da entrada pronto para mandar ao cliente.
+  const link = await ACOES.gerarCobranca(db, { pedidoId, tipo: "entrada" }, por, env, origem)
+    .then(c => `\nLink da entrada (${efeitos.brl(c.valor)}): ${c.url}`)
+    .catch(e => { console.error(JSON.stringify({ msg: "cobrança pelo Telegram falhou", pedidoId, erro: String(e) })); return "\nO link da entrada não saiu: gere no admin."; });
+  return telegram.fecharMensagem(env, toque.mensagem, `✅ Estoque confirmado por ${quem}.${link}`);
+}
+
+async function webhookTelegram(request, env, ctx, url) {
+  if (request.method !== "POST") return new Response(null, { status: 405 });
+  if (!telegram.telegramLigado(env) || !env.TELEGRAM_WEBHOOK_TOKEN
+    || request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.TELEGRAM_WEBHOOK_TOKEN) return new Response(null, { status: 404 });
+  const u = telegram.lerUpdate(env, await request.json().catch(() => null));
+  if (!u) return new Response("ok");
+
+  const db = banco(env);
+  const falhou = e => console.error(JSON.stringify({ msg: "Telegram falhou", erro: String(e) }));
+  if (u.tipo === "toque") {
+    const [tipo, ...resto] = u.dados.split(":");
+    if (tipo === "estoque") {
+      ctx.waitUntil(confirmarEstoquePeloTelegram(env, ctx, db, u, resto.join(":"), url.origin)
+        .catch(e => { falhou(e); return telegram.responderToque(env, u.id, e instanceof ErroDominio ? e.message : "Deu erro. Tente pelo admin."); }));
+    } else if (tipo === "ia" && iaNoTelegram(env)) {
+      telegram.responderToque(env, u.id);
+      const msg = { id: `tgq-${u.id}`, de: "telegram", botao: resto.join(":") };
+      ctx.waitUntil(conversaDaIA(env, ctx, db, msg, telegram.canalTelegram(env)));
+    } else {
+      ctx.waitUntil(telegram.responderToque(env, u.id));
+    }
+  } else if (u.tipo === "ia" && iaNoTelegram(env)) {
+    ctx.waitUntil(conversaDaIA(env, ctx, db, u.msg, telegram.canalTelegram(env)));
+  }
+  return new Response("ok");
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
     if (evo) return webhookEvolution(request, env, ctx, evo[1]);

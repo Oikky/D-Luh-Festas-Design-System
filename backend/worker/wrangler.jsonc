@@ -32,10 +32,14 @@
     // Assistente (Claude) no WhatsApp da Meta: ID do número na Meta e quem pode falar com ela
     // (separados por vírgula, com DDD). Vazio = desligada.
     "META_PHONE_ID": "512497525269120",
-    "IA_NUMEROS": "5538999540665,5538997457788"
+    "IA_NUMEROS": "5538999540665,5538997457788",
+    // Telegram: grupo da equipe (supergrupo com tópicos) e o número de cada tópico.
+    "TELEGRAM_CHAT": "-1004334694564",
+    "TELEGRAM_TOPICOS": "pendentes:6,confirmados:4,pagamentos:8,ia:174"
   }
   // Segredos (`npx wrangler secret put <NOME>`): SISTEMA_SENHA; GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
   // GOOGLE_REFRESH_TOKEN; EVOLUTION_KEY; TURNSTILE_SECRET (opcional: liga o anti-robô do site); META_TOKEN, META_APP_SECRET, META_VERIFY, ANTHROPIC_API_KEY;
   // EVOLUTION_WEBHOOK_TOKEN (fim da URL /webhook/evolution/<token>) e EVOLUTION_REPASSE (o webhook que
   // a Evolution usava antes, com o token dele — por isso é segredo): o que não é da assistente segue para lá.
+  // TELEGRAM_TOKEN (do @BotFather) e TELEGRAM_WEBHOOK_TOKEN (o secret_token do setWebhook).
 }

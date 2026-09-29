@@ -1,8 +1,9 @@
-/* O que acontece DEPOIS de uma gravação dar certo: Google Agenda, avisos de WhatsApp e o backup
+/* O que acontece DEPOIS de uma gravação dar certo: Google Agenda, avisos de WhatsApp e Telegram e o backup
    diário. Nada aqui desfaz a gravação: se o Google ou a Evolution falharem, fica só o log
    (`wrangler tail`) e o pedido segue certo no Firestore. Cada integração desligada é pulada. */
 import { googleLigado, salvarEvento, apagarEvento, enviarArquivo } from "./google.js";
 import { whatsappLigado, enviarTexto } from "./whatsapp.js";
+import { telegramLigado, enviar as enviarTelegram } from "./telegram.js";
 import { PEDIDOS } from "./pedidos.js";
 
 const brl = c => "R$ " + ((Number(c) || 0) / 100).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -57,18 +58,60 @@ async function sincronizarAgenda(env, db, pedidoId) {
   });
 }
 
-async function avisarLojaNovoPedido(env, db, pedidoId) {
-  if (!whatsappLigado(env) || !env.WHATSAPP_LOJA) return;
-  const p = await lerPedido(db, pedidoId);
-  if (!p) return;
+function textoNovoPedido(p) {
   const e = p.entrega || {};
-  const texto = [
+  return [
     `🆕 Novo pedido ${p.id} (${p.origem})`,
     `${p.cliente?.nome} · ${p.cliente?.telefone}`,
     `${dataBR(e.data)}${e.hora ? ` ${e.hora}` : ""} · ${e.modo === "entrega" ? `Entrega: ${e.endereco}` : "Retirada"}`,
     "", ...linhasItens(p), "",
-    `Total ${brl(p.total)}`
-  ].join("\n");
+    `Total ${brl(p.total)}`,
+    p.obs ? `Obs.: ${p.obs}` : null
+  ].filter(x => x !== null).join("\n");
+}
+
+/* Telegram, tópico Pendentes: o pedido novo com o botão que confirma o estoque (index.js trata). */
+async function telegramNovoPedido(env, db, pedidoId) {
+  if (!telegramLigado(env)) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  return enviarTelegram(env, "pendentes", textoNovoPedido(p), [{ id: `estoque:${p.id}`, titulo: "✅ Confirmar estoque" }]);
+}
+
+/* Telegram, tópico Confirmados: estoque confirmado, esperando o pagamento da entrada. */
+async function telegramConfirmado(env, db, pedidoId) {
+  if (!telegramLigado(env)) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  const e = p.entrega || {};
+  return enviarTelegram(env, "confirmados", [
+    `✅ ${p.id} confirmado — esperando pagamento`,
+    `${p.cliente?.nome} · ${dataBR(e.data)}${e.hora ? ` ${e.hora}` : ""} · ${e.modo === "entrega" ? "Entrega" : "Retirada"}`,
+    `Total ${brl(p.total)} · entrada de ${brl(Math.round(p.total * (p.entradaPct || 50) / 100))}`
+  ].join("\n"));
+}
+
+const MEIO_TEXTO = { pix: "Pix", dinheiro: "dinheiro", cartao: "cartão", outro: "" };
+
+/* Telegram, tópico Pagamentos: cada pagamento que entra, com o estado do pedido depois dele. */
+async function telegramPagamento(env, db, pedidoId, valor, meio, por) {
+  if (!telegramLigado(env)) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  const falta = Math.max(0, p.total - p.pago);
+  const como = [MEIO_TEXTO[meio] ?? meio, por === "infinitepay" ? "InfinitePay" : null].filter(Boolean).join(" · ");
+  return enviarTelegram(env, "pagamentos", [
+    `💰 ${brl(valor)} recebido — ${p.id}${como ? ` (${como})` : ""}`,
+    `${p.cliente?.nome} · ${p.pagamento}${falta ? ` · falta ${brl(falta)}` : ""}`,
+    `Status: ${p.status}`
+  ].join("\n"));
+}
+
+async function avisarLojaNovoPedido(env, db, pedidoId) {
+  if (!whatsappLigado(env) || !env.WHATSAPP_LOJA) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  const texto = textoNovoPedido(p);
   // WHATSAPP_LOJA aceita vários destinos separados por vírgula (números ou grupo "…@g.us").
   const destinos = String(env.WHATSAPP_LOJA).split(",").map(s => s.trim()).filter(Boolean);
   const res = await Promise.allSettled(destinos.map(d => enviarTexto(env, d, texto)));
@@ -154,4 +197,4 @@ async function backup(env, db) {
   return r;
 }
 
-export { brl, dataBR, linhasItens, sincronizarAgenda, avisarLojaNovoPedido, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };
+export { brl, dataBR, linhasItens, sincronizarAgenda, avisarLojaNovoPedido, telegramNovoPedido, telegramConfirmado, telegramPagamento, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };
