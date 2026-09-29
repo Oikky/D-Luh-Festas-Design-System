@@ -49,6 +49,7 @@ function RailItem({ icon, label, count, active, badge, open, instant, onClick })
 function Sidebar({ view, onView, onSettings, onNotif, hasNotif }) {
   const [open, setOpen] = React.useState(false);
   const [viaTeclado, setViaTeclado] = React.useState(false);
+  const eu = window.useUsuario();
   /* The rail opens for keyboard focus as well as hover, so labels are never mouse-only. Opened
      from the keyboard it snaps open: Tab runs through it many times a day and should never wait
      on an animation. The hover expand keeps its documented 250ms. */
@@ -72,7 +73,7 @@ function Sidebar({ view, onView, onSettings, onNotif, hasNotif }) {
         <RailItem icon="bell" label="Notificações" badge={hasNotif} open={open} instant={viaTeclado} onClick={onNotif} />
         <RailItem icon="settings" label="Configurações" open={open} instant={viaTeclado} onClick={onSettings} />
         <div style={{ borderTop: "var(--border-hairline) solid var(--color-border)", margin: "var(--space-2) 0 0", paddingTop: "var(--space-4)", paddingLeft: 3, whiteSpace: "nowrap" }}>
-          <UserChip name="Luciana" role="Dona" compact={!open} />
+          <UserChip name={eu.nome} role={eu.papel} src={eu.foto} compact={!open} />
         </div>
       </nav>
     </div>
@@ -112,6 +113,7 @@ function BottomNav({ value, onChange }) {
 function Shell({ view, onView, compact, theme, onTheme, children, q, onQ }) {
   const [cfg, setCfg] = React.useState(false);
   const [notif, setNotif] = React.useState(false);
+  const eu = window.useUsuario();
   const [notifs, setNotifs] = React.useState(() => [...(window.NOTIF_DEMO || [])]);
   const search = <window.GlobalSearch q={q} onQ={onQ} onView={onView} />;
   return (
@@ -127,7 +129,7 @@ function Shell({ view, onView, compact, theme, onTheme, children, q, onQ }) {
           {compact ? <>
             <IconButton icon="bell" label="Notificações" badge={notifs.length > 0} onClick={() => setNotif(true)} />
             <button type="button" aria-label="Configurações" onClick={() => setCfg(true)} style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", borderRadius: "var(--radius-md)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <UserChip name="Luciana" compact />
+              <UserChip name={eu.nome} src={eu.foto} compact />
             </button>
           </> : null}
         </div>
@@ -150,9 +152,10 @@ function Shell({ view, onView, compact, theme, onTheme, children, q, onQ }) {
             <FilterPill icon="moon" trailingIcon={null} active={theme === "dark"} onClick={() => theme !== "dark" && onTheme()}>Escuro</FilterPill>
           </div>
         </div>
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "var(--border-hairline) solid var(--color-border)" }}>
-          <Button variant="ghost" block icon="log-out" onClick={() => setCfg(false)}>Sair da conta</Button>
-        </div>
+        {/* Signing out drops back to the Google gate (Portao). The demo has no account, so no button. */}
+        {window.DLUH_FB ? <div style={{ marginTop: 16, paddingTop: 16, borderTop: "var(--border-hairline) solid var(--color-border)" }}>
+          <Button variant="ghost" block icon="log-out" onClick={() => { setCfg(false); window.DLUH_FB.then(fb => fb.sair()); }}>Sair da conta</Button>
+        </div> : null}
       </Modal>
     </div>
   );

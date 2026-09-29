@@ -3,35 +3,6 @@ const { Card, Button, Badge, StatusBadge, IconButton, FilterPill, Icon, ConfirmD
 
 const PAGO_TONE = { "Totalmente pago": "success", "Só entrada": "warn", "Não pago": "danger" };
 
-/* Kitchen cards are read at arm's length on a shared tablet: what to make is the largest,
-   darkest text on the card, and the one action is a full 44px target. */
-function FilaCard({ p, onEntregar, pendente }) {
-  return (
-    <Card style={{ display: "flex", flexDirection: "column" }}
-      header={<>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-accent)", letterSpacing: "var(--ls-caps)" }}>{p.hora}</div>
-          <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", marginTop: 3, overflowWrap: "anywhere" }}>{p.cliente || "Cliente sem nome"}</div>
-        </div>
-        {p.pago ? <Badge tone={PAGO_TONE[p.pago] || "neutral"} style={{ flex: "0 0 auto" }}>{p.pago}</Badge> : null}
-      </>}>
-      {p.itens
-        ? <div style={{ fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-medium)", color: "var(--text-strong)", lineHeight: "var(--lh-snug)", overflowWrap: "anywhere" }}>{p.itens}</div>
-        : <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Itens não informados. Confira o pedido antes de produzir.</div>}
-      <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
-        <Badge icon={p.entrega === "Entrega" ? "truck" : "shopping-bag"}>{p.entrega}</Badge>
-        <div style={{ flex: 1 }} />
-        <Button size="lg" tone="delivered" icon="check" loading={pendente} onClick={() => onEntregar(p)}>Feito</Button>
-      </div>
-    </Card>
-  );
-}
-
-/* The "Fazer agora" panel sits on the darker terracotta (white text 4.8:1), and its chips darken
-   the panel rather than lighten it, so their white labels hold 6:1. */
-const chip = { padding: "5px 12px", borderRadius: "var(--radius-pill)", background: "rgba(0,0,0,.15)", fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)" };
-const seta = { width: 48, height: 48, background: "rgba(255,255,255,.16)", border: "1.5px solid rgba(255,255,255,.5)", color: "inherit" };
-
 /* The tablet sits on the counter all shift: keep the screen awake while the queue is open.
    Browsers drop the lock when the tab hides, so it is asked for again on return. */
 function useTelaAcesa() {
@@ -88,52 +59,20 @@ function Cozinha({ compact }) {
   if (carga.estado === "erro" && !carga.dados) return <ErroCarga erro={carga.erro} oque="a fila da cozinha" onTentar={carga.tentar} />;
   if (!carga.dados) return <Carregando oque="a fila" />;
 
+  const barra = <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+    <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)" }}>Fila de produção</div>
+    <Badge>{fila.length} {fila.length === 1 ? "pedido" : "pedidos"}</Badge>
+    <div style={{ flex: 1 }} />
+    <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
+    <FilterPill icon="printer" trailingIcon={null} onClick={() => showToast("Fila enviada para impressão")}>Imprimir fila</FilterPill>
+  </div>;
+  const vazia = <Card padded={false}><EmptyState icon="chef-hat" title="Fila vazia"
+    description="Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos." /></Card>;
+
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", minHeight: "100%" }}>
       {!online || carga.doCache ? <SemConexao /> : null}
-      {p ? <div style={{
-        borderRadius: "var(--radius-xl)", padding: compact ? "18px" : "24px 28px",
-        background: "var(--color-accent-strong)", color: "var(--color-accent-contrast)",
-        display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap"
-      }}>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)" }}>
-            <Icon name="flame" size={16} /> Fazer agora · {atual + 1} de {fila.length}
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: compact ? "var(--fs-display-s)" : "var(--fs-display)", fontWeight: "var(--fw-bold)", lineHeight: "var(--lh-tight)", marginTop: 8, overflowWrap: "anywhere" }}>
-            {p.cliente || "Cliente sem nome"}
-          </div>
-          <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", marginTop: 8, lineHeight: "var(--lh-snug)", overflowWrap: "anywhere" }}>{p.itens || "Itens não informados"}</div>
-          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-            {[p.hora, p.entrega, p.pago].filter(Boolean).map(c => <span key={c} style={chip}>{c}</span>)}
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: compact ? "row" : "column", alignItems: compact ? "center" : "stretch", gap: 8, width: compact ? "100%" : "auto" }}>
-          <Button size="lg" icon="check" loading={pendente === "feito-" + p.id} onClick={() => setConfirm(p)}
-            style={{ background: "var(--color-accent-contrast)", color: "var(--color-accent-strong)", flex: compact ? 1 : "none" }}>Feito</Button>
-          {fila.length > 1 ? <div style={{ display: "flex", gap: 8 }}>
-            <IconButton icon="chevron-left" label="Pedido anterior" onClick={() => setFeature((atual - 1 + fila.length) % fila.length)} style={seta} />
-            <IconButton icon="chevron-right" label="Próximo pedido" onClick={() => setFeature((atual + 1) % fila.length)} style={seta} />
-          </div> : null}
-        </div>
-      </div> : null}
-
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)" }}>Fila de produção</div>
-          <Badge>{fila.length} {fila.length === 1 ? "pedido" : "pedidos"}</Badge>
-          <div style={{ flex: 1 }} />
-          <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
-          <FilterPill icon="printer" trailingIcon={null} onClick={() => showToast("Fila enviada para impressão")}>Imprimir fila</FilterPill>
-        </div>
-        {fila.length
-          ? <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-              {fila.map(x => <FilaCard key={x.id} p={x} onEntregar={setConfirm} pendente={pendente === "feito-" + x.id} />)}
-            </div>
-          : <Card padded={false}><EmptyState icon="chef-hat" title="Fila vazia"
-              description="Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos." /></Card>}
-      </div>
-
+      <FilaTrilho fila={fila} atual={atual} p={p} setFeature={setFeature} setConfirm={setConfirm} pendente={pendente} compact={compact} barra={barra} vazia={vazia} />
       {confirm ? <ConfirmDialog tone="delivered" icon="check" title="Marcar como feito?"
         message={[confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila."}
         cancelLabel="Voltar" confirmLabel="Sim, marcar feito" pending={pendente === "feito-" + confirm.id}
@@ -143,9 +82,99 @@ function Cozinha({ compact }) {
   );
 }
 
+/* "50 Kibe · 25 Coxinha" → one line per item, quantity split out so it can be read at a glance. */
+const linhas = s => String(s || "").split(" · ").filter(Boolean).map(t => {
+  const m = t.match(/^(\d+)\s+(.+)$/);
+  return m ? { qtd: m[1], nome: m[2] } : { qtd: null, nome: t };
+});
+/* "28/09 · 19:00" → { dia, hora }; a bare "14:00" is today. */
+const quando = h => {
+  const s = String(h || "—"), i = s.indexOf(" · ");
+  return i < 0 ? { dia: "Hoje", hora: s } : { dia: s.slice(0, i), hora: s.slice(i + 3) };
+};
+const num = { fontVariantNumeric: "tabular-nums" };
+
+function Itens({ itens, grande }) {
+  const l = linhas(itens);
+  if (!l.length) return <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Itens não informados. Confira o pedido antes de produzir.</div>;
+  return <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: grande ? 8 : 5 }}>
+    {l.map((x, i) => <li key={i} style={{ display: "flex", gap: 10, alignItems: "baseline", fontSize: grande ? "var(--fs-title)" : "var(--fs-subhead)", lineHeight: "var(--lh-snug)", color: "var(--text-strong)" }}>
+      <span style={{ ...num, minWidth: grande ? 40 : 30, textAlign: "right", flex: "0 0 auto", fontWeight: "var(--fw-bold)", color: "var(--text-accent)" }}>{x.qtd || "–"}</span>
+      <span style={{ fontWeight: "var(--fw-medium)", overflowWrap: "anywhere" }}>{x.nome}</span>
+    </li>)}
+  </ul>;
+}
+
+function Setas({ fila, atual, setFeature }) {
+  if (fila.length < 2) return null;
+  return <div style={{ display: "flex", gap: 8 }}>
+    <IconButton icon="chevron-left" label="Pedido anterior" onClick={() => setFeature((atual - 1 + fila.length) % fila.length)} />
+    <IconButton icon="chevron-right" label="Próximo pedido" onClick={() => setFeature((atual + 1) % fila.length)} />
+  </div>;
+}
+
+const Selos = ({ x }) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+  <Badge icon={x.entrega === "Entrega" ? "truck" : "shopping-bag"}>{x.entrega}</Badge>
+  {x.pago ? <Badge tone={PAGO_TONE[x.pago] || "neutral"}>{x.pago}</Badge> : null}
+</div>;
+
+/* The order to make now stays pinned on the left, read at arm's length on the counter tablet;
+   the rest of the queue is a rail of rows on the right, latest first. Tapping a row brings it
+   to the left. On a phone the two stack. */
+function FilaTrilho({ fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia }) {
+  const q = quando(p && p.hora);
+  return <div style={{ display: "grid", gridTemplateColumns: compact || !p ? "1fr" : "minmax(0, 5fr) minmax(0, 4fr)", gap: "var(--gap-section)", alignItems: "start" }}>
+    {p ? <section aria-label="Fazer agora" style={{
+      position: compact ? "static" : "sticky", top: 0, background: "var(--color-surface)", border: "var(--border-hairline) solid var(--color-border)",
+      borderRadius: "var(--radius-xl)", padding: compact ? 18 : 28, display: "flex", flexDirection: "column", gap: 18, boxShadow: "var(--shadow-card)"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-accent)", fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)" }}>
+        <Icon name="flame" size={16} /> Fazer agora · {atual + 1} de {fila.length}
+        <div style={{ flex: 1 }} />
+        <Setas fila={fila} atual={atual} setFeature={setFeature} />
+      </div>
+      <div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ ...num, fontSize: compact ? "var(--fs-display)" : "var(--fs-display-l)", fontWeight: "var(--fw-semibold)", letterSpacing: "var(--ls-display)", lineHeight: 1 }}>{q.hora}</span>
+          <span style={{ fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)" }}>{q.dia}</span>
+        </div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: compact ? "var(--fs-display-s)" : "var(--fs-display)", fontWeight: "var(--fw-bold)", lineHeight: "var(--lh-tight)", marginTop: 10, overflowWrap: "anywhere" }}>{p.cliente || "Cliente sem nome"}</div>
+      </div>
+      <Itens itens={p.itens} grande />
+      <Selos x={p} />
+      <Button size="lg" tone="delivered" icon="check" block loading={pendente === "feito-" + p.id} onClick={() => setConfirm(p)}>Feito</Button>
+    </section> : null}
+    <section>
+      {barra}
+      {fila.length ? <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {fila.map((x, i) => ({ x, i })).reverse().map(({ x, i }) => {
+          const r = quando(x.hora), sel = i === atual;
+          return <div key={x.id} data-row-action role="button" tabIndex={0} aria-pressed={sel}
+            onClick={() => setFeature(i)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFeature(i); } }}
+            style={{ display: "grid", gridTemplateColumns: "64px minmax(0, 1fr) auto", gap: 14, alignItems: "center", padding: "12px 14px",
+              borderRadius: "var(--radius-lg)", cursor: "pointer", transition: "var(--transition-control)",
+              background: sel ? "var(--color-accent-soft)" : "var(--color-surface)",
+              border: `var(--border-hairline) solid ${sel ? "var(--color-accent)" : "var(--color-border)"}` }}>
+            <div>
+              <div style={{ ...num, fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)", lineHeight: 1.1, color: sel ? "var(--text-accent)" : "var(--text-strong)" }}>{r.hora}</div>
+              <div style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", marginTop: 2 }}>{r.dia}</div>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: "var(--fs-subhead)", fontWeight: "var(--fw-semibold)", overflowWrap: "anywhere" }}>{x.cliente || "Cliente sem nome"}</div>
+              <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-body)", marginTop: 3, lineHeight: "var(--lh-snug)",
+                display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{x.itens || "Itens não informados"}</div>
+            </div>
+            <Button tone="delivered" icon="check" loading={pendente === "feito-" + x.id} onClick={e => { e.stopPropagation(); setConfirm(x); }}>Feito</Button>
+          </div>;
+        })}
+      </div> : vazia}
+    </section>
+  </div>;
+}
+
 function Clientes() {
   return <Card padded={false}><EmptyState icon="users" title="Tela de clientes ainda não existe no produto"
     description="O sistema atual não tem uma visão por cliente — o histórico vive no Coda. Deixada em branco de propósito." /></Card>;
 }
 
-Object.assign(window, { Cozinha, FilaCard, Clientes });
+Object.assign(window, { Cozinha, Clientes });

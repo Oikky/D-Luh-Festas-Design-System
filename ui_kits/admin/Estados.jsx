@@ -113,6 +113,22 @@ function ErroCarga({ erro, oque, onTentar }) {
   </ES.Card>;
 }
 
+/* Who is signed in, shown in the rail. The e-mail picks the name and role; anyone else on the
+   team falls back to their Google name and e-mail. Without ?fonte=firebase it stays the demo user. */
+const UsuarioCtx = React.createContext(null);
+const PERFIS = { "luguilar86@gmail.com": { nome: "Luciana", papel: "Dona" } };
+function useUsuario() {
+  const u = React.useContext(UsuarioCtx);
+  if (!u) return { nome: "Luciana", papel: "Dona" };
+  const email = String(u.email || "").toLowerCase();
+  const p = PERFIS[email] || {};
+  return {
+    nome: p.nome || (u.displayName || email.split("@")[0]).split(" ")[0],
+    papel: p.papel || email,
+    foto: u.photoURL || undefined
+  };
+}
+
 /* In the real system nothing shows until someone from the team signs in with Google. */
 function Portao({ children }) {
   const real = window.DLUH_API.modo === "firebase";
@@ -124,7 +140,8 @@ function Portao({ children }) {
       () => setSt(s => ({ ...s, erro: "Não deu pra conectar ao Firebase. Confira a internet e recarregue a página." })));
     return () => parar();
   }, []);
-  if (!real || st.usuario) return children;
+  if (!real) return children;
+  if (st.usuario) return <UsuarioCtx.Provider value={st.usuario}>{children}</UsuarioCtx.Provider>;
   const entrar = () => st.fb.entrar().catch(e => setSt(s => ({ ...s, erro: e.code === "auth/popup-closed-by-user" ? null : "Não deu pra entrar: " + (e.code || e.message) })));
   return <div style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: 16, background: "var(--color-bg)" }}>
     <ES.Card style={{ maxWidth: 380, width: "100%" }}>
@@ -142,4 +159,4 @@ function Portao({ children }) {
 /* Money that may be missing: a null or empty value reads as a dash, never as R$ 0,00. */
 const dinheiro = v => v == null || v === "" ? "—" : v;
 
-Object.assign(window, { useToast, useCarga, useAoVivo, useAcao, Carregando, ErroCarga, Portao, motivo, dinheiro });
+Object.assign(window, { useToast, useCarga, useAoVivo, useAcao, Carregando, ErroCarga, Portao, useUsuario, motivo, dinheiro });

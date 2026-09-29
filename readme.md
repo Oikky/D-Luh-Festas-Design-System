@@ -130,8 +130,8 @@ below 16px; never Urbanist Light below 20px.
 
 **Backgrounds.** Flat colour. No gradients, no photography, no patterns, no texture inside the
 product. The only image in the admin is the logo. (`hero.jpg` exists for the marketing site.)
-The one exception is the kitchen "Fazer agora" block, a solid terracotta panel — a flat fill,
-not a gradient.
+The kitchen "Fazer agora" block is a plain surface card pinned beside the queue; terracotta
+marks only its label and the selected row.
 
 **Cards.** White surface, 1px `#E8E0D8` border, 16px radius, and a shadow so faint it is almost
 theoretical (`0 2px 8px rgba(0,0,0,.04)`). Depth comes from the border, not the shadow. Header

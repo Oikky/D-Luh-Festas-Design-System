@@ -43,7 +43,7 @@ window.DLUH_API = (() => {
   const MEIO = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão", outro: "Outro" };
   const topoTexto = t => !t ? null : typeof t === "string" ? t : "Topo: " + [t.tema, t.detalhes].filter(Boolean).join(" — ") + (t.imagem ? " · com imagem" : "");
   const resumo = x => (x.itens || []).map(i => `${i.qtd} ${i.nome}`).join(" · ");
-  /* Kitchen queue: in production and not yet done, soonest first, in the shape FilaCard reads. */
+  /* Kitchen queue: in production and not yet done, soonest first, in the shape the Cozinha screen reads. */
   const MAPAS = {
     /* All orders, in the shape OrderCard/DetalhesModal read (money as "R$ …" strings), keeping the
        raw numbers the actions need (centavos, pedidoId…). Newest first. */
