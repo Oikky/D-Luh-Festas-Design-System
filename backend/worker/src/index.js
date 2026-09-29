@@ -3,9 +3,10 @@
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /site/pedido, /site/consultar  site dos clientes, sem login (site.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
+     GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
      POST /webhook/telegram    grupo da equipe no Telegram: botão "Confirmar estoque" e tópico IA (telegram.js)
-     cron diário               backup no Google Drive
+     cron diário               backup no Google Drive; lembrete da entrada (lembretes.js)
    As telas LEEM direto do Firestore (tempo real); toda ESCRITA passa por aqui e deixa evento. */
 import { criarFirestore } from "./firestore.js";
 import { verificarToken, tokenDoSistema, quemESistema } from "./auth.js";
@@ -21,6 +22,9 @@ import { metaLigado, verificarWebhook, assinaturaValida, mensagensDe, canalMeta 
 import { mensagemEvolution, canalEvolution } from "./ia/evolution.js";
 import { iaPronta, iaNoTelegram, autorizado, tratarMensagem } from "./ia/assistente.js";
 import * as telegram from "./telegram.js";
+import * as lembretes from "./lembretes.js";
+
+const CRON_LEMBRETE = "0 12 * * *";
 import * as site from "./site.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
@@ -74,13 +78,23 @@ const ACOES = {
       webhookUrl: `${origem}/webhook/infinitepay`
     });
     await snap.ref.collection("eventos").add({ tipo: "cobranca", cobranca: tipo, valor, url, por, em: new Date() });
-    return { url, valor };
+    // O cliente recebe o link curto (/pagar/PED-n), que leva ao checkout da InfinitePay.
+    return { url: linkCurto(snap.id), completo: url, valor };
   },
 
   salvarProduto: (db, dados, por) => produtos.salvarProduto(db, dados, por),
   apagarProduto: (db, dados) => produtos.apagarProduto(db, dados),
   salvarRecheios: (db, dados, por) => produtos.salvarRecheios(db, dados, por),
   enviarImagem: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "produto" }),
+
+  /* "Lembrar todos" na aba Esperando pagamento: diz quantos vão receber; o envio (um a um, com
+     pausa) segue em DEPOIS, sem segurar a tela. */
+  async lembrarEntrada(db, { pedidoIds }, por, env) {
+    lembretes.exigirWhatsapp(env);
+    const lista = await lembretes.paraLembrar(db, { pedidoIds: Array.isArray(pedidoIds) ? pedidoIds.map(String) : undefined });
+    // A lista vai para o DEPOIS, não para a resposta da tela.
+    return Object.defineProperty({ total: lista.length }, "lista", { value: lista, enumerable: false });
+  },
 
   /* "Notificar alterações": manda ao cliente, pelo WhatsApp da loja, o resumo atual do pedido. */
   async avisarCliente(db, { pedidoId }, por, env) {
@@ -114,6 +128,26 @@ const ACOES_SISTEMA = {
 };
 const ehSistema = (claims, env) => !!claims && claims.email === env.SISTEMA_EMAIL && claims.firebase?.sign_in_provider === "password";
 
+/* Endereço público do Worker: o link da InfinitePay avisa o pagamento aqui (o cron não tem request). */
+const ORIGEM_API = "https://dluh-api.sitedluh.workers.dev";
+const linkCurto = pedidoId => `${ORIGEM_API}/pagar/${encodeURIComponent(pedidoId)}`;
+
+/* Link curto de pagamento, como no sistema antigo (/pagar?rowId=…): leva ao último link gerado
+   para o pedido. Pedido já pago, ou sem cobrança, vai para a página de acompanhamento no site. */
+async function pagar(pedidoId, env) {
+  const acompanhar = `https://www.dluhfestas.com/pedido?n=${encodeURIComponent(pedidoId)}`;
+  const db = banco(env);
+  const p = await efeitos.lerPedido(db, pedidoId);
+  if (!p || p.status === "Cancelado" || (p.total || 0) - (p.pago || 0) <= 0) return Response.redirect(acompanhar, 302);
+  const eventos = await db.collection(pedidos.PEDIDOS).doc(p.id).collection("eventos").listar();
+  const ultimo = eventos.filter(e => e.tipo === "cobranca" && /^https:\/\//.test(e.url || ""))
+    .sort((a, b) => new Date(b.em) - new Date(a.em))[0];
+  return Response.redirect(ultimo ? ultimo.url : acompanhar, 302);
+}
+const gerarEntrada = (env, db, por) => Object.assign(
+  pedidoId => ACOES.gerarCobranca(db, { pedidoId, tipo: "entrada" }, por, env, ORIGEM_API),
+  { curto: pedidoId => linkCurto(pedidoId) });
+
 /* Depois de uma ação dar certo: Agenda e avisos, sem segurar a resposta da tela. */
 const DEPOIS = {
   criarPedido: (env, db, dados, r) => [
@@ -125,6 +159,7 @@ const DEPOIS = {
     ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : []),
     ...(r.status === "Confirmado — Esperando pagamento" ? [efeitos.telegramConfirmado(env, db, dados.pedidoId)] : [])
   ],
+  lembrarEntrada: (env, db, dados, r, por) => [lembretes.enviarLembretes({ env, db, lista: r.lista, por, gerarCobranca: gerarEntrada(env, db, por) })],
   registrarPagamentoManual: (env, db, dados, r, por) => r.duplicado ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId), efeitos.avisarClientePagamento(env, db, dados.pedidoId, dados.valor),
     efeitos.telegramPagamento(env, db, dados.pedidoId, dados.valor, dados.meio, por)
@@ -323,6 +358,13 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    const pag = url.pathname.match(/^\/pagar\/([\w-]+)$/) || (url.pathname === "/pagar" && [null, url.searchParams.get("rowId")]);
+    if (pag && pag[1] && request.method === "GET") {
+      return pagar(pag[1], env).catch(e => {
+        console.error(JSON.stringify({ msg: "link curto falhou", pedidoId: pag[1], erro: String(e) }));
+        return new Response("Não deu pra abrir o pagamento agora. Tente de novo em instantes.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+      });
+    }
     if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
@@ -350,7 +392,17 @@ export default {
     }
   },
 
+  /* Dois crons (wrangler.jsonc): 06:00 UTC = backup; 12:00 UTC (9h de Brasília) = lembrete
+     automático da entrada, para quem tem pedido em até 3 dias. */
   async scheduled(evento, env, ctx) {
-    ctx.waitUntil(efeitos.backup(env, banco(env)).catch(e => console.error(JSON.stringify({ msg: "backup falhou", erro: String(e) }))));
+    const db = banco(env);
+    if (evento.cron === CRON_LEMBRETE) {
+      if (!whatsappLigado(env)) return;
+      ctx.waitUntil(lembretes.paraLembrar(db, { automatico: true })
+        .then(lista => lembretes.enviarLembretes({ env, db, lista, automatico: true, por: "lembrete-automatico", gerarCobranca: gerarEntrada(env, db, "lembrete-automatico") }))
+        .catch(e => console.error(JSON.stringify({ msg: "lembrete automático falhou", erro: String(e) }))));
+      return;
+    }
+    ctx.waitUntil(efeitos.backup(env, db).catch(e => console.error(JSON.stringify({ msg: "backup falhou", erro: String(e) }))));
   }
 };

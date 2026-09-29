@@ -198,7 +198,15 @@ function Pedidos({ compact, q }) {
 
       <Tabs value={tab} onChange={setTab} items={abas.map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} />
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+        {/* Lembrete da entrada para todos desta aba (o mesmo sai sozinho 3 dias antes de cada pedido). */}
+        {tab === "pagamento" && lista.length ? <Button size="sm" variant="ghost" icon="bell-ring" onClick={() => setConfirm({
+          tipo: "lembrete", p: {}, tone: "chargeEntry", icon: "bell-ring",
+          title: lista.length === 1 ? "Mandar lembrete para 1 cliente?" : `Mandar lembrete para ${lista.length} clientes?`,
+          message: "Cada cliente desta aba recebe no WhatsApp que a produção começa quando a entrada for paga, com o link da entrada. Quem já está sem valor a pagar ou sem telefone fica de fora.",
+          confirmLabel: "Sim, mandar", ok: "Lembretes sendo enviados no WhatsApp", falhou: "Não deu pra mandar os lembretes",
+          pedido: { acao: "lembrarEntrada", dados: { pedidoIds: lista.map(p => p.id) } }
+        })}>Lembrar todos da entrada</Button> : null}
         <Button size="sm" icon="plus" onClick={() => setManual(true)}>Pedido manual</Button>
       </div>
 

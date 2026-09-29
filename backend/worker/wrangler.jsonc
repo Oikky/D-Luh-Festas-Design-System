@@ -11,8 +11,9 @@
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   // Limite do site dos clientes (/site/*): 8 chamadas por minuto por IP em cada rota.
   "ratelimits": [{ "name": "LIMITE_SITE", "namespace_id": "1001", "simple": { "limit": 8, "period": 60 } }],
-  // Backup diário às 03:00 de Brasília (06:00 UTC) no Google Drive.
-  "triggers": { "crons": ["0 6 * * *"] },
+  // Backup diário às 03:00 de Brasília (06:00 UTC) no Google Drive; às 09:00 de Brasília (12:00 UTC),
+  // lembrete da entrada para quem tem pedido em até 3 dias (src/lembretes.js).
+  "triggers": { "crons": ["0 6 * * *", "0 12 * * *"] },
   "vars": {
     "FIREBASE_PROJECT_ID": "dluh-festas",
     // Chave pública do app web (a mesma que está no site); não é segredo.
