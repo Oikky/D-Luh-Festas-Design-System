@@ -109,6 +109,7 @@ window.DLUH_API = (() => {
         itens: resumo(x),
         pago: x.pagamento,
         entrega: x.entrega?.modo === "entrega" ? "Entrega" : "Retirada",
+        data: x.entrega?.data || "",
         imp: paraImprimir(x)
       }))
   };

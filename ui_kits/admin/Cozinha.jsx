@@ -39,7 +39,13 @@ function Cozinha({ compact }) {
   const carga = useAoVivo("fila");
   const online = useOnline();
   useTelaAcesa();
-  const fila = carga.dados || [];
+  /* The queue is today's work: orders due today or already late. Later days stay behind
+     "Próximos dias" for when the kitchen gets ahead (a cake made the day before). */
+  const todos = carga.dados || [];
+  const hoje = window.DLUH_API.hoje();
+  const proximos = todos.filter(x => x.data && x.data > hoje);
+  const [verProximos, setVerProximos] = React.useState(false);
+  const fila = verProximos ? todos : todos.filter(x => !(x.data && x.data > hoje));
   const [feature, setFeature] = React.useState(0);
   const [confirm, setConfirm] = React.useState(null);
   const [toastNode, showToast] = useToast();
@@ -70,11 +76,15 @@ function Cozinha({ compact }) {
     <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)" }}>Fila de produção</div>
     <Badge>{fila.length} {fila.length === 1 ? "pedido" : "pedidos"}</Badge>
     <div style={{ flex: 1 }} />
+    {proximos.length ? <FilterPill icon="calendar-days" trailingIcon={null} active={verProximos} onClick={() => { setVerProximos(!verProximos); setFeature(0); }}>
+      Próximos dias · {proximos.length}</FilterPill> : null}
     <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
     <FilterPill icon="printer" trailingIcon={null} onClick={() => imprimir(fila)}>Imprimir fila</FilterPill>
   </div>;
-  const vazia = <Card padded={false}><EmptyState icon="chef-hat" title="Fila vazia"
-    description="Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos." /></Card>;
+  const vazia = <Card padded={false}><EmptyState icon="chef-hat" title="Nada para hoje"
+    description={proximos.length
+      ? `Tudo o que era para hoje já foi feito. ${proximos.length === 1 ? "Há 1 pedido" : `Há ${proximos.length} pedidos`} para os próximos dias em "Próximos dias".`
+      : "Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos."} /></Card>;
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", minHeight: "100%" }}>
