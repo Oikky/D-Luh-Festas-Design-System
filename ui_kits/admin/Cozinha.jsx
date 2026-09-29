@@ -39,14 +39,17 @@ function Cozinha({ compact }) {
   const carga = useAoVivo("fila");
   const online = useOnline();
   useTelaAcesa();
-  /* The queue is today's work: orders due today or already late. Later days stay behind
-     "Próximos dias" for when the kitchen gets ahead (a cake made the day before). */
+  /* One day at a time. "Hoje" is today plus anything late; the other days with orders in
+     production sit next to it, so the kitchen can get ahead (a cake made the day before). */
   const todos = carga.dados || [];
   const hoje = window.DLUH_API.hoje();
-  const proximos = todos.filter(x => x.data && x.data > hoje);
-  const [verProximos, setVerProximos] = React.useState(false);
-  const fila = verProximos ? todos : todos.filter(x => !(x.data && x.data > hoje));
+  const diaDe = x => !x.data || x.data < hoje ? hoje : x.data;
+  const dias = [...new Set([hoje, ...todos.map(diaDe)])].sort();
+  const [escolhido, setEscolhido] = React.useState(hoje);
+  const dia = dias.includes(escolhido) ? escolhido : hoje;
+  const fila = todos.filter(x => diaDe(x) === dia);
   const [feature, setFeature] = React.useState(0);
+  const trocarDia = d => { setEscolhido(d); setFeature(0); };
   const [confirm, setConfirm] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
@@ -76,20 +79,26 @@ function Cozinha({ compact }) {
     <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--fs-heading)", fontWeight: "var(--fw-semibold)" }}>Fila de produção</div>
     <Badge>{fila.length} {fila.length === 1 ? "pedido" : "pedidos"}</Badge>
     <div style={{ flex: 1 }} />
-    {proximos.length ? <FilterPill icon="calendar-days" trailingIcon={null} active={verProximos} onClick={() => { setVerProximos(!verProximos); setFeature(0); }}>
-      Próximos dias · {proximos.length}</FilterPill> : null}
     <FilterPill icon={som ? "volume-2" : "volume-x"} trailingIcon={null} active={som} onClick={() => { setSom(!som); showToast(som ? "Alerta sonoro desligado" : "Alerta sonoro ligado"); }}>Alerta sonoro</FilterPill>
     <FilterPill icon="printer" trailingIcon={null} onClick={() => imprimir(fila)}>Imprimir fila</FilterPill>
   </div>;
-  const vazia = <Card padded={false}><EmptyState icon="chef-hat" title="Nada para hoje"
-    description={proximos.length
-      ? `Tudo o que era para hoje já foi feito. ${proximos.length === 1 ? "Há 1 pedido" : `Há ${proximos.length} pedidos`} para os próximos dias em "Próximos dias".`
+  const outros = todos.length - fila.length;
+  const vazia = <Card padded={false}><EmptyState icon="chef-hat" title={`Nada para ${nomeDia(dia, hoje).toLowerCase()}`}
+    description={outros
+      ? `Tudo o que era para esse dia já foi feito. ${outros === 1 ? "Há 1 pedido" : `Há ${outros} pedidos`} em outros dias, nos botões acima.`
       : "Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos."} /></Card>;
+  const seletorDias = dias.length > 1 ? <div role="group" aria-label="Dia da fila" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    {dias.map(d => {
+      const n = todos.filter(x => diaDe(x) === d).length;
+      return <FilterPill key={d} icon={d === hoje ? "flame" : "calendar-days"} trailingIcon={null} active={d === dia} onClick={() => trocarDia(d)}>{nomeDia(d, hoje)} · {n}</FilterPill>;
+    })}
+  </div> : null;
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--gap-section)", minHeight: "100%" }}>
       {!online || carga.doCache ? <SemConexao /> : null}
-      <FilaTrilho fila={fila} atual={atual} p={p} setFeature={setFeature} setConfirm={setConfirm} pendente={pendente} compact={compact} barra={barra} vazia={vazia}
+      {seletorDias}
+      <FilaTrilho hoje={dia === hoje} fila={fila} atual={atual} p={p} setFeature={setFeature} setConfirm={setConfirm} pendente={pendente} compact={compact} barra={barra} vazia={vazia}
         onImprimir={x => imprimir([x])} />
       {confirm ? <ConfirmDialog tone="delivered" icon="check" title="Marcar como feito?"
         message={[confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila."}
@@ -111,6 +120,15 @@ const quando = h => {
   return i < 0 ? { dia: "Hoje", hora: s } : { dia: s.slice(0, i), hora: s.slice(i + 3) };
 };
 const num = { fontVariantNumeric: "tabular-nums" };
+/* "2026-10-01" → "Hoje", "Amanhã" or "Qua 01/10". */
+const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+function nomeDia(iso, hoje) {
+  if (iso === hoje) return "Hoje";
+  const d = new Date(iso + "T12:00:00"), amanha = new Date(hoje + "T12:00:00");
+  amanha.setDate(amanha.getDate() + 1);
+  if (d.toDateString() === amanha.toDateString()) return "Amanhã";
+  return `${SEMANA[d.getDay()]} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
 
 function Itens({ itens, grande }) {
   const l = linhas(itens);
@@ -139,7 +157,7 @@ const Selos = ({ x }) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap"
 /* The order to make now stays pinned on the left, read at arm's length on the counter tablet;
    the rest of the queue is a rail of rows on the right, latest first. Tapping a row brings it
    to the left. On a phone the two stack. */
-function FilaTrilho({ fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia, onImprimir }) {
+function FilaTrilho({ hoje = true, fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia, onImprimir }) {
   const q = quando(p && p.hora);
   return <div style={{ display: "grid", gridTemplateColumns: compact || !p ? "1fr" : "minmax(0, 5fr) minmax(0, 4fr)", gap: "var(--gap-section)", alignItems: "start" }}>
     {p ? <section aria-label="Fazer agora" style={{
@@ -147,7 +165,7 @@ function FilaTrilho({ fila, atual, p, setFeature, setConfirm, pendente, compact,
       borderRadius: "var(--radius-xl)", padding: compact ? 18 : 28, display: "flex", flexDirection: "column", gap: 18, boxShadow: "var(--shadow-card)"
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-accent)", fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)" }}>
-        <Icon name="flame" size={16} /> Fazer agora · {atual + 1} de {fila.length}
+        <Icon name={hoje ? "flame" : "calendar-days"} size={16} /> {hoje ? "Fazer agora" : "Pedido"} · {atual + 1} de {fila.length}
         <div style={{ flex: 1 }} />
         <Setas fila={fila} atual={atual} setFeature={setFeature} />
       </div>
