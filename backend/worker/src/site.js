@@ -24,6 +24,15 @@ async function pedidoDoSite(db, dados, { agora = new Date() } = {}) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(data) && data < hojeBrasilia(agora)) {
     throw new ErroDominio("invalid-argument", "Escolha um dia a partir de hoje");
   }
+  // Horário de atendimento: 8h às 19h, de 15 em 15 minutos; para hoje, com 1 hora de antecedência.
+  const hora = String(dados?.entrega?.hora || "");
+  const m = /^(\d{2}):(\d{2})$/.exec(hora);
+  const min = m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+  if (min < 8 * 60 || min > 19 * 60 || min % 15) throw new ErroDominio("invalid-argument", "Escolha um horário entre 8h e 19h");
+  const sp = new Date(agora.getTime() - 3 * 3600e3);
+  if (data === hojeBrasilia(agora) && min < sp.getUTCHours() * 60 + sp.getUTCMinutes() + 60) {
+    throw new ErroDominio("invalid-argument", "Para hoje, escolha um horário com pelo menos 1 hora de antecedência");
+  }
 
   // Catálogo: só produtos que existem e estão ativos; o preço é o de lá.
   const ids = [...new Set(itensEntrada.map(it => String(it?.produtoId || "")))];

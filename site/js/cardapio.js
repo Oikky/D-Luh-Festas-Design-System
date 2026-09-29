@@ -341,10 +341,32 @@
   const passos = ["data", "entrega", "revisao"];
   const forms = Object.fromEntries(passos.map(p => [p, document.querySelector(`[data-passo="${p}"]`)]));
 
-  const hoje = new Date();
-  const amanha = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+  /* Dia e hora: a loja atende das 8h às 19h, em horários de 15 em 15 minutos. Dá pra pedir para
+     hoje com pelo menos 1 hora de antecedência. */
   const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  document.getElementById("f-data").min = isoLocal(amanha);
+  const HORARIOS = [];
+  for (let m = 8 * 60; m <= 19 * 60; m += 15) HORARIOS.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  const ANTECEDENCIA_MIN = 60;
+  const hojeIso = () => isoLocal(new Date());
+  const minutos = h => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+  const horariosDe = data => {
+    if (data !== hojeIso()) return HORARIOS;
+    const d = new Date(), limite = d.getHours() * 60 + d.getMinutes() + ANTECEDENCIA_MIN;
+    return HORARIOS.filter(h => minutos(h) >= limite);
+  };
+  const primeiroDia = () => { const d = new Date(); if (!horariosDe(hojeIso()).length) d.setDate(d.getDate() + 1); return isoLocal(d); };
+  const campoData = document.getElementById("f-data");
+  const campoHora = document.getElementById("f-hora");
+  function preencherHorarios() {
+    const antes = campoHora.value;
+    const lista = campoData.value ? horariosDe(campoData.value) : HORARIOS;
+    campoHora.innerHTML = `<option value="">${lista.length ? "Escolha" : "Sem horário neste dia"}</option>` +
+      lista.map(h => `<option value="${h}">${D.hora(h)}</option>`).join("");
+    if (lista.includes(antes)) campoHora.value = antes;
+  }
+  campoData.min = primeiroDia();
+  campoData.addEventListener("change", preencherHorarios);
+  preencherHorarios();
 
   /* Dados que o cliente já digitou antes ficam no aparelho. */
   try {
@@ -401,8 +423,12 @@
     const data = document.getElementById("f-data").value;
     const hora = document.getElementById("f-hora").value;
     let ruim = false;
-    ruim = erroCampo("f-data", !data ? "Escolha o dia da festa" : data < isoLocal(amanha) ? "Escolha um dia a partir de amanhã" : "") || ruim;
-    ruim = erroCampo("f-hora", !hora ? "Escolha a hora" : "") || ruim;
+    preencherHorarios(); // o relógio andou desde que a lista foi montada
+    const semHorarioHoje = data === hojeIso() && !horariosDe(data).length;
+    ruim = erroCampo("f-data", !data ? "Escolha o dia da festa" : data < hojeIso() ? "Escolha um dia a partir de hoje"
+      : semHorarioHoje ? "Para hoje não há mais horário (pedidos com 1 hora de antecedência, até 19h). Escolha outro dia" : "") || ruim;
+    ruim = erroCampo("f-hora", semHorarioHoje ? "" : !hora || !horariosDe(data).includes(hora)
+      ? (data === hojeIso() ? "Para hoje, escolha um horário com pelo menos 1 hora de antecedência" : "Escolha um horário entre 8h e 19h") : "") || ruim;
     if (ruim) return primeiroErro(forms.data);
     irPara("entrega");
   });
