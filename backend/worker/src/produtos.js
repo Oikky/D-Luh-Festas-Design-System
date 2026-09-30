@@ -71,4 +71,19 @@ async function salvarRecheios(db, { lista }, por) {
   return { lista: limpa };
 }
 
-export { salvarProduto, apagarProduto, salvarRecheios, validarProduto, PRODUTOS, RECHEIOS };
+/* O site dos clientes lê o catálogo inteiro num documento só (sis_catalogo/site), que custa 1
+   leitura por visita em vez de uma por produto (a cota grátis é de 50 mil leituras por dia). É
+   refeito depois de cada mudança no catálogo e todo dia no cron das 9h. Só vai o que o site mostra. */
+const CATALOGO_SITE = "sis_catalogo/site";
+async function publicarCatalogo(db) {
+  const [lista, rech] = await Promise.all([db.collection(PRODUTOS).listar(), db.doc(RECHEIOS).get()]);
+  const produtos = lista.filter(p => p.ativo !== false && p.nome && p.valorUnit > 0).map(p => ({
+    id: p.id, nome: p.nome, categoria: p.categoria || "", valorUnit: p.valorUnit, qtdMin: p.qtdMin || 1,
+    ingredientes: p.ingredientes || "", imagem: p.imagem || "", destaque: p.destaque === true, tiposPacote: p.tiposPacote || []
+  }));
+  const recheios = rech.exists ? rech.get("lista") || [] : [];
+  await db.doc(CATALOGO_SITE).set({ produtos, recheios, atualizadoEm: FieldValue.serverTimestamp() });
+  return { produtos: produtos.length, recheios: recheios.length };
+}
+
+export { salvarProduto, apagarProduto, salvarRecheios, validarProduto, publicarCatalogo, PRODUTOS, RECHEIOS, CATALOGO_SITE };

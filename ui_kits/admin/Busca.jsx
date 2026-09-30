@@ -45,9 +45,9 @@ function GlobalSearch({ q, onQ, onView }) {
   const [open, setOpen] = React.useState(false);
   const [ativo, setAtivo] = React.useState(-1);
   const t = norm(q).trim();
-  /* Real: assina os pedidos só enquanto há texto na busca. A consulta é a mesma das telas Pedidos e
-     Agenda, e o Firestore reaproveita a mesma escuta (sem leituras a mais quando elas estão abertas). */
-  const vivo = useAoVivo(REAL_B() && t ? "pedidos" : "nada");
+  /* Real: assina todos os pedidos (histórico inclusive) só enquanto há texto na busca. A tela de
+     Pedidos com busca usa a mesma consulta, e o Firestore reaproveita a escuta. */
+  const vivo = useAoVivo(REAL_B() && t ? "pedidosTodos" : "nada");
   const indice = React.useMemo(() => REAL_B() ? [grupoPedidos(vivo.dados || [])] : indiceBusca(), [vivo.dados]);
   const carregando = REAL_B() && !!t && !vivo.dados && vivo.estado === "carregando";
   const grupos = t ? indice.map(g => ({ ...g, achados: g.itens.filter(it => it.busca.some(s => norm(s).includes(t))) })).filter(g => g.achados.length) : [];

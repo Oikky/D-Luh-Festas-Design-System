@@ -250,7 +250,8 @@ function Pedidos({ compact, q }) {
   const [nota, setNota] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
-  const carga = useAoVivo("pedidos");
+  /* Busca e as abas de pedidos encerrados leem o histórico inteiro; o resto só o recente (firebase.js). */
+  const carga = useAoVivo(q || tab === "final" || tab === "cancelado" || tab === "busca" ? "pedidosTodos" : "pedidos");
   const catalogo = useAoVivo("produtos");
   const produtos = catalogo.dados || [];
   const [link, setLink] = React.useState(null);

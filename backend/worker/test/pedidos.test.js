@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
 import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, apagarPedido, apagarPagamento } from "../src/pedidos.js";
-import { salvarProduto, apagarProduto, salvarRecheios } from "../src/produtos.js";
+import { salvarProduto, apagarProduto, salvarRecheios, publicarCatalogo } from "../src/produtos.js";
 import { salvarFinanceiro, apagarFinanceiro, pagarBoleto } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
 import { registrarNota } from "../src/notas.js";
@@ -260,6 +260,17 @@ test("apagarPagamento desconta do pedido e reabre o finalizado", async () => {
   const ev = (await eventos(id)).find(e => e.tipo === "pagamento-apagado");
   assert.equal(ev.valor, 20000);
   await assert.rejects(apagarPagamento(db, { pagamentoId: "ap-2" }, "ana"), /não existe/);
+});
+
+test("publicarCatalogo junta produtos ativos e recheios em sis_catalogo/site", async () => {
+  const a = await salvarProduto(db, { nome: "Brigadeiro", categoria: "Doce", valorUnit: 150, qtdMin: 25 }, "ana");
+  await salvarProduto(db, { nome: "Oculto", categoria: "Doce", valorUnit: 100, ativo: false }, "ana");
+  await salvarRecheios(db, { lista: ["Ninho"] }, "ana");
+  await publicarCatalogo(db);
+  const site = (await db.doc("sis_catalogo/site").get()).data();
+  assert.ok(site.produtos.some(p => p.id === a.id && p.nome === "Brigadeiro" && p.valorUnit === 150));
+  assert.ok(!site.produtos.some(p => p.nome === "Oculto"));
+  assert.deepEqual(site.recheios, ["Ninho"]);
 });
 
 test("registrarNota grava tipo, número e CPF/CNPJ; corrigir guarda a anterior no evento", async () => {

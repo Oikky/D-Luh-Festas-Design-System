@@ -138,7 +138,7 @@ function ClienteModal({ c, onClose, onPedido, onNovo }) {
 }
 
 function TelaClientes({ compact, onView, onQ }) {
-  const carga = useAoVivo("pedidos");
+  const carga = useAoVivo("pedidosTodos");
   const catalogo = useAoVivo("produtos");
   const [busca, setBusca] = React.useState("");
   const [ordem, setOrdem] = React.useState("recentes");

@@ -29,16 +29,30 @@
     } finally { clearTimeout(t); }
   }
 
-  async function doFirestore() {
-    const [prod, rech] = await Promise.all([buscar("sis_produtos?pageSize=300"), buscar("sis_catalogo/recheios")]);
-    const produtos = (prod.documents || []).map(doc => {
+  const doProduto = (id, f) => ({
+    id, nome: f.nome || "", categoria: f.categoria || "", valorUnit: f.valorUnit || 0,
+    qtdMin: f.qtdMin || 1, descricao: f.ingredientes || "", imagem: f.imagem || "", destaque: f.destaque === true,
+    tiposPacote: f.tiposPacote || [], ativo: f.ativo !== false
+  });
+
+  /* O Worker junta o catálogo em sis_catalogo/site: 1 leitura por visita em vez de uma por produto
+     (a cota grátis do Firestore é de 50 mil leituras por dia). Sem esse documento, lê como antes. */
+  async function lerCatalogo() {
+    try {
+      const doc = await buscar("sis_catalogo/site");
       const f = Object.fromEntries(Object.entries(doc.fields || {}).map(([k, v]) => [k, valor(v)]));
-      return {
-        id: doc.name.split("/").pop(), nome: f.nome || "", categoria: f.categoria || "", valorUnit: f.valorUnit || 0,
-        qtdMin: f.qtdMin || 1, descricao: f.ingredientes || "", imagem: f.imagem || "", destaque: f.destaque === true,
-        tiposPacote: f.tiposPacote || [], ativo: f.ativo !== false
-      };
-    }).filter(p => p.ativo && p.nome && p.valorUnit > 0)
+      if (Array.isArray(f.produtos) && f.produtos.length) return { lista: f.produtos.map(p => doProduto(p.id, p)), recheios: f.recheios || [] };
+    } catch (e) { /* segue para a leitura produto a produto */ }
+    const [prod, rech] = await Promise.all([buscar("sis_produtos?pageSize=300"), buscar("sis_catalogo/recheios")]);
+    return {
+      lista: (prod.documents || []).map(doc => doProduto(doc.name.split("/").pop(), Object.fromEntries(Object.entries(doc.fields || {}).map(([k, v]) => [k, valor(v)])))),
+      recheios: valor(rech.fields && rech.fields.lista) || []
+    };
+  }
+
+  async function doFirestore() {
+    const { lista, recheios } = await lerCatalogo();
+    const produtos = lista.filter(p => p.ativo && p.nome && p.valorUnit > 0)
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
     if (!produtos.length) throw new Error("Catálogo vazio");
     // Mesmo nome duas vezes (cadastro repetido no admin): fica o que tem foto.
@@ -48,7 +62,7 @@
       if (!outro || (!outro.imagem && p.imagem)) porNome.set(k, p);
     }
     produtos.splice(0, produtos.length, ...produtos.filter(p => porNome.get(p.nome.trim().toLowerCase()) === p));
-    return { produtos, recheios: valor(rech.fields && rech.fields.lista) || [] };
+    return { produtos, recheios };
   }
 
   function daReserva() {

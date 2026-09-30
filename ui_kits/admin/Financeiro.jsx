@@ -108,7 +108,7 @@ function Financeiro({ compact, onQ, onView }) {
   const [acao, pendente] = useAcao(showToast);
   const fin = useAoVivo("financeiro");
   const pag = useAoVivo("todosPagamentos");
-  const ped = useAoVivo("pedidos");
+  const ped = useAoVivo("pedidosTodos");
   /* The demo has no server to echo a write back, so it edits its own copy; the real system
      waits for Firestore to send the change. */
   const local = fn => REAL ? null : () => fin.setDados(fn);

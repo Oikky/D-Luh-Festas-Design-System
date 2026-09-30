@@ -190,6 +190,10 @@ const DEPOIS = {
     efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id), efeitos.telegramNovoPedido(env, db, r.id)
   ],
   editarPedido: (env, db, dados, r) => r.mudou ? [efeitos.sincronizarAgenda(env, db, dados.pedidoId)] : [],
+  salvarProduto: (env, db) => [produtos.publicarCatalogo(db)],
+  apagarProduto: (env, db) => [produtos.publicarCatalogo(db)],
+  salvarRecheios: (env, db) => [produtos.publicarCatalogo(db)],
+  trocarFotoProduto: (env, db) => [produtos.publicarCatalogo(db)],
   apagarPagamento: (env, db, dados, r) => r.pedidoId && r.pagamento ? [efeitos.sincronizarAgenda(env, db, r.pedidoId)] : [],
   mudarStatus: (env, db, dados, r, por) => !r.mudou ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId),
@@ -477,6 +481,7 @@ export default {
       return;
     }
     if (evento.cron === CRON_LEMBRETE) {
+      ctx.waitUntil(produtos.publicarCatalogo(db).catch(e => console.error(JSON.stringify({ msg: "catálogo do site falhou", erro: String(e) }))));
       if (!whatsappLigado(env)) return;
       ctx.waitUntil(lembretes.paraLembrar(db, { automatico: true })
         .then(lista => lembretes.enviarLembretes({ env, db, lista, automatico: true, por: "lembrete-automatico", gerarCobranca: gerarEntrada(env, db, "lembrete-automatico") }))

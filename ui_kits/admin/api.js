@@ -133,6 +133,10 @@ window.DLUH_API = (() => {
   }
   const naoLigada = () => Promise.reject(new ErroApi("nao-ligada"));
 
+  /* Mesmos formatos; a diferença é quanto do banco é lido (firebase.js). */
+  MAPAS.pedidosTodos = MAPAS.pedidos;
+  MAPAS.pagamentosRecentes = MAPAS.todosPagamentos;
+
   if (modo === "firebase") return {
     ErroApi, modo, hoje,
     carregar: naoLigada,
@@ -155,7 +159,8 @@ window.DLUH_API = (() => {
     }
   };
 
-  const carregar = colecao => chamar("carregar", () => copia(colecao ? window.DLUH[colecao] : window.DLUH));
+  const DEMO = { pedidosTodos: "pedidos", pagamentosRecentes: "todosPagamentos" };
+  const carregar = colecao => chamar("carregar", () => copia(colecao ? window.DLUH[DEMO[colecao] || colecao] : window.DLUH));
   return {
     ErroApi, modo, hoje: () => window.DLUH.hoje,
     carregar,

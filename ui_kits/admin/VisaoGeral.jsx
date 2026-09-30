@@ -119,7 +119,7 @@ const ddmm = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "";
 
 function VisaoGeral({ compact, onView, onQ }) {
   const ped = useAoVivo("pedidos");
-  const pag = useAoVivo("todosPagamentos");
+  const pag = useAoVivo("pagamentosRecentes");
   const [verReceber, setVerReceber] = React.useState(false);
   const erro = ped.estado === "erro" && !ped.dados ? ped : pag.estado === "erro" && !pag.dados ? pag : null;
   const r = React.useMemo(() => ped.dados && pag.dados ? resumoDe(ped.dados, pag.dados, window.DLUH_API.hoje()) : null, [ped.dados, pag.dados]);
