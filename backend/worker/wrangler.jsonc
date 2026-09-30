@@ -5,6 +5,10 @@
   "compatibility_date": "2026-09-25",
   // global_fetch_strictly_public: sem ele, chamar outro Worker desta conta pelo workers.dev (o repasse
   // da Evolution para o coda-proxy) volta 404.
+  // Endereço próprio: algumas internets bloqueiam *.workers.dev (29/09/2026, a da loja inclusive).
+  // O workers.dev continua ligado para o Telegram, a Evolution, a Alexa e links antigos.
+  "routes": [{ "pattern": "api.dluhfestas.com", "custom_domain": true }],
+  "workers_dev": true,
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   // Workers AI: transcrição dos áudios da assistente (Whisper).
   "ai": { "binding": "AI" },

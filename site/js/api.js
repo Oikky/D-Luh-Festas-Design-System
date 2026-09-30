@@ -4,7 +4,7 @@
    ?api=teste na URL). */
 (function () {
   "use strict";
-  const BASE = "https://dluh-api.sitedluh.workers.dev";
+  const BASE = "https://api.dluhfestas.com";
   const teste = /[?&]api=teste\b/.test(location.search);
   if (teste) return; // api-teste.js assume
 

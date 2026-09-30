@@ -153,7 +153,7 @@ async function senhaDoSistema(env, senha) {
 const ehSistema = (claims, env) => !!claims && claims.email === env.SISTEMA_EMAIL && claims.firebase?.sign_in_provider === "password";
 
 /* Endereço público do Worker: o link da InfinitePay avisa o pagamento aqui (o cron não tem request). */
-const ORIGEM_API = "https://dluh-api.sitedluh.workers.dev";
+const ORIGEM_API = "https://api.dluhfestas.com";
 const linkCurto = pedidoId => `${ORIGEM_API}/pagar/${encodeURIComponent(pedidoId)}`;
 
 /* Link curto de pagamento, como no sistema antigo (/pagar?rowId=…): leva ao último link gerado

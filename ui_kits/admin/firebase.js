@@ -3,7 +3,7 @@
    Sem o parâmetro, nada aqui roda e o admin segue com os dados de exemplo de data.js. */
 if (new URLSearchParams(location.search).get("fonte") === "firebase") {
   const V = "10.12.0";
-  const API = "https://dluh-api.sitedluh.workers.dev";
+  const API = "https://api.dluhfestas.com";
   const CONFIG = {
     apiKey: "AIzaSyCV7LcTZmCE9MpezCvBah0hHQ245WYcixs",
     authDomain: "dluh-festas.firebaseapp.com",
