@@ -85,9 +85,81 @@ const copiarPedido = (p, onToast) => navigator.clipboard.writeText([
   `Total ${p.total}${p.falta ? ` · falta ${p.falta}` : ""}`
 ].filter(Boolean).join("\n")).then(() => onToast("Dados copiados"), () => onToast("Não deu pra copiar os dados", "danger"));
 
+/* Nota fiscal. The ERP4ME (Alterdata) has no open API yet: the atendente copies the order's data,
+   issues the note there, and records its number here. When the API arrives, "Registrar" becomes
+   "Emitir" and the Worker does the ERP4ME part. */
+const ERP4ME = "https://erpforme.alterdata.com.br/";
+const docFmt = d => d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
+  : d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5") : d;
+const textoNota = (p, tipo, doc) => [
+  `Nota: ${tipo}`,
+  `Cliente: ${p.cliente}`,
+  doc ? `${doc.length === 14 ? "CNPJ" : "CPF"}: ${docFmt(doc)}` : null,
+  p.tel ? `Telefone: ${p.tel}` : null,
+  p.email ? `E-mail: ${p.email}` : null,
+  p.endereco ? `Endereço: ${p.endereco}` : null,
+  "",
+  ...(p._c ? p._c.itens.map(i => `${i.qtd}× ${i.nome} — ${reais(i.valorUnit)} cada = ${reais(i.qtd * i.valorUnit)}`)
+    : (p.itens || []).map(i => `${i.qty}× ${i.name} — ${i.price}`)),
+  p._c && p._c.taxaEntrega ? `Taxa de entrega: ${reais(p._c.taxaEntrega)}` : null,
+  `Total: ${p.total}`,
+  "",
+  `Informações complementares: pedido ${p.id} — D'Luh Festas`
+].filter(x => x !== null).join("\n");
+
+function NotaModal({ p, onClose, onToast, acao, pendente, aoSalvar }) {
+  const [tipo, setTipo] = React.useState(p.nota ? p.nota.tipo : p.tipo === "Empresa" ? "NFS-e" : "NFC-e");
+  const [doc, setDoc] = React.useState(p.nota && p.nota.documento ? docFmt(p.nota.documento) : "");
+  const [numero, setNumero] = React.useState(p.nota ? p.nota.numero : "");
+  const [tentou, setTentou] = React.useState(false);
+  const digitos = doc.replace(/\D/g, "");
+  const erroDoc = digitos && digitos.length !== 11 && digitos.length !== 14 ? "CPF tem 11 dígitos e CNPJ, 14" : undefined;
+  const texto = textoNota(p, tipo, digitos);
+  const copiar = () => navigator.clipboard.writeText(texto).then(() => onToast("Dados da nota copiados"), () => onToast("Não deu pra copiar: selecione o texto e copie", "danger"));
+  const salvar = async () => {
+    setTentou(true);
+    const n = numero.trim();
+    if (!n || erroDoc) return;
+    const nota = { tipo, numero: n, documento: digitos };
+    const ok = await acao("nota", { ok: `${tipo} ${n} registrada no pedido`, falhou: "Não deu pra registrar a nota" },
+      REAL() ? null : () => aoSalvar(nota), { acao: "registrarNota", dados: { pedidoId: p.id, ...nota } });
+    if (ok) onClose();
+  };
+  return <Modal width={600} title={p.nota ? "Nota fiscal" : "Emitir nota fiscal"} onClose={pendente === "nota" ? null : onClose}
+    subtitle={`${p.id} · ${p.cliente || "cliente"} · ${p.total}`}
+    footer={<>
+      <Button variant="ghost" block icon="external-link" onClick={() => window.open(ERP4ME, "_blank", "noopener")}>Abrir ERP4ME</Button>
+      <Button block icon="save" loading={pendente === "nota"} onClick={salvar}>{p.nota ? "Salvar correção" : "Registrar nota"}</Button>
+    </>}>
+    <form onSubmit={e => { e.preventDefault(); salvar(); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        <Field label="Tipo" hint={tipo === "NFS-e" ? "Serviço: festa, decoração, locação" : "Venda ao consumidor"}>
+          <Select options={["NFS-e", "NFC-e"]} value={tipo} onChange={e => setTipo(e.target.value)} />
+        </Field>
+        <Field label="CPF ou CNPJ" error={erroDoc} hint={p.tipo === "Empresa" ? "Empresa: coloque o CNPJ" : "Opcional para pessoa"}>
+          <Input inputMode="numeric" autoComplete="off" value={doc} invalid={!!erroDoc}
+            onChange={e => setDoc(e.target.value)} onBlur={() => setDoc(docFmt(digitos))} />
+        </Field>
+      </div>
+      <Field label="Dados para a nota" hint="Copie, emita no ERP4ME e confira os valores antes de transmitir.">
+        <div style={{ position: "relative" }}>
+          <pre style={{ margin: 0, padding: "12px 14px", paddingRight: 48, borderRadius: "var(--radius-sm)", border: "var(--border-hairline) solid var(--color-border)",
+            background: "var(--color-surface-sunken, var(--color-bg))", fontFamily: "var(--font-ui)", fontSize: "var(--fs-body-s)",
+            lineHeight: "var(--lh-normal)", whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 240, overflowY: "auto" }}>{texto}</pre>
+          <div style={{ position: "absolute", top: 6, right: 6 }}><IconButton icon="copy" label="Copiar dados da nota" onClick={copiar} /></div>
+        </div>
+      </Field>
+      <Field label="Número da nota" required error={tentou && !numero.trim() ? "Digite o número que o ERP4ME deu à nota" : undefined}
+        hint="Depois de emitir, anote o número aqui para o pedido ficar com a nota.">
+        <Input autoComplete="off" value={numero} invalid={tentou && !numero.trim()} onChange={e => setNumero(e.target.value)} />
+      </Field>
+    </form>
+  </Modal>;
+}
+
 /* Details is the edit form: the same fields as Pedido manual, filled from the order. Status,
    payments and the kitchen don't change here; the total and payment state follow the items. */
-function DetalhesModal({ pedido, onClose, onToast, acao, pendente, compact, produtos }) {
+function DetalhesModal({ pedido, onClose, onToast, acao, pendente, compact, produtos, onNota }) {
   /* Demo: what the order already received comes from the order itself. Real system: every
      payment is its own record, live. */
   const [pgtosDemo, setPgtos] = React.useState(() => pedido && valor(pedido.pago) > 0
@@ -137,6 +209,11 @@ function DetalhesModal({ pedido, onClose, onToast, acao, pendente, compact, prod
         <div style={{ flex: 1 }} />
         <Button size="sm" variant="outline" icon="list" onClick={() => setVerPgtos(true)}>Pagamentos ({pgtos.length})</Button>
       </div>
+      {onNota && !cancelado ? <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "var(--border-hairline) solid var(--color-border)" }}>
+        <Field label="Nota fiscal"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{pedido.nota ? `${pedido.nota.tipo} ${pedido.nota.numero}` : "Não emitida"}</div></Field>
+        <div style={{ flex: 1 }} />
+        <Button size="sm" variant="outline" icon="receipt-text" onClick={onNota}>{pedido.nota ? "Ver nota" : "Emitir nota"}</Button>
+      </div> : null}
     </Modal>
     {verPgtos ? <PagamentosModal lista={pgtos} onChange={REAL() ? () => {} : setPgtos} pedido={pedido} onClose={() => setVerPgtos(false)} onToast={onToast} acao={acao} pendente={pendente} /> : null}
     {sair ? <ConfirmDialog tone="danger" icon="trash-2" title="Descartar alterações?" message="O que foi mudado neste pedido se perde. O pedido fica como estava."
@@ -170,6 +247,7 @@ function Pedidos({ compact, q }) {
   const [manual, setManual] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
   const [apagando, setApagando] = React.useState(null);
+  const [nota, setNota] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   const carga = useAoVivo("pedidos");
@@ -237,6 +315,7 @@ function Pedidos({ compact, q }) {
                 {p.tipo ? <Badge tone="accent" icon="building-2">{p.tipo}</Badge> : null}
                 {p.falta ? <Badge tone="warn">Falta {p.falta}</Badge> : null}
                 {p.feitoNaCozinha && p.status === "Em produção" ? <Badge tone="success" icon="chef-hat">Feito na cozinha</Badge> : null}
+                {p.nota ? <Badge tone="neutral" icon="receipt-text">{p.nota.tipo} {p.nota.numero}</Badge> : null}
               </>}
               items={p.itens || []} total={p.total} paid={p.pago} due={p.falta}
               actions={<>
@@ -264,6 +343,7 @@ function Pedidos({ compact, q }) {
                   { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
                   { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
                   { label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) },
+                  ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
                   { divider: true },
                   { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) },
                   { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => setApagando(p) }
@@ -279,7 +359,8 @@ function Pedidos({ compact, q }) {
           description="Assim que um pedido entrar nesse status ele aparece aqui automaticamente." /></Card>
       )}
 
-      {detalhe ? <DetalhesModal key={detalhe.id} pedido={todos.find(x => x.id === detalhe.id) || detalhe} onClose={() => setDetalhe(null)} onToast={showToast} acao={acao} pendente={pendente} compact={compact} produtos={produtos} /> : null}
+      {detalhe ? <DetalhesModal key={detalhe.id} pedido={todos.find(x => x.id === detalhe.id) || detalhe} onClose={() => setDetalhe(null)} onToast={showToast} acao={acao} pendente={pendente} compact={compact} produtos={produtos}
+        onNota={() => setNota(todos.find(x => x.id === detalhe.id) || detalhe)} /> : null}
       {manual ? <ManualModal compact={compact} onClose={() => setManual(false)} onToast={showToast} acao={acao} pendente={pendente} produtos={produtos} clientes={window.clientesDe(todos)} /> : null}
       {confirm ? <ConfirmDialog tone={confirm.tone} icon={confirm.icon} title={confirm.title} message={confirm.message}
         confirmLabel={confirm.confirmLabel} cancelLabel="Voltar" pending={pendente === confirm.tipo}
@@ -297,6 +378,8 @@ function Pedidos({ compact, q }) {
             REAL() ? null : () => carga.setDados(l => l.filter(x => x.id !== p.id)), { acao: "apagarPedido", dados: { pedidoId: p.id, senha } });
           if (ok) setApagando(null);
         }} /> : null}
+      {nota ? <NotaModal key={"nota-" + nota.id} p={todos.find(x => x.id === nota.id) || nota} onClose={() => setNota(null)} onToast={showToast} acao={acao} pendente={pendente}
+        aoSalvar={n => carga.setDados(l => l.map(x => x.id === nota.id ? { ...x, nota: n } : x))} /> : null}
       {link ? <LinkCobranca link={link} onClose={() => setLink(null)} onToast={showToast} /> : null}
       {toastNode}
     </div>

@@ -17,6 +17,7 @@ import * as pedidos from "./pedidos.js";
 import * as infinitepay from "./infinitepay.js";
 import * as produtos from "./produtos.js";
 import * as financeiro from "./financeiro.js";
+import * as notas from "./notas.js";
 import { enviarImagem } from "./google.js";
 import { whatsappLigado, enviarTexto } from "./whatsapp.js";
 import * as efeitos from "./efeitos.js";
@@ -98,6 +99,9 @@ const ACOES = {
   apagarProduto: (db, dados) => produtos.apagarProduto(db, dados),
   salvarRecheios: (db, dados, por) => produtos.salvarRecheios(db, dados, por),
   enviarImagem: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "produto" }),
+
+  /* Nota fiscal emitida no ERP4ME: guarda tipo, número e CPF/CNPJ no pedido (notas.js). */
+  registrarNota: (db, dados, por) => notas.registrarNota(db, dados, por),
 
   /* Financeiro: transações avulsas, boletos e cartões (financeiro.js). */
   salvarFinanceiro: (db, dados, por) => financeiro.salvarFinanceiro(db, dados, por),

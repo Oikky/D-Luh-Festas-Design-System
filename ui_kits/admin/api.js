@@ -82,6 +82,7 @@ window.DLUH_API = (() => {
             topper: topoTexto(i.topo) })),
           obs: x.obs || "",
           email: x.cliente?.email || "", uid: x.clienteUid || "",
+          nota: x.nota ? { tipo: x.nota.tipo, numero: x.nota.numero, documento: x.nota.documento || "" } : null,
           imp: paraImprimir(x),
           /* The raw record: what editing, printing and the money actions need, unformatted. */
           _c: { total: x.total || 0, pago: x.pago || 0, falta, entradaPct: x.entradaPct || 50, formaPagamento: x.formaPagamento || null,

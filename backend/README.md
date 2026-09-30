@@ -25,6 +25,7 @@ lógica no Worker **`dluh-api`** (Cloudflare, plano grátis). Plano e inventári
 | `/api/registrarPagamentoManual` | admin | Pix por fora, dinheiro, maquininha ou `outro` |
 | `/api/editarPedido` | admin (Detalhes) | Troca cliente, entrega, itens e valores; refaz total e `pagamento`; evento guarda o "antes" |
 | `/api/avisarCliente` | admin ("Notificar alterações") | Manda ao cliente, pelo WhatsApp, o resumo atual do pedido |
+| `/api/registrarNota` | admin (Nota fiscal) | Grava no pedido a nota emitida no ERP4ME: `nota{tipo: NFS-e/NFC-e, numero, documento?}`; corrigir guarda a anterior no evento |
 | `/api/salvarProduto`, `/api/apagarProduto` | admin (Produtos) | Catálogo em `sis_produtos` |
 | `/api/salvarRecheios` | admin (Produtos) | Lista de recheios em `sis_catalogo/recheios` |
 | `/api/enviarImagem` | admin | Foto de produto ou imagem do topo → Google Drive; devolve o link |

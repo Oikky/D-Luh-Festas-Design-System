@@ -9,6 +9,7 @@ import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento
 import { salvarProduto, apagarProduto, salvarRecheios } from "../src/produtos.js";
 import { salvarFinanceiro, apagarFinanceiro, pagarBoleto } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
+import { registrarNota } from "../src/notas.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
 const PROJETO = "demo-dluh";
@@ -244,4 +245,25 @@ test("apagarPedido tira o pedido, os eventos e os pagamentos dele", async () => 
   assert.equal((await db.collection("sis_pagamentos").doc("p-1").get()).exists, false);
   assert.equal((await db.collection("sis_pagamentos").doc("p-2").get()).exists, true);
   await assert.rejects(apagarPedido(db, { pedidoId: id }), /não existe/);
+});
+
+test("registrarNota grava tipo, número e CPF/CNPJ; corrigir guarda a anterior no evento", async () => {
+  const { id } = await criarPedido(db, base(), "ana@dluh");
+  await assert.rejects(registrarNota(db, { pedidoId: id, tipo: "NF-e", numero: "1" }, "ana@dluh"), /Tipo de nota/);
+  await assert.rejects(registrarNota(db, { pedidoId: id, tipo: "NFS-e", numero: " " }, "ana@dluh"), /número da nota/);
+  await assert.rejects(registrarNota(db, { pedidoId: id, tipo: "NFS-e", numero: "1", documento: "123" }, "ana@dluh"), /CPF/);
+
+  await registrarNota(db, { pedidoId: id, tipo: "NFS-e", numero: " 152 ", documento: "12.345.678/0001-90" }, "ana@dluh");
+  let p = (await db.collection("sis_pedidos").doc(id).get()).data();
+  assert.equal(p.nota.tipo, "NFS-e");
+  assert.equal(p.nota.numero, "152");
+  assert.equal(p.nota.documento, "12345678000190");
+
+  await registrarNota(db, { pedidoId: id, tipo: "NFC-e", numero: "77" }, "bia@dluh");
+  p = (await db.collection("sis_pedidos").doc(id).get()).data();
+  assert.equal(p.nota.numero, "77");
+  assert.equal(p.nota.documento, undefined);
+  const ev = (await eventos(id)).filter(e => e.tipo === "nota");
+  assert.equal(ev.length, 2);
+  assert.equal(ev[1].antes.numero, "152");
 });
