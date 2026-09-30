@@ -82,34 +82,72 @@ function Sidebar({ view, onView, onSettings, onNotif, hasNotif }) {
   );
 }
 
+/* Phone: three main screens plus "Mais", which opens the rest as a sheet over the bar. Bigger
+   than the rail items on purpose: seven tabs in 390px were too small to hit and to read. */
+const PRINCIPAIS = ["visao", "pedidos", "cozinha"];
+
 function BottomNav({ value, onChange }) {
-  return (
+  const [mais, setMais] = React.useState(false);
+  const itens = navItems();
+  const extras = itens.filter(it => !PRINCIPAIS.includes(it.id));
+  const extraAtivo = extras.some(it => it.id === value);
+  const contaExtras = extras.reduce((s, it) => s + (it.count || 0), 0);
+  React.useEffect(() => {
+    if (!mais) return;
+    const f = e => e.key === "Escape" && setMais(false);
+    window.addEventListener("keydown", f);
+    return () => window.removeEventListener("keydown", f);
+  }, [mais]);
+  const aba = (it, active, onClick) => (
+    <button key={it.id} type="button" onClick={onClick} aria-current={active ? "page" : undefined} aria-expanded={it.id === "mais" ? mais : undefined} style={{
+      flex: 1, minHeight: 58, display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", gap: 4, border: "none", background: "transparent", cursor: "pointer",
+      color: active ? "var(--text-accent)" : "var(--text-muted)", fontFamily: "var(--font-ui)",
+      fontSize: "var(--fs-tiny)", fontWeight: "var(--fw-semibold)", position: "relative"
+    }}>
+      <Icon name={it.icon} size={26} />
+      {it.label}
+      {it.count ? <span style={{
+        position: "absolute", top: 4, right: "50%", marginRight: -26, minWidth: 18, height: 18,
+        padding: "0 5px", borderRadius: "var(--radius-pill)", background: "var(--color-accent-strong)",
+        color: "var(--color-accent-contrast)", fontSize: "var(--fs-micro)", fontWeight: "var(--fw-bold)",
+        display: "flex", alignItems: "center", justifyContent: "center"
+      }}>{it.count}</span> : null}
+    </button>
+  );
+  return (<>
+    {mais ? <div onClick={() => setMais(false)} style={{ position: "absolute", inset: 0, zIndex: 30, background: "rgba(8,6,10,.55)" }}>
+      <div role="dialog" aria-label="Mais telas" onClick={e => e.stopPropagation()} style={{
+        position: "absolute", left: 0, right: 0, bottom: "calc(66px + env(safe-area-inset-bottom))",
+        background: "var(--color-surface)", borderTop: "var(--border-hairline) solid var(--color-border)",
+        borderRadius: "var(--radius-lg) var(--radius-lg) 0 0", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 4
+      }}>
+        {extras.map(it => {
+          const active = it.id === value;
+          return <button key={it.id} type="button" autoFocus={it === extras[0]} aria-current={active ? "page" : undefined}
+            onClick={() => { setMais(false); onChange(it.id); }} style={{
+              display: "flex", alignItems: "center", gap: 14, minHeight: 56, padding: "0 14px", width: "100%",
+              border: "none", borderRadius: "var(--radius-md)", cursor: "pointer", textAlign: "left",
+              background: active ? "var(--color-accent-soft)" : "transparent",
+              color: active ? "var(--text-accent)" : "var(--text-strong)",
+              fontFamily: "var(--font-ui)", fontSize: "var(--fs-body)", fontWeight: "var(--fw-semibold)"
+            }}>
+            <Icon name={it.icon} size={24} />
+            <span style={{ flex: 1 }}>{it.label}</span>
+            {it.count ? <span style={{ minWidth: 22, height: 22, padding: "0 6px", borderRadius: "var(--radius-pill)", background: "var(--color-accent-strong)",
+              color: "var(--color-accent-contrast)", fontSize: "var(--fs-tiny)", fontWeight: "var(--fw-bold)", display: "flex", alignItems: "center", justifyContent: "center" }}>{it.count}</span> : null}
+          </button>;
+        })}
+      </div>
+    </div> : null}
     <nav aria-label="Principal" style={{
       display: "flex", borderTop: "1px solid var(--color-border)", background: "var(--color-surface)",
-      padding: "6px 4px calc(8px + env(safe-area-inset-bottom))", gap: 2, flex: "0 0 auto"
+      padding: "4px 6px calc(4px + env(safe-area-inset-bottom))", gap: 4, flex: "0 0 auto", position: "relative", zIndex: 31
     }}>
-      {navItems().map(it => {
-        const active = it.id === value;
-        return (
-          <button key={it.id} type="button" onClick={() => onChange(it.id)} aria-current={active ? "page" : undefined} style={{
-            flex: 1, minHeight: "var(--tap-min)", display: "flex", flexDirection: "column", alignItems: "center",
-            justifyContent: "center", gap: 3, border: "none", background: "transparent", cursor: "pointer",
-            color: active ? "var(--text-accent)" : "var(--text-muted)", fontFamily: "var(--font-ui)",
-            fontSize: "var(--fs-micro)", fontWeight: "var(--fw-semibold)", position: "relative"
-          }}>
-            <Icon name={it.icon} size={21} />
-            {it.label}
-            {it.count ? <span style={{
-              position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 16, height: 16,
-              padding: "0 4px", borderRadius: "var(--radius-pill)", background: "var(--color-accent-strong)",
-              color: "var(--color-accent-contrast)", fontSize: "var(--fs-micro)", fontWeight: "var(--fw-bold)",
-              display: "flex", alignItems: "center", justifyContent: "center"
-            }}>{it.count}</span> : null}
-          </button>
-        );
-      })}
+      {itens.filter(it => PRINCIPAIS.includes(it.id)).map(it => aba(it, it.id === value && !mais, () => { setMais(false); onChange(it.id); }))}
+      {aba({ id: "mais", label: "Mais", icon: mais ? "x" : "menu", count: mais ? 0 : contaExtras }, extraAtivo || mais, () => setMais(m => !m))}
     </nav>
-  );
+  </>);
 }
 
 function Shell({ view, onView, compact, theme, onTheme, children, q, onQ }) {
