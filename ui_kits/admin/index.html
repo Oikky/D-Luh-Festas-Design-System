@@ -49,11 +49,12 @@ button:not(:disabled):active{transform:scale(var(--press-scale))}
      versão nova logo depois de publicar, sem Ctrl+Shift+R. A ordem é a mesma de antes. -->
 <script>
 (async () => {
+  const V = ""; // tools/publicar-site.py troca por "?v=<data>" na cópia de www.dluhfestas.com/admin
   const LOCAIS = ["../../_ds_bundle.js","data.js","contratos-data.js","data-extremos.js","api.js","firebase.js"];
   const TELAS = ["Estados.jsx","Busca.jsx","Notificacoes.jsx","Shell.jsx","VisaoGeral.jsx","Catalogo.jsx","PedidosModais.jsx","Pedidos.jsx","Agenda.jsx","Contratos.jsx","Financeiro.jsx","Cozinha.jsx","Produtos.jsx","Clientes.jsx","App.jsx"];
-  await Promise.all(["../../styles.css", ...LOCAIS, ...TELAS].map(u => fetch(u, { cache: "no-cache" }).catch(() => {})));
-  for (const u of LOCAIS) await new Promise(ok => { const s = document.createElement("script"); s.src = u; s.onload = s.onerror = ok; document.head.appendChild(s); });
-  for (const u of TELAS) { const s = document.createElement("script"); s.type = "text/babel"; s.src = u; document.body.appendChild(s); }
+  await Promise.all(["../../styles.css", ...LOCAIS, ...TELAS].map(u => fetch(u + V, { cache: "no-cache" }).catch(() => {})));
+  for (const u of LOCAIS) await new Promise(ok => { const s = document.createElement("script"); s.src = u + V; s.onload = s.onerror = ok; document.head.appendChild(s); });
+  for (const u of TELAS) { const s = document.createElement("script"); s.type = "text/babel"; s.src = u + V; document.body.appendChild(s); }
   Babel.transformScriptTags();
 })();
 </script>

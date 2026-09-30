@@ -50,6 +50,8 @@ for nome in os.listdir(admin):
         # O GitHub Pages deixa o navegador guardar os arquivos por 10 min: cada publicação ganha uma
         # versão nos scripts e estilos locais, e a tela nova chega na hora (inclusive na cozinha).
         s = re.sub(r'((?:src|href)="(?!https?:|//|#)[^"?]+\.(?:jsx?|css))"', rf'\1?v={VERSAO}"', s)
+        # Os scripts do admin vêm do carregador no fim do index.html (lista em JS, não <script src>).
+        s = s.replace('const V = "";', f'const V = "?v={VERSAO}";')
     open(p, "w", encoding="utf8").write(s)
 
 restos = [n for n in os.listdir(admin) if n.endswith((".html", ".js", ".jsx"))
