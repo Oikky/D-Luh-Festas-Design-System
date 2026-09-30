@@ -1,27 +1,60 @@
 const { Card, ListRow, StatusBadge, Button, IconButton, Badge, Icon, EmptyState } = window.DLuhFestasDesignSystem_c861a2;
 
-function ChartCard({ compact, serie }) {
-  const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  const max = Math.max(1, ...serie);
+const MESES_V = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const isoDe = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const somaDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return isoDe(d); };
+const curtoK = c => { const r = c / 100; return r >= 1000 ? (r / 1000).toFixed(1).replace(".", ",") + "k" : String(Math.round(r)); };
+
+/* Everything on this screen is computed from the orders and the payments received; nothing is
+   typed in. `pags` are payments in centavos with a local date (api.js → todosPagamentos). */
+const A_RECEBER = ["Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante"];
+function resumoDe(pedidos, pags, hoje) {
+  const vivos = pedidos.filter(p => p.status !== "Cancelado");
+  const cent = window.clCentavos;
+  const deHoje = vivos.filter(p => p.data === hoje);
+  const receber = vivos.filter(p => A_RECEBER.includes(p.status) && cent(p, "falta") > 0);
+  const fila = vivos.filter(p => p.status === "Em produção" && !p.feitoNaCozinha && p.data && p.data <= hoje);
+  const desde = somaDias(hoje, -29);
+  const mes = vivos.filter(p => p.data >= desde && p.data <= hoje);
+  const dow = (new Date(hoje + "T12:00:00").getDay() + 6) % 7;
+  const seg = somaDias(hoje, -dow), dom = somaDias(seg, 6);
+  const dias = Array.from({ length: 7 }, (_, i) => somaDias(seg, i));
+  const serie = dias.map(d => pags.filter(p => p.data === d).reduce((s, p) => s + p.valor, 0));
+  const [a, b] = [seg, dom].map(d => ({ dia: Number(d.slice(8, 10)), mes: MESES_V[Number(d.slice(5, 7)) - 1] }));
+  const porId = new Map(pedidos.map(p => [p.id, p]));
+  return {
+    hoje: deHoje.length, hojeValor: deHoje.reduce((s, p) => s + cent(p, "total"), 0),
+    receber: receber.reduce((s, p) => s + cent(p, "falta"), 0), receberN: receber.length,
+    fila: fila.length, atrasados: fila.filter(p => p.data < hoje).length,
+    ticket: mes.length ? Math.round(mes.reduce((s, p) => s + cent(p, "total"), 0) / mes.length) : 0, ticketN: mes.length,
+    serie, dias, hojeIdx: dow, semana: serie.reduce((s, v) => s + v, 0),
+    rotuloSemana: a.mes === b.mes ? `${a.dia} – ${b.dia} de ${b.mes}` : `${a.dia} de ${a.mes} – ${b.dia} de ${b.mes}`,
+    pagamentos: pags.slice().sort((a, b) => `${b.data} ${b.hora}`.localeCompare(`${a.data} ${a.hora}`)).slice(0, 6).map(p => ({ ...p, cliente: (porId.get(p.pedidoId) || {}).cliente })),
+    recentes: pedidos.slice(0, 6)
+  };
+}
+
+function ChartCard({ compact, r }) {
+  const nomes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const max = Math.max(1, ...r.serie);
   return (
     <Card header={<>
       <div>
-        <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Receita da semana</div>
-        <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>08 – 14 de junho</div>
+        <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Recebido na semana</div>
+        <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>{r.rotuloSemana}</div>
       </div>
+      <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", whiteSpace: "nowrap" }}>{window.brl(r.semana / 100)}</div>
     </>}>
-      {!serie.length || !serie.some(v => v > 0) ? <EmptyState icon="chart-no-axes-column" title="Sem receita registrada nesta semana" /> :
+      {!r.serie.some(v => v > 0) ? <EmptyState icon="chart-no-axes-column" title="Nenhum pagamento recebido nesta semana" /> :
       <div style={{ display: "flex", alignItems: "flex-end", gap: compact ? 6 : 12, height: 150 }}>
-        {serie.map((v, i) => (
-          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7, minWidth: 0 }}>
-            <span style={{ fontSize: "var(--fs-micro)", color: "var(--text-muted)", fontWeight: "var(--fw-semibold)" }}>
-              {(v / 1000).toFixed(1).replace(".", ",")}k
-            </span>
+        {r.serie.map((v, i) => (
+          <div key={i} title={window.brl(v / 100)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 7, minWidth: 0 }}>
+            <span style={{ fontSize: "var(--fs-micro)", color: "var(--text-muted)", fontWeight: "var(--fw-semibold)" }}>{v ? curtoK(v) : ""}</span>
             <div style={{
-              width: "100%", height: (v / max) * 104, borderRadius: "var(--radius-xs)",
-              background: "var(--color-accent-soft)", border: "1px solid var(--color-accent)"
+              width: "100%", height: Math.max(v ? 3 : 1, (v / max) * 104), borderRadius: "var(--radius-xs)",
+              background: v ? "var(--color-accent-soft)" : "var(--color-border)", border: v ? "1px solid var(--color-accent)" : "none"
             }} />
-            <span style={{ fontSize: "var(--fs-micro)", color: "var(--text-muted)" }}>{dias[i]}</span>
+            <span style={{ fontSize: "var(--fs-micro)", color: i === r.hojeIdx ? "var(--text-accent)" : "var(--text-muted)", fontWeight: i === r.hojeIdx ? "var(--fw-bold)" : undefined }}>{nomes[i]}</span>
           </div>
         ))}
       </div>}
@@ -29,29 +62,52 @@ function ChartCard({ compact, serie }) {
   );
 }
 
+function Indicador({ icon, label, value, sub, tone, onClick }) {
+  const card = <window.DLuhFestasDesignSystem_c861a2.StatCard icon={icon} label={label} value={value} tone={tone} style={{ height: "100%", boxSizing: "border-box" }}
+    chart={<div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: -4 }}>{sub}</div>} />;
+  return onClick ? <div role="button" tabIndex={0} data-indicador="" onClick={onClick} onKeyDown={e => e.key === "Enter" && onClick()}
+    style={{ cursor: "pointer", minWidth: 0, borderRadius: "var(--radius-lg)" }}>{card}</div> : <div style={{ minWidth: 0 }}>{card}</div>;
+}
+
 const RECENT_COLS = "minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr)";
 
-function VisaoGeral({ compact, onView }) {
-  const carga = useCarga(() => window.DLUH_API.carregar());
-  if (carga.estado === "erro" && !carga.dados) return <ErroCarga erro={carga.erro} oque="a visão geral" onTentar={carga.tentar} />;
-  if (!carga.dados) return <Carregando oque="a visão geral" />;
-  const d = { ...carga.dados, pagamentos: carga.dados.pagamentos || [], recentes: carga.dados.recentes || [], serieReceita: carga.dados.serieReceita || [] };
+const MEIO_ICONE = { Pix: "qr-code", Dinheiro: "banknote", "Cartão": "credit-card" };
+const ddmm = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "";
+
+function VisaoGeral({ compact, onView, onQ }) {
+  const ped = useAoVivo("pedidos");
+  const pag = useAoVivo("todosPagamentos");
+  const erro = ped.estado === "erro" && !ped.dados ? ped : pag.estado === "erro" && !pag.dados ? pag : null;
+  const r = React.useMemo(() => ped.dados && pag.dados ? resumoDe(ped.dados, pag.dados, window.DLUH_API.hoje()) : null, [ped.dados, pag.dados]);
+  if (erro) return <ErroCarga erro={erro.erro} oque="a visão geral" onTentar={erro.tentar} />;
+  if (!r) return <Carregando oque="a visão geral" />;
+  const abrirPedido = id => { onQ && onQ(id); onView("pedidos"); };
+  const d = {
+    pagamentos: r.pagamentos.map(p => ({ icon: MEIO_ICONE[p.meio] || "wallet", title: p.cliente || p.pedidoId,
+      sub: [p.pedidoId, p.meio, [ddmm(p.data), p.hora].filter(Boolean).join(" ")].filter(Boolean).join(" · "), value: "+ " + window.brl(p.valor / 100), tone: "in", id: p.pedidoId })),
+    recentes: r.recentes.map(p => ({ id: p.id, nome: p.cliente, status: p.status, total: p.total || "—", data: ddmm(p.data) || "sem data", hora: p.hora || "",
+      cat: p.tipo === "Empresa" ? "Empresa" : ((p._c && p._c.itens[0] && (p._c.itens[0].categoria || p._c.itens[0].nome)) || (p.itens && p.itens[0] && p.itens[0].name) || p.id) }))
+  };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap-section)" }}>
-      {/* The indicators have no data source yet. Until one exists they say so, instead of
-          showing typed-in numbers that read as real. */}
-      <Card padded={false} header={<div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Indicadores</div>}>
-        <EmptyState icon="chart-no-axes-column" title="Sem dados para os indicadores ainda"
-          description="Pedidos do dia, valor a receber, fila da cozinha e ticket médio aparecem aqui quando houver uma fonte de dados ligada." />
-      </Card>
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "repeat(2, minmax(0,1fr))" : "repeat(4, minmax(0,1fr))", gap: 12 }}>
+        <Indicador icon="calendar-days" label="Pedidos para hoje" value={String(r.hoje)} tone="accent"
+          sub={r.hoje ? window.brl(r.hojeValor / 100) + " no total" : "Nenhuma entrega hoje"} onClick={() => onView("agenda")} />
+        <Indicador icon="hourglass" label="A receber" value={window.brl(r.receber / 100)}
+          sub={r.receberN ? `${r.receberN} ${r.receberN === 1 ? "pedido confirmado" : "pedidos confirmados"}` : "Nada pendente"} onClick={() => onView("pedidos")} />
+        <Indicador icon="chef-hat" label="Fila da cozinha" value={String(r.fila)}
+          sub={r.atrasados ? `${r.atrasados} ${r.atrasados === 1 ? "atrasado" : "atrasados"}` : "Nenhum atrasado"} onClick={() => onView("cozinha")} />
+        <Indicador icon="receipt-text" label="Ticket médio" value={window.brl(r.ticket / 100)}
+          sub={`${r.ticketN} ${r.ticketN === 1 ? "pedido" : "pedidos"} nos últimos 30 dias`} />
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
-        <ChartCard compact={compact} serie={d.serieReceita} />
+        <ChartCard compact={compact} r={r} />
         <Card header={<>
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Pagamentos recentes</div>
           <IconButton icon="arrow-up-right" label="Abrir financeiro" size={32} onClick={() => onView("financeiro")} />
         </>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {d.pagamentos.length ? d.pagamentos.map((p, i) => <ListRow key={i} icon={p.icon} title={p.title} subtitle={p.sub} value={p.value} tone={p.tone} />)
+          {d.pagamentos.length ? d.pagamentos.map((p, i) => <ListRow key={i} icon={p.icon} title={p.title} subtitle={p.sub} value={p.value} tone={p.tone} onClick={() => abrirPedido(p.id)} />)
             : <EmptyState icon="wallet" title="Nenhum pagamento recente" />}
         </Card>
       </div>
@@ -68,7 +124,7 @@ function VisaoGeral({ compact, onView }) {
             <span>Cliente</span><span>Status</span><span>Entrega</span><span style={{ textAlign: "right" }}>Total</span>
           </div>}
           {!d.recentes.length ? <EmptyState icon="receipt-text" title="Nenhum pedido ainda" /> : d.recentes.map(r => compact ? (
-            <div key={r.id} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "12px 16px", borderTop: "var(--border-hairline) solid var(--color-border)" }}>
+            <div key={r.id} data-row-action="" role="button" tabIndex={0} onClick={() => abrirPedido(r.id)} onKeyDown={e => e.key === "Enter" && abrirPedido(r.id)} style={{ cursor: "pointer", display: "flex", flexDirection: "column", gap: 6, padding: "12px 16px", borderTop: "var(--border-hairline) solid var(--color-border)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <span style={{ fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", minWidth: 0, overflowWrap: "anywhere" }}>{r.nome || "Cliente sem nome"}</span>
                 <span style={{ fontSize: "var(--fs-body-s)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", whiteSpace: "nowrap" }}>{r.total}</span>
@@ -79,7 +135,7 @@ function VisaoGeral({ compact, onView }) {
               </div>
             </div>
           ) : (
-            <div key={r.id} style={{ display: "grid", gridTemplateColumns: RECENT_COLS, gap: 12, alignItems: "center", padding: "11px 18px", borderTop: "var(--border-hairline) solid var(--color-border)", fontSize: "var(--fs-body-s)" }}>
+            <div key={r.id} data-row-action="" role="button" tabIndex={0} onClick={() => abrirPedido(r.id)} onKeyDown={e => e.key === "Enter" && abrirPedido(r.id)} style={{ cursor: "pointer", display: "grid", gridTemplateColumns: RECENT_COLS, gap: 12, alignItems: "center", padding: "11px 18px", borderTop: "var(--border-hairline) solid var(--color-border)", fontSize: "var(--fs-body-s)" }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.nome}>{r.nome || "Cliente sem nome"}</div>
                 <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>{r.cat}</div>

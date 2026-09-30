@@ -10,20 +10,20 @@ records which screens are live and which are proposals.
 
 ## Screens
 
-Five in the nav rail; four more open over them. **Only Pedidos and Cozinha exist in the live
+Seven in the nav rail; four more open over them. **Only Pedidos and Cozinha exist in the live
 product today.**
 
 | Screen | File | Reached from | What it is |
 | --- | --- | --- | --- |
-| Visão geral | `VisaoGeral.jsx` | rail | KPI row, weekly revenue, recent payments, last orders. Proposal — the live admin has no dashboard. |
+| Visão geral | `VisaoGeral.jsx` | rail | **Live.** Indicators (pedidos para hoje, a receber, fila da cozinha, ticket médio 30 dias), money received this week, recent payments and last orders — all computed from `sis_pedidos` + `sis_pagamentos`. |
 | Pedidos | `Pedidos.jsx`, `PedidosModais.jsx` | rail | **Live.** "Estoque pendente" + one tab per Status, order cards, the ☰ overflow menu, the "Detalhes do pedido" and "Pedido manual" modals, confirm dialogs and toasts. |
 | Agenda | `Agenda.jsx` | rail | Month grid + day detail. Five event types in one calendar — `encomenda`, `buffet`, `festa`, `boleto`, `cartão` — told apart by Lucide glyph and label. Colour marks only two families: terracotta for what the shop delivers, neutral ink for what it pays (`boleto` and `cartão`, flagged `fin: true`); blue, violet and teal stay reserved for money actions. Filter pills narrow by type. Proposal. |
 | Cozinha | `Cozinha.jsx` | rail | **Live.** `painel-pedidos.html` — the "Fazer agora" feature block with arrows, the queue grid, and the three-way delivery confirmation. |
-| Financeiro | `Financeiro.jsx` | rail | Four tabs — transações, boletos, cartões, contratos — with a per-tab entry form. Proposal. |
+| Financeiro | `Financeiro.jsx` | rail | **Live.** Transações by month (manual entries + every order payment + boletos paid), boletos (marcar pago), cartões, contratos. Manual entries live in `sis_financeiro`, written by the Worker (`salvarFinanceiro`, `apagarFinanceiro`, `pagarBoleto`). |
 | Contratos | `Contratos.jsx` | Financeiro → Contratos tab | Fills the buffet and salão models from form fields and renders a preview. Not in the rail. |
 | Busca | `Busca.jsx` | top bar | Accent-insensitive (`NFD` strip) search across pedidos, eventos and pagamentos; a hit routes to its screen. |
 | Notificações | `Notificacoes.jsx` | rail bell | Panel plus transient cards that stay 6s (paused while hovered or focused) and route on click. The transient cards replay demo events only with `?demo` in the URL. |
-| Clientes | — | — | Deliberately absent: the product has no per-customer view. |
+| Clientes | `Clientes.jsx` | rail | **Live.** Customers derived from the orders (same phone, site login or e-mail = same person): numbers, addresses, orders, total. "Novo pedido" pre-fills Pedido manual, which also suggests known customers as you type. |
 
 ## Frame
 

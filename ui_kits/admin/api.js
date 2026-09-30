@@ -36,7 +36,8 @@ window.DLUH_API = (() => {
   const modo = p.get("fonte") === "firebase" ? "firebase" : "demo";
 
   /* ── Real system ── */
-  const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const hoje = () => isoLocal(new Date());
   const quando = e => !e ? "—" : e.data === hoje() ? e.hora : `${e.data.slice(8, 10)}/${e.data.slice(5, 7)} · ${e.hora}`;
   const brl = c => "R$ " + ((Number(c) || 0) / 100).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const ts = v => v && typeof v.toDate === "function" ? v.toDate() : v instanceof Date ? v : null;
@@ -80,6 +81,7 @@ window.DLUH_API = (() => {
             note: [i.recheios && i.recheios.length ? "Recheio: " + i.recheios.join(", ") : null, i.obs].filter(Boolean).join(" · ") || null,
             topper: topoTexto(i.topo) })),
           obs: x.obs || "",
+          email: x.cliente?.email || "", uid: x.clienteUid || "",
           imp: paraImprimir(x),
           /* The raw record: what editing, printing and the money actions need, unformatted. */
           _c: { total: x.total || 0, pago: x.pago || 0, falta, entradaPct: x.entradaPct || 50, formaPagamento: x.formaPagamento || null,
@@ -90,6 +92,13 @@ window.DLUH_API = (() => {
       .slice().sort((a, b) => (ts(a.em) || 0) - (ts(b.em) || 0))
       .map(p => ({ quando: ts(p.em) ? ts(p.em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " ·") : null,
         valor: (p.valor || 0) / 100, origem: p.por === "infinitepay" ? "site" : "manual", meio: MEIO[p.meio] || p.meio, arquivo: null, id: p.id })),
+    /* Every payment ever received (Visão geral, Financeiro), in centavos with a local date. */
+    todosPagamentos: lista => lista
+      .map(p => { const d = ts(p.em); return { id: p.id, pedidoId: p.pedidoId, valor: p.valor || 0, meio: MEIO[p.meio] || p.meio || "", origem: p.por === "infinitepay" ? "site" : "manual",
+        data: d ? isoLocal(d) : "", hora: d ? d.toTimeString().slice(0, 5) : "" }; })
+      .sort((a, b) => `${b.data} ${b.hora}`.localeCompare(`${a.data} ${a.hora}`)),
+    /* Transações avulsas, boletos e cartões, as stored; Financeiro.jsx shapes them. */
+    financeiro: docs => docs,
     /* Every live order on the calendar, as an "encomenda" on its delivery day. */
     agenda: pedidos => pedidos
       .filter(x => x.status !== "Cancelado" && x.entrega && x.entrega.data)

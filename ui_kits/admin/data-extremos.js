@@ -24,7 +24,6 @@
     { id: "PED-2299", cliente: longo, hora: "09:00", itens: "12000 Kit festa completo para evento corporativo com decoração temática e mesa de doces finos", pago: "Não pago", entrega: "Entrega" },
     { id: "PED-2298", cliente: "Cliente sem dados", hora: "—", itens: "", pago: "Não pago", entrega: "Retirada" }
   );
-  d.financeiro.transacoes.unshift({ desc: longo + " · entrada PED-2299", tipo: "Entrada", meio: "Transferência", data: "12/06", valor: 1284600 });
-  d.financeiro.cartoes = [];
-  d.recentes.unshift({ id: 99, nome: longo, cat: "Empresa", status: "Em rota", total: "R$ 1.284.600,00", data: "15/06", hora: "09:00" });
+  d.financeiro = d.financeiro.filter(x => x.tipo !== "cartao");
+  d.financeiro.unshift({ id: "fx", tipo: "transacao", desc: longo + " · adiantamento", entrada: true, meio: "Transferência", data: "2026-06-12", valor: 128460000 });
 })();

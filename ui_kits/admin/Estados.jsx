@@ -21,7 +21,7 @@ const EXPLICA = {
   servidor: "O servidor recebeu o pedido mas não aceitou. Tente de novo; se continuar, avise quem cuida do sistema.",
   sessao: "O login expirou. Recarregue a página e entre de novo com o Google.",
   "sem-permissao": "Este login do Google não está na lista da equipe. Entre com a conta da D'Luh ou peça acesso a quem cuida do sistema.",
-  "nao-ligada": "Esta tela ainda mostra só dados de exemplo e não foi ligada ao sistema novo. Já estão ligadas: Pedidos, Agenda, Cozinha e Produtos."
+  "nao-ligada": "Esta tela ainda mostra só dados de exemplo e não foi ligada ao sistema novo. Já estão ligadas: Visão geral, Pedidos, Agenda, Cozinha, Produtos, Clientes e Financeiro."
 };
 
 /* One toast per screen. A newer toast replaces the older one and restarts its clock; errors stay

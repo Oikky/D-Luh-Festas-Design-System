@@ -12,6 +12,7 @@ const navItems = () => {
     { id: "agenda", label: "Agenda", icon: "calendar-days", count: d && d.agenda.filter(x => x.data === d.hoje).length },
     { id: "cozinha", label: "Cozinha", icon: "chef-hat", count: d && d.fila.length },
     { id: "produtos", label: "Produtos", icon: "package" },
+    { id: "clientes", label: "Clientes", icon: "users" },
     { id: "financeiro", label: "Financeiro", icon: "wallet" }
   ];
 };

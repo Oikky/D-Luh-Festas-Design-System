@@ -16,6 +16,7 @@ import { ehEquipe } from "./equipe.js";
 import * as pedidos from "./pedidos.js";
 import * as infinitepay from "./infinitepay.js";
 import * as produtos from "./produtos.js";
+import * as financeiro from "./financeiro.js";
 import { enviarImagem } from "./google.js";
 import { whatsappLigado, enviarTexto } from "./whatsapp.js";
 import * as efeitos from "./efeitos.js";
@@ -91,6 +92,11 @@ const ACOES = {
   apagarProduto: (db, dados) => produtos.apagarProduto(db, dados),
   salvarRecheios: (db, dados, por) => produtos.salvarRecheios(db, dados, por),
   enviarImagem: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "produto" }),
+
+  /* Financeiro: transações avulsas, boletos e cartões (financeiro.js). */
+  salvarFinanceiro: (db, dados, por) => financeiro.salvarFinanceiro(db, dados, por),
+  apagarFinanceiro: (db, dados) => financeiro.apagarFinanceiro(db, dados),
+  pagarBoleto: (db, dados, por) => financeiro.pagarBoleto(db, dados, por),
 
   /* "Lembrar todos" na aba Esperando pagamento: diz quantos vão receber; o envio (um a um, com
      pausa) segue em DEPOIS, sem segurar a tela. */

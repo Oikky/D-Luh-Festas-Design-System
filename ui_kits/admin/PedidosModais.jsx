@@ -261,18 +261,42 @@ function ItensPedido({ r, set, compact, produtos, erro, acao, onToast, listaId }
   </>);
 }
 
-function CamposPedido({ r, set, erros }) {
+/* Known customers matching the name or number being typed. Picking one fills name, number, type
+   and the last delivery address; it disappears once the form already holds that customer. */
+function SugestoesCliente({ r, set, clientes }) {
+  const achados = window.clientesParecidos(clientes, r.cliente, r.tel)
+    .filter(c => !(window.telDigitos(r.tel) === c.tel && r.cliente.trim() === c.nome));
+  if (!achados.length) return null;
+  const usar = c => Object.entries(window.rascunhoDoCliente(c)).forEach(([k, v]) => set(k, v));
+  return (
+    <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Já é cliente?</span>
+      {achados.map(c => (
+        <PM.FilterPill key={c.id} icon={c.empresa ? "building-2" : "user"} trailingIcon={null} onClick={() => usar(c)}>
+          {c.nome} · {window.fmtTel(c.tel) || "sem número"} · {c.n === 1 ? "1 pedido" : c.n + " pedidos"}
+        </PM.FilterPill>
+      ))}
+    </div>
+  );
+}
+
+function CamposPedido({ r, set, erros, clientes }) {
   const ctl = k => ({ value: r[k], onChange: e => set(k, e.target.value) });
   const entrega = r.entrega === "Entrega em endereço";
+  /* Addresses this number already used, offered in the Endereço field. */
+  const doCliente = clientes && window.telDigitos(r.tel).length >= 10 ? clientes.find(c => c.digitos.includes(window.telDigitos(r.tel))) : null;
+  const listaEnd = "dluh-enderecos-" + String(r.uid).replace(/\W/g, "");
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px 12px" }}>
+      {clientes ? <SugestoesCliente r={r} set={set} clientes={clientes} /> : null}
+      {doCliente && doCliente.enderecos.length ? <datalist id={listaEnd}>{doCliente.enderecos.map(e => <option key={e.valor} value={e.valor} />)}</datalist> : null}
       <PM.Field label="Cliente" required error={erros.cliente}><PM.Input placeholder="Nome do cliente" invalid={!!erros.cliente} {...ctl("cliente")} /></PM.Field>
       <PM.Field label="WhatsApp" required error={erros.tel}><PM.Input type="tel" placeholder="(38) 99999-9999" invalid={!!erros.tel} {...ctl("tel")} /></PM.Field>
       <PM.Field label="Tipo de cliente"><PM.Select options={["Pessoa física", "Empresa"]} {...ctl("tipo")} /></PM.Field>
       <PM.Field label="Data de entrega" required error={erros.data}><PM.Input type="date" invalid={!!erros.data} {...ctl("data")} /></PM.Field>
       <PM.Field label="Hora"><PM.Input type="time" {...ctl("hora")} /></PM.Field>
       <PM.Field label="Entrega"><PM.Select options={["Retirada no local", "Entrega em endereço"]} {...ctl("entrega")} /></PM.Field>
-      {entrega ? <PM.Field label="Endereço" required error={erros.endereco}><PM.Input placeholder="Rua, número, bairro" invalid={!!erros.endereco} {...ctl("endereco")} /></PM.Field> : null}
+      {entrega ? <PM.Field label="Endereço" required error={erros.endereco}><PM.Input placeholder="Rua, número, bairro" invalid={!!erros.endereco} list={doCliente ? listaEnd : undefined} {...ctl("endereco")} /></PM.Field> : null}
       {entrega ? <PM.Field label="Taxa de entrega"><PM.Input type="number" prefix="R$" step="0.01" min="0" placeholder="0,00" {...ctl("taxa")} /></PM.Field> : null}
       <PM.Field label="Pagamento"><PM.Select options={PGTOS} {...ctl("pgto")} /></PM.Field>
       <PM.Field label="Entrada" hint="Percentual cobrado agora"><EntradaToggle value={r.entrada} onChange={v => set("entrada", v)} /></PM.Field>
@@ -281,8 +305,8 @@ function CamposPedido({ r, set, erros }) {
   );
 }
 
-function ManualModal({ compact, onClose, onToast, acao, pendente, produtos }) {
-  const [lista, setLista] = React.useState([novoRascunho(0)]);
+function ManualModal({ compact, onClose, onToast, acao, pendente, produtos, clientes, inicial }) {
+  const [lista, setLista] = React.useState(() => [{ ...novoRascunho(0), ...inicial }]);
   const [ativo, setAtivo] = React.useState(0);
   const [tentou, setTentou] = React.useState(false);
   const [sair, setSair] = React.useState(false);
@@ -343,7 +367,7 @@ function ManualModal({ compact, onClose, onToast, acao, pendente, produtos }) {
         <PM.Button size="sm" variant="quiet" icon="plus" onClick={novo}>Novo pedido</PM.Button>
       </div>
 
-      <CamposPedido r={r} set={set} erros={erros} />
+      <CamposPedido r={r} set={set} erros={erros} clientes={clientes} />
       <window.ListaProdutos id="dluh-produtos-manual" produtos={produtos} />
       <ItensPedido key={r.uid} r={r} set={set} compact={compact} produtos={produtos} erro={erros.itens} acao={acao} onToast={onToast} listaId="dluh-produtos-manual" />
     </PM.Modal>

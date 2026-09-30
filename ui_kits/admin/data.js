@@ -2,7 +2,7 @@ window.DLUH = {
   /* The shop day the fake rows are built around. Agenda opens on it and the rail counts it. */
   hoje: "2026-06-12",
   pedidos: [
-    { id: "PED-2291", data: "2026-06-12", hora: "15:00", modo: "Entrega em endereço", cliente: "Maria Helena", status: "Em produção", tel: "(38) 99812-4410",
+    { id: "PED-2291", data: "2026-06-12", hora: "15:00", modo: "Entrega em endereço", endereco: "Rua Dom Pedro II, 410 — Centro", cliente: "Maria Helena", status: "Em produção", tel: "(38) 99812-4410",
       entrega: "12/06 · 15h", pgto: "Pix", tipo: null, total: "R$ 480,00", pago: "R$ 240,00", falta: "R$ 240,00",
       itens: [{ qty: 1, name: "Bolo Vulcão 2kg", note: "Recheio: ninho com nutella", topper: "Topo: “Ana faz 5”", price: "R$ 240,00" },
               { qty: 100, name: "Salgados sortidos", note: "Coxinha, risoles, quibe", price: "R$ 228,00" },
@@ -11,7 +11,7 @@ window.DLUH = {
       entrega: "13/06 · 11h", pgto: "Cartão", tipo: null, total: "R$ 740,00", pago: "R$ 0,00", falta: "R$ 370,00",
       itens: [{ qty: 2, name: "Bolo Red Velvet 1,5kg", note: "Cobertura: cream cheese", price: "R$ 520,00" },
               { qty: 50, name: "Docinhos gourmet", note: "Brigadeiro belga e beijinho", price: "R$ 220,00" }] },
-    { id: "PED-2289", data: "2026-06-14", hora: "07:00", modo: "Entrega em endereço", cliente: "Padaria Central", status: "Aguardando confirmação", tel: "(38) 3221-9080",
+    { id: "PED-2289", data: "2026-06-14", hora: "07:00", modo: "Entrega em endereço", endereco: "Av. Cula Mangabeira, 1200 — Santo Expedito", cliente: "Padaria Central", status: "Aguardando confirmação", tel: "(38) 3221-9080",
       entrega: "14/06 · 07h", pgto: "Pix", tipo: "Empresa", total: "R$ 1.240,00", pago: "R$ 0,00", falta: null,
       itens: [{ qty: 400, name: "Salgados para revenda", note: "Entrega semanal — contrato", price: "R$ 1.240,00" }] },
     { id: "PED-2288", data: "2026-06-10", hora: "18:00", modo: "Retirada no local", cliente: "Ana Cláudia", status: "Entregue — Esperando restante", tel: "(38) 99701-3322",
@@ -19,7 +19,13 @@ window.DLUH = {
       itens: [{ qty: 1, name: "Bolo de festa 3 andares", note: "Tema: jardim encantado", topper: "Topo: “Helena 1 ano”", price: "R$ 320,00" }] },
     { id: "PED-2287", data: "2026-06-09", hora: "16:00", modo: "Retirada no local", cliente: "João Vitor", status: "Finalizado", tel: "(38) 99455-1190",
       entrega: "09/06 · 16h", pgto: "Pix", tipo: null, total: "R$ 188,00", pago: "R$ 188,00", falta: null,
-      itens: [{ qty: 1, name: "Torta salgada grande", note: "Frango com catupiry", price: "R$ 188,00" }] }
+      itens: [{ qty: 1, name: "Torta salgada grande", note: "Frango com catupiry", price: "R$ 188,00" }] },
+    { id: "PED-2270", data: "2026-05-24", hora: "10:00", modo: "Entrega em endereço", endereco: "Rua Belo Horizonte, 88 — Todos os Santos", cliente: "Maria Helena", status: "Finalizado", tel: "(38) 99812-4410",
+      entrega: "24/05 · 10h", pgto: "Pix", tipo: null, total: "R$ 210,00", pago: "R$ 210,00", falta: null,
+      itens: [{ qty: 70, name: "Docinhos gourmet", note: null, price: "R$ 210,00" }] },
+    { id: "PED-2254", data: "2026-05-02", hora: "15:30", modo: "Retirada no local", cliente: "João Vitor", status: "Finalizado", tel: "(38) 99455-1190",
+      entrega: "02/05 · 15h30", pgto: "Dinheiro", tipo: null, total: "R$ 96,00", pago: "R$ 96,00", falta: null,
+      itens: [{ qty: 40, name: "Salgados sortidos", note: null, price: "R$ 96,00" }] }
   ],
   fila: [
     { id: "PED-2291", cliente: "Maria Helena", hora: "15:00", itens: "1 Bolo Vulcão 2kg · 100 Salgados sortidos", pago: "Só entrada", entrega: "Entrega" },
@@ -63,32 +69,27 @@ window.DLUH = {
     { cliente: "Tiago Meireles", tipo: "salao", data: "28/05/2026", valor: "R$ 1.800,00" },
     { cliente: "Colégio São José", tipo: "buffet", data: "21/05/2026", valor: "R$ 14.200,00" }
   ],
-  financeiro: {
-    transacoes: [
-      { desc: "Maria Helena · entrada PED-2291", tipo: "Entrada", meio: "Pix", data: "12/06", valor: 240 },
-      { desc: "Atacadão · farinha e açúcar", tipo: "Saída", meio: "Cartão", data: "11/06", valor: 612.4 },
-      { desc: "Rafaela Prates · PED-2293", tipo: "Entrada", meio: "Cartão", data: "11/06", valor: 352 },
-      { desc: "Gás de cozinha", tipo: "Saída", meio: "Dinheiro", data: "10/06", valor: 130 }
-    ],
-    boletos: [
-      { desc: "Cemig · energia", venc: "15/06", valor: 486.9, status: "Em aberto" },
-      { desc: "Embalagens Norte", venc: "20/06", valor: 740, status: "Em aberto" },
-      { desc: "Aluguel do salão", venc: "05/06", valor: 2200, status: "Pago" }
-    ],
-    cartoes: [
-      { nome: "Nubank Empresa", final: "4821", bandeira: "Mastercard", limite: 8000, fatura: 1942.3, venc: "10" },
-      { nome: "Sicoob", final: "0377", bandeira: "Visa", limite: 5000, fatura: 612.4, venc: "25" }
-    ]
-  },
-  serieSemana: [8, 11, 9, 14, 12, 19, 14],
-  serieReceita: [1200, 1680, 1440, 2100, 1980, 2740, 2320],
-  recentes: [
-    { id: 1, nome: "Maria Helena", cat: "Bolo", status: "Em produção", total: "R$ 480,00", data: "12/06", hora: "14:00" },
-    { id: 2, nome: "Willian Bicalho", cat: "Docinhos", status: "Confirmado — Esperando pagamento", total: "R$ 740,00", data: "13/06", hora: "10:30" },
-    { id: 3, nome: "Padaria Central", cat: "Empresa", status: "Aguardando confirmação", total: "R$ 1.240,00", data: "14/06", hora: "08:00" },
-    { id: 4, nome: "Ana Cláudia", cat: "Bolo de festa", status: "Entregue — Esperando restante", total: "R$ 320,00", data: "10/06", hora: "16:00" },
-    { id: 5, nome: "João Vitor", cat: "Torta", status: "Finalizado", total: "R$ 188,00", data: "09/06", hora: "11:00" }
+  /* Financeiro as stored in sis_financeiro (centavos, AAAA-MM-DD). Money from orders is not here:
+     it comes from todosPagamentos. */
+  financeiro: [
+    { id: "f1", tipo: "transacao", desc: "Atacadão · farinha e açúcar", entrada: false, meio: "Cartão", data: "2026-06-11", valor: 61240 },
+    { id: "f2", tipo: "transacao", desc: "Gás de cozinha", entrada: false, meio: "Dinheiro", data: "2026-06-10", valor: 13000 },
+    { id: "f3", tipo: "transacao", desc: "Venda no balcão", entrada: true, meio: "Pix", data: "2026-06-09", valor: 4500 },
+    { id: "f4", tipo: "boleto", desc: "Cemig · energia", venc: "2026-06-15", valor: 48690, pago: false },
+    { id: "f5", tipo: "boleto", desc: "Embalagens Norte", venc: "2026-06-20", valor: 74000, pago: false },
+    { id: "f6", tipo: "boleto", desc: "Aluguel do salão", venc: "2026-06-05", valor: 220000, pago: true, pagoEm: "2026-06-05" },
+    { id: "f7", tipo: "cartao", nome: "Nubank Empresa", final: "4821", bandeira: "Mastercard", limite: 800000, fatura: 194230, venc: 10 },
+    { id: "f8", tipo: "cartao", nome: "Sicoob", final: "0377", bandeira: "Visa", limite: 500000, fatura: 61240, venc: 25 }
   ],
+  /* Every payment received on an order, as sis_pagamentos arrives mapped by api.js (centavos). */
+  todosPagamentos: [
+    { id: "pg1", pedidoId: "PED-2254", valor: 9600, meio: "Dinheiro", origem: "manual", data: "2026-05-02", hora: "15:40" },
+    { id: "pg2", pedidoId: "PED-2270", valor: 21000, meio: "Pix", origem: "site", data: "2026-05-20", hora: "09:12" },
+    { id: "pg3", pedidoId: "PED-2288", valor: 16000, meio: "Pix", origem: "site", data: "2026-06-08", hora: "19:05" },
+    { id: "pg4", pedidoId: "PED-2287", valor: 18800, meio: "Pix", origem: "site", data: "2026-06-09", hora: "16:10" },
+    { id: "pg5", pedidoId: "PED-2291", valor: 24000, meio: "Pix", origem: "site", data: "2026-06-10", hora: "11:30" }
+  ],
+  /* The global search's demo "Pagamentos" group. */
   pagamentos: [
     { icon: "cake-slice", title: "Maria Helena", sub: "Entrada 50% · Pix", value: "+ R$ 240,00", tone: "in" },
     { icon: "credit-card", title: "Rafaela Prates", sub: "Pagamento total · Cartão", value: "+ R$ 352,00", tone: "in" },

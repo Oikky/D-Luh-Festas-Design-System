@@ -30,6 +30,11 @@ service cloud.firestore {
       allow read: if equipe() || sistema();
       allow write: if sistema();
     }
+    // Financeiro: transações avulsas, boletos e cartões. A equipe lê; grava pelo Worker.
+    match /sis_financeiro/{id} {
+      allow read: if equipe() || sistema();
+      allow write: if sistema();
+    }
     match /sis_config/{doc} {
       allow read, write: if sistema();
     }

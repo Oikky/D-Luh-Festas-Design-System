@@ -29,6 +29,8 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
       agenda: () => F.collection(db, "sis_pedidos"),
       produtos: () => F.collection(db, "sis_produtos"),
       recheios: () => F.collection(db, "sis_catalogo"),
+      todosPagamentos: () => F.collection(db, "sis_pagamentos"),
+      financeiro: () => F.collection(db, "sis_financeiro"),
       pagamentos: pedidoId => F.query(F.collection(db, "sis_pagamentos"), F.where("pedidoId", "==", pedidoId))
     };
 

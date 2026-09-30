@@ -261,7 +261,7 @@ function Pedidos({ compact, q }) {
       )}
 
       {detalhe ? <DetalhesModal key={detalhe.id} pedido={todos.find(x => x.id === detalhe.id) || detalhe} onClose={() => setDetalhe(null)} onToast={showToast} acao={acao} pendente={pendente} compact={compact} produtos={produtos} /> : null}
-      {manual ? <ManualModal compact={compact} onClose={() => setManual(false)} onToast={showToast} acao={acao} pendente={pendente} produtos={produtos} /> : null}
+      {manual ? <ManualModal compact={compact} onClose={() => setManual(false)} onToast={showToast} acao={acao} pendente={pendente} produtos={produtos} clientes={window.clientesDe(todos)} /> : null}
       {confirm ? <ConfirmDialog tone={confirm.tone} icon={confirm.icon} title={confirm.title} message={confirm.message}
         confirmLabel={confirm.confirmLabel} cancelLabel="Voltar" pending={pendente === confirm.tipo}
         onCancel={() => setConfirm(null)}

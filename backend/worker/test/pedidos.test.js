@@ -7,6 +7,7 @@ import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
 import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento } from "../src/pedidos.js";
 import { salvarProduto, apagarProduto, salvarRecheios } from "../src/produtos.js";
+import { salvarFinanceiro, apagarFinanceiro, pagarBoleto } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
@@ -195,4 +196,37 @@ test("produtos: cria, edita, valida e apaga; recheios sem repetidos", async () =
   assert.deepEqual(await apagarProduto(db, { id }), { apagado: true });
   assert.equal((await db.doc(`sis_produtos/${id}`).get()).exists, false);
   assert.deepEqual((await salvarRecheios(db, { lista: ["Ninho", " ninho ", "Brigadeiro", ""] }, "ana")).lista, ["Ninho", "Brigadeiro"]);
+});
+
+test("financeiro: lança, edita, paga boleto e apaga", async () => {
+  const { id } = await salvarFinanceiro(db, { tipo: "boleto", desc: "Cemig", venc: "2026-10-05", valor: 48690 }, "ana");
+  let doc = (await db.collection("sis_financeiro").doc(id).get()).data();
+  assert.equal(doc.tipo, "boleto");
+  assert.equal(doc.pago, false);
+  assert.equal(doc.valor, 48690);
+
+  await salvarFinanceiro(db, { id, desc: "Cemig energia", venc: "2026-10-06", valor: 50000 }, "ana");
+  doc = (await db.collection("sis_financeiro").doc(id).get()).data();
+  assert.equal(doc.desc, "Cemig energia");
+  assert.equal(doc.pago, false);
+
+  assert.deepEqual(await pagarBoleto(db, { id, data: "2026-10-04" }, "ana"), { mudou: true });
+  assert.deepEqual(await pagarBoleto(db, { id }, "ana"), { mudou: false });
+  doc = (await db.collection("sis_financeiro").doc(id).get()).data();
+  assert.equal(doc.pago, true);
+  assert.equal(doc.pagoEm, "2026-10-04");
+  await pagarBoleto(db, { id, pago: false }, "ana");
+  assert.equal((await db.collection("sis_financeiro").doc(id).get()).get("pagoEm"), null);
+
+  assert.deepEqual(await apagarFinanceiro(db, { id }), { apagado: true });
+  assert.equal((await db.collection("sis_financeiro").doc(id).get()).exists, false);
+});
+
+test("financeiro: recusa valores e datas fora do formato", async () => {
+  await assert.rejects(salvarFinanceiro(db, { tipo: "transacao", desc: "Gás", data: "2026-10-01", valor: 13.5 }, "ana"), /centavos/);
+  await assert.rejects(salvarFinanceiro(db, { tipo: "transacao", desc: "Gás", data: "01/10", valor: 1350 }, "ana"), /AAAA-MM-DD/);
+  await assert.rejects(salvarFinanceiro(db, { tipo: "cartao", nome: "Nubank", final: "12", limite: 0 }, "ana"), /4 últimos/);
+  await assert.rejects(salvarFinanceiro(db, { tipo: "outro" }, "ana"), /Tipo/);
+  const { id } = await salvarFinanceiro(db, { tipo: "transacao", desc: "Gás", entrada: false, meio: "Dinheiro", data: "2026-10-01", valor: 13000 }, "ana");
+  await assert.rejects(pagarBoleto(db, { id }, "ana"), /boleto/);
 });
