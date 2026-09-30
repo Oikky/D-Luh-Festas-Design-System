@@ -16,12 +16,6 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.js"></script>
-<script src="../../_ds_bundle.js"></script>
-<script src="data.js"></script>
-<script src="contratos-data.js"></script>
-<script src="data-extremos.js"></script>
-<script src="api.js"></script>
-<script src="firebase.js"></script>
 <style>
 *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--color-border-strong) transparent}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
@@ -50,19 +44,17 @@ button:not(:disabled):active{transform:scale(var(--press-scale))}
 @media (prefers-reduced-motion:reduce){button:not(:disabled):active{transform:none}}
 </style>
 </head><body><div id="root"></div>
-<script type="text/babel" src="Estados.jsx"></script>
-<script type="text/babel" src="Busca.jsx"></script>
-<script type="text/babel" src="Notificacoes.jsx"></script>
-<script type="text/babel" src="Shell.jsx"></script>
-<script type="text/babel" src="VisaoGeral.jsx"></script>
-<script type="text/babel" src="Catalogo.jsx"></script>
-<script type="text/babel" src="PedidosModais.jsx"></script>
-<script type="text/babel" src="Pedidos.jsx"></script>
-<script type="text/babel" src="Agenda.jsx"></script>
-<script type="text/babel" src="Contratos.jsx"></script>
-<script type="text/babel" src="Financeiro.jsx"></script>
-<script type="text/babel" src="Cozinha.jsx"></script>
-<script type="text/babel" src="Produtos.jsx"></script>
-<script type="text/babel" src="Clientes.jsx"></script>
-<script type="text/babel" src="App.jsx"></script>
+<!-- Os arquivos do admin passam por aqui em vez de <script src> direto: antes de carregar, cada um é
+     conferido no servidor (fetch no-cache → 304 se não mudou), então o app instalado e o navegador pegam a
+     versão nova logo depois de publicar, sem Ctrl+Shift+R. A ordem é a mesma de antes. -->
+<script>
+(async () => {
+  const LOCAIS = ["../../_ds_bundle.js","data.js","contratos-data.js","data-extremos.js","api.js","firebase.js"];
+  const TELAS = ["Estados.jsx","Busca.jsx","Notificacoes.jsx","Shell.jsx","VisaoGeral.jsx","Catalogo.jsx","PedidosModais.jsx","Pedidos.jsx","Agenda.jsx","Contratos.jsx","Financeiro.jsx","Cozinha.jsx","Produtos.jsx","Clientes.jsx","App.jsx"];
+  await Promise.all(["../../styles.css", ...LOCAIS, ...TELAS].map(u => fetch(u, { cache: "no-cache" }).catch(() => {})));
+  for (const u of LOCAIS) await new Promise(ok => { const s = document.createElement("script"); s.src = u; s.onload = s.onerror = ok; document.head.appendChild(s); });
+  for (const u of TELAS) { const s = document.createElement("script"); s.type = "text/babel"; s.src = u; document.body.appendChild(s); }
+  Babel.transformScriptTags();
+})();
+</script>
 </body></html>
