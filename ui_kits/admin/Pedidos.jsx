@@ -57,10 +57,7 @@ const CONFIRMA = {
   cancelar: p => ({ tone: "danger", icon: "circle-x", title: "Cancelar pedido?",
     message: "O pedido vai para Cancelados e sai da fila da cozinha. O histórico continua guardado.", confirmLabel: "Sim, cancelar",
     ok: "Pedido cancelado", falhou: "Não deu pra cancelar o pedido",
-    pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Cancelado" } } }),
-  apagar: p => ({ tone: "danger", icon: "trash-2", title: "Apagar pedido?",
-    message: "O pedido sai da fila e do sistema. Não dá pra desfazer.", confirmLabel: "Sim, apagar",
-    ok: "Pedido apagado", falhou: "Não deu pra apagar o pedido", aplicar: l => l.filter(x => x.id !== p.id) })
+    pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Cancelado" } } })
 };
 
 /* A charge is a link the atendente sends; this is where it lands after it's generated. */
@@ -147,11 +144,32 @@ function DetalhesModal({ pedido, onClose, onToast, acao, pendente, compact, prod
   </>);
 }
 
+/* Apagar de vez: pede a senha da conta sistema do Firebase (a mesma de SISTEMA_SENHA no Worker).
+   A senha vai só nessa chamada; nada fica guardado no aparelho. */
+function ApagarComSenha({ p, pendente, onCancel, onConfirm }) {
+  const [senha, setSenha] = React.useState("");
+  const [tentou, setTentou] = React.useState(false);
+  const ir = () => { setTentou(true); if (senha) onConfirm(senha); };
+  return <Modal width={420} title={`Apagar ${p.id}?`} onClose={pendente ? null : onCancel} dismissible={false}
+    subtitle={`${p.cliente || "Cliente sem nome"}${p.total ? " · " + p.total : ""}. O pedido, o histórico e os pagamentos dele saem do sistema. Não dá pra desfazer.`}
+    footer={<><Button variant="ghost" block disabled={pendente} onClick={onCancel}>Voltar</Button>
+      <Button tone="danger" block icon="trash-2" loading={pendente} onClick={ir}>Sim, apagar</Button></>}>
+    <form onSubmit={e => { e.preventDefault(); ir(); }}>
+      <Field label="Senha do sistema" required error={tentou && !senha ? "Digite a senha" : undefined}
+        hint="A senha da conta sistema do Firebase.">
+        <Input type="password" autoFocus autoComplete="off" value={senha} invalid={tentou && !senha}
+          onChange={e => setSenha(e.target.value)} />
+      </Field>
+    </form>
+  </Modal>;
+}
+
 function Pedidos({ compact, q }) {
   const [tab, setTab] = React.useState("estoque");
   const [detalhe, setDetalhe] = React.useState(null);
   const [manual, setManual] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
+  const [apagando, setApagando] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   const carga = useAoVivo("pedidos");
@@ -240,14 +258,15 @@ function Pedidos({ compact, q }) {
                   : p.status === "Finalizado"
                   ? <Button size="sm" variant="outline" icon="printer" onClick={() => imprimir(p)}>Recibo</Button>
                   : null}
+                <IconButton icon="trash-2" label={`Apagar ${p.id}`} onClick={() => setApagando(p)} />
                 <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
                   { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
                   { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
                   { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
                   { label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) },
                   { divider: true },
-                  REAL() ? { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) }
-                    : { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => pede("apagar", p) }
+                  { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) },
+                  { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => setApagando(p) }
                 ]} />
               </>} />
           ))}
@@ -270,6 +289,13 @@ function Pedidos({ compact, q }) {
           const r = await acao(c.tipo, { ok: c.ok, falhou: c.falhou }, c.aplicar ? () => carga.setDados(c.aplicar) : null, c.pedido);
           setConfirm(null);
           if (r && r.url) setLink({ ...r, pedidoId: c.p.id, cliente: c.p.cliente, tel: c.p.tel });
+        }} /> : null}
+      {apagando ? <ApagarComSenha p={apagando} pendente={pendente === "apagar"} onCancel={() => setApagando(null)}
+        onConfirm={async senha => {
+          const p = apagando;
+          const ok = await acao("apagar", { ok: `${p.id} apagado`, falhou: `Não deu pra apagar ${p.id}` },
+            REAL() ? null : () => carga.setDados(l => l.filter(x => x.id !== p.id)), { acao: "apagarPedido", dados: { pedidoId: p.id, senha } });
+          if (ok) setApagando(null);
         }} /> : null}
       {link ? <LinkCobranca link={link} onClose={() => setLink(null)} onToast={showToast} /> : null}
       {toastNode}

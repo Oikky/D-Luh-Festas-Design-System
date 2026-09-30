@@ -59,6 +59,12 @@ const ACOES = {
   mudarStatus: (db, dados, por) => pedidos.mudarStatus(db, dados, por),
   marcarFeito: (db, dados, por) => pedidos.marcarFeito(db, dados, por),
 
+  /* Apagar de vez pede a senha da conta sistema (SISTEMA_SENHA), além do login da equipe. */
+  async apagarPedido(db, { pedidoId, senha }, por, env) {
+    if (!(await senhaDoSistema(env, senha))) throw new ErroDominio("invalid-argument", "Senha errada");
+    return pedidos.apagarPedido(db, { pedidoId });
+  },
+
   /* Pix direto na conta, dinheiro, maquininha, ou "outro". A tela manda uma `chave` nova por clique
      (crypto.randomUUID()), então um clique repetido não paga duas vezes. */
   registrarPagamentoManual: (db, dados, por) => {
@@ -137,6 +143,13 @@ const ACOES_SISTEMA = {
     return { id: snap.id, imagem: url };
   }
 };
+/* Compara pelos hashes, em tempo constante, para a resposta não entregar a senha aos poucos. */
+async function senhaDoSistema(env, senha) {
+  if (!env.SISTEMA_SENHA || typeof senha !== "string" || !senha) return false;
+  const h = async t => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)));
+  const [a, b] = await Promise.all([h(senha), h(env.SISTEMA_SENHA)]);
+  return crypto.subtle.timingSafeEqual ? crypto.subtle.timingSafeEqual(a, b) : a.every((x, i) => x === b[i]);
+}
 const ehSistema = (claims, env) => !!claims && claims.email === env.SISTEMA_EMAIL && claims.firebase?.sign_in_provider === "password";
 
 /* Endereço público do Worker: o link da InfinitePay avisa o pagamento aqui (o cron não tem request). */

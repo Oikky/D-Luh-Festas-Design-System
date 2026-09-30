@@ -5,7 +5,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento } from "../src/pedidos.js";
+import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, apagarPedido } from "../src/pedidos.js";
 import { salvarProduto, apagarProduto, salvarRecheios } from "../src/produtos.js";
 import { salvarFinanceiro, apagarFinanceiro, pagarBoleto } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
@@ -229,4 +229,19 @@ test("financeiro: recusa valores e datas fora do formato", async () => {
   await assert.rejects(salvarFinanceiro(db, { tipo: "outro" }, "ana"), /Tipo/);
   const { id } = await salvarFinanceiro(db, { tipo: "transacao", desc: "Gás", entrada: false, meio: "Dinheiro", data: "2026-10-01", valor: 13000 }, "ana");
   await assert.rejects(pagarBoleto(db, { id }, "ana"), /boleto/);
+});
+
+test("apagarPedido tira o pedido, os eventos e os pagamentos dele", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  const outro = await criarPedido(db, base(), "ana");
+  await registrarPagamento(db, { pedidoId: id, valor: 100, chave: "p-1", meio: "pix" }, "ana");
+  await registrarPagamento(db, { pedidoId: outro.id, valor: 100, chave: "p-2", meio: "pix" }, "ana");
+  const r = await apagarPedido(db, { pedidoId: id });
+  assert.equal(r.pagamentos, 1);
+  assert.ok(r.eventos >= 2);
+  assert.equal((await db.collection("sis_pedidos").doc(id).get()).exists, false);
+  assert.equal((await db.collection("sis_pedidos").doc(id).collection("eventos").listar()).length, 0);
+  assert.equal((await db.collection("sis_pagamentos").doc("p-1").get()).exists, false);
+  assert.equal((await db.collection("sis_pagamentos").doc("p-2").get()).exists, true);
+  await assert.rejects(apagarPedido(db, { pedidoId: id }), /não existe/);
 });

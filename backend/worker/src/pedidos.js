@@ -164,4 +164,22 @@ async function registrarPagamento(db, { pedidoId, valor, chave, meio, comprovant
   });
 }
 
-export { normalizar, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };
+/* Apaga o pedido de vez: o documento, o histórico (eventos) e os pagamentos dele. Quem chama
+   (index.js) já conferiu a senha da conta sistema. O backup diário no Drive guarda o que existia. */
+async function apagarPedido(db, { pedidoId }) {
+  const ref = db.collection(PEDIDOS).doc(String(pedidoId || ""));
+  const [eventos, pagamentos] = await Promise.all([
+    ref.collection("eventos").listar(),
+    db.collection(PAGAMENTOS).consultar([["pedidoId", "==", ref.id]])
+  ]);
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
+    eventos.forEach(e => tx.delete(ref.collection("eventos").doc(e.id)));
+    pagamentos.forEach(p => tx.delete(db.collection(PAGAMENTOS).doc(p.id)));
+    tx.delete(ref);
+    return { apagado: true, eventos: eventos.length, pagamentos: pagamentos.length };
+  });
+}
+
+export { apagarPedido, normalizar, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };
