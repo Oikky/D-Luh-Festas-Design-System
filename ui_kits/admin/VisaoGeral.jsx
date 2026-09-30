@@ -24,7 +24,7 @@ function resumoDe(pedidos, pags, hoje) {
   const porId = new Map(pedidos.map(p => [p.id, p]));
   return {
     hoje: deHoje.length, hojeValor: deHoje.reduce((s, p) => s + cent(p, "total"), 0),
-    receber: receber.reduce((s, p) => s + cent(p, "falta"), 0), receberN: receber.length,
+    receber: receber.reduce((s, p) => s + cent(p, "falta"), 0), receberN: receber.length, receberLista: receber,
     fila: fila.length, atrasados: fila.filter(p => p.data < hoje).length,
     ticket: mes.length ? Math.round(mes.reduce((s, p) => s + cent(p, "total"), 0) / mes.length) : 0, ticketN: mes.length,
     serie, dias, hojeIdx: dow, semana: serie.reduce((s, v) => s + v, 0),
@@ -71,12 +71,56 @@ function Indicador({ icon, label, value, sub, tone, onClick }) {
 
 const RECENT_COLS = "minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr)";
 
+/* What "A receber" adds up, order by order: how much is missing, grouped by status, so an odd
+   total can be traced (an old order that was paid outside the system, for instance). */
+const ORDEM_RECEBER = [
+  { id: "valor", label: "Maior valor", fn: (a, b) => window.clCentavos(b, "falta") - window.clCentavos(a, "falta") },
+  { id: "antigos", label: "Mais antigos", fn: (a, b) => (a.data || "").localeCompare(b.data || "") }
+];
+function AReceberModal({ lista, hoje, onClose, onPedido }) {
+  const [status, setStatus] = React.useState(null);
+  const [ordem, setOrdem] = React.useState("valor");
+  const cent = window.clCentavos, soma = l => l.reduce((s, p) => s + cent(p, "falta"), 0);
+  const grupos = A_RECEBER.map(st => ({ st, l: lista.filter(p => p.status === st) })).filter(g => g.l.length);
+  const velhos = lista.filter(p => p.data && p.data < somaDias(hoje, -60));
+  const vis = lista.filter(p => !status || (status === "velhos" ? velhos.includes(p) : p.status === status)).slice().sort(ORDEM_RECEBER.find(o => o.id === ordem).fn);
+  const pill = (id, rotulo, l) => <window.DLuhFestasDesignSystem_c861a2.FilterPill key={id || "todos"} trailingIcon={null} active={status === id}
+    onClick={() => setStatus(id)}>{rotulo} · {l.length} · {window.brl(soma(l) / 100)}</window.DLuhFestasDesignSystem_c861a2.FilterPill>;
+  return (
+    <window.DLuhFestasDesignSystem_c861a2.Modal width={640} title="A receber" onClose={onClose}
+      subtitle={`${window.brl(soma(lista) / 100)} em ${lista.length} ${lista.length === 1 ? "pedido" : "pedidos"} confirmados que ainda não foram pagos por inteiro. Toque num pedido para abrir.`}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {pill(null, "Todos", lista)}
+          {grupos.map(g => pill(g.st, window.DLuhFestasDesignSystem_c861a2.STATUS?.[g.st]?.short || g.st, g.l))}
+          {velhos.length ? pill("velhos", "Entrega há mais de 60 dias", velhos) : null}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Ordenar:</span>
+          {ORDEM_RECEBER.map(o => <window.DLuhFestasDesignSystem_c861a2.FilterPill key={o.id} trailingIcon={null} active={ordem === o.id} onClick={() => setOrdem(o.id)}>{o.label}</window.DLuhFestasDesignSystem_c861a2.FilterPill>)}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {vis.map(p => (
+            <ListRow key={p.id} icon="receipt-text" title={p.cliente || "Cliente sem nome"}
+              subtitle={<span style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                {p.id} · entrega {p.data ? p.data.slice(8, 10) + "/" + p.data.slice(5, 7) + "/" + p.data.slice(2, 4) : "sem data"}
+                <StatusBadge status={p.status} short /></span>}
+              value={window.brl(cent(p, "falta") / 100)} valueSub={`de ${p.total || "—"}${p.pago ? " · pago " + p.pago : ""}`}
+              onClick={() => onPedido(p.id)} />
+          ))}
+        </div>
+      </div>
+    </window.DLuhFestasDesignSystem_c861a2.Modal>
+  );
+}
+
 const MEIO_ICONE = { Pix: "qr-code", Dinheiro: "banknote", "Cartão": "credit-card" };
 const ddmm = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "";
 
 function VisaoGeral({ compact, onView, onQ }) {
   const ped = useAoVivo("pedidos");
   const pag = useAoVivo("todosPagamentos");
+  const [verReceber, setVerReceber] = React.useState(false);
   const erro = ped.estado === "erro" && !ped.dados ? ped : pag.estado === "erro" && !pag.dados ? pag : null;
   const r = React.useMemo(() => ped.dados && pag.dados ? resumoDe(ped.dados, pag.dados, window.DLUH_API.hoje()) : null, [ped.dados, pag.dados]);
   if (erro) return <ErroCarga erro={erro.erro} oque="a visão geral" onTentar={erro.tentar} />;
@@ -94,7 +138,7 @@ function VisaoGeral({ compact, onView, onQ }) {
         <Indicador icon="calendar-days" label="Pedidos para hoje" value={String(r.hoje)} tone="accent"
           sub={r.hoje ? window.brl(r.hojeValor / 100) + " no total" : "Nenhuma entrega hoje"} onClick={() => onView("agenda")} />
         <Indicador icon="hourglass" label="A receber" value={window.brl(r.receber / 100)}
-          sub={r.receberN ? `${r.receberN} ${r.receberN === 1 ? "pedido confirmado" : "pedidos confirmados"}` : "Nada pendente"} onClick={() => onView("pedidos")} />
+          sub={r.receberN ? `${r.receberN} ${r.receberN === 1 ? "pedido confirmado" : "pedidos confirmados"}` : "Nada pendente"} onClick={() => setVerReceber(true)} />
         <Indicador icon="chef-hat" label="Fila da cozinha" value={String(r.fila)}
           sub={r.atrasados ? `${r.atrasados} ${r.atrasados === 1 ? "atrasado" : "atrasados"}` : "Nenhum atrasado"} onClick={() => onView("cozinha")} />
         <Indicador icon="receipt-text" label="Ticket médio" value={window.brl(r.ticket / 100)}
@@ -147,6 +191,8 @@ function VisaoGeral({ compact, onView, onQ }) {
           ))}
         </div>
       </Card>
+      {verReceber ? <AReceberModal lista={r.receberLista} hoje={window.DLUH_API.hoje()} onClose={() => setVerReceber(false)}
+        onPedido={id => { setVerReceber(false); abrirPedido(id); }} /> : null}
     </div>
   );
 }
