@@ -5,7 +5,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, apagarPedido } from "../src/pedidos.js";
+import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, apagarPedido, apagarPagamento } from "../src/pedidos.js";
 import { salvarProduto, apagarProduto, salvarRecheios } from "../src/produtos.js";
 import { salvarFinanceiro, apagarFinanceiro, pagarBoleto } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
@@ -245,6 +245,21 @@ test("apagarPedido tira o pedido, os eventos e os pagamentos dele", async () => 
   assert.equal((await db.collection("sis_pagamentos").doc("p-1").get()).exists, false);
   assert.equal((await db.collection("sis_pagamentos").doc("p-2").get()).exists, true);
   await assert.rejects(apagarPedido(db, { pedidoId: id }), /não existe/);
+});
+
+test("apagarPagamento desconta do pedido e reabre o finalizado", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  await mudarStatus(db, { pedidoId: id, status: "Entregue — Esperando restante" }, "ana");
+  await registrarPagamento(db, { pedidoId: id, valor: 7000, chave: "ap-1", meio: "pix" }, "ana");
+  await registrarPagamento(db, { pedidoId: id, valor: 20000, chave: "ap-2", meio: "dinheiro" }, "ana");
+  assert.equal((await db.doc(`sis_pedidos/${id}`).get()).get("status"), "Finalizado");
+  const r = await apagarPagamento(db, { pagamentoId: "ap-2" }, "ana");
+  assert.deepEqual([r.pago, r.pagamento, r.status], [7000, "Só entrada", "Entregue — Esperando restante"]);
+  assert.equal((await db.collection("sis_pagamentos").doc("ap-2").get()).exists, false);
+  assert.equal((await db.collection("sis_pagamentos").doc("ap-1").get()).exists, true);
+  const ev = (await eventos(id)).find(e => e.tipo === "pagamento-apagado");
+  assert.equal(ev.valor, 20000);
+  await assert.rejects(apagarPagamento(db, { pagamentoId: "ap-2" }, "ana"), /não existe/);
 });
 
 test("registrarNota grava tipo, número e CPF/CNPJ; corrigir guarda a anterior no evento", async () => {

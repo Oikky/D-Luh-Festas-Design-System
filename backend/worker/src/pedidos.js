@@ -182,4 +182,29 @@ async function apagarPedido(db, { pedidoId }) {
   });
 }
 
-export { apagarPedido, normalizar, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };
+/* Apaga um registro de pagamento lançado errado e tira o valor do pedido. Pedido finalizado que
+   deixa de estar quitado volta a "Entregue — Esperando restante". Quem chama (index.js) já conferiu
+   a senha da conta sistema. O evento guarda o que foi apagado. */
+async function apagarPagamento(db, { pagamentoId }, por) {
+  const pagRef = db.collection(PAGAMENTOS).doc(String(pagamentoId || ""));
+  return db.runTransaction(async tx => {
+    const pag = await tx.get(pagRef);
+    if (!pag.exists) throw new ErroDominio("not-found", "Esse pagamento não existe mais");
+    const { pedidoId, valor = 0, meio = "" } = pag.data();
+    const ref = db.collection(PEDIDOS).doc(String(pedidoId || ""));
+    const snap = await tx.get(ref);
+    tx.delete(pagRef);
+    if (!snap.exists) return { apagado: true, pedidoId };
+
+    const pago = Math.max(0, (snap.get("pago") || 0) - valor);
+    const pagamento = pagamentoDe(snap.get("total"), pago);
+    const statusAntes = snap.get("status");
+    const status = statusAntes === "Finalizado" && pagamento !== "Totalmente pago" ? "Entregue — Esperando restante" : statusAntes;
+    tx.update(ref, { pago, pagamento, status, atualizadoEm: agora() });
+    evento(tx, ref, { tipo: "pagamento-apagado", valor, meio, pagamentoId: pagRef.id, pagamento, por });
+    if (status !== statusAntes) evento(tx, ref, { tipo: "status", de: statusAntes, para: status, por: "sistema" });
+    return { apagado: true, pedidoId, pago, pagamento, status };
+  });
+}
+
+export { apagarPagamento, apagarPedido,normalizar, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };

@@ -43,6 +43,26 @@ const MODO_REAL = () => window.DLUH_API.modo === "firebase";
 const MEIO_API = { "Pix": "pix", "Dinheiro": "dinheiro", "Cartão": "cartao" };
 const novaChave = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 
+/* Apagar um registro de pagamento pede a senha da conta sistema (a mesma de apagar pedido). O
+   valor sai do "pago" do pedido; a senha vai só nessa chamada e nada fica guardado. */
+function SenhaPagamento({ p, pendente, onCancel, onConfirm }) {
+  const [senha, setSenha] = React.useState("");
+  const [tentou, setTentou] = React.useState(false);
+  const ir = () => { setTentou(true); if (senha) onConfirm(senha); };
+  return <PM.Modal width={420} title="Apagar registro de pagamento?" onClose={pendente ? null : onCancel} dismissible={false}
+    subtitle={`${brl(p.valor)}${p.meio ? " · " + p.meio : ""}${p.quando ? " · " + p.quando : ""}. O valor sai do que o pedido já recebeu. Não dá pra desfazer.`}
+    footer={<><PM.Button variant="ghost" block disabled={pendente} onClick={onCancel}>Voltar</PM.Button>
+      <PM.Button tone="danger" block icon="trash-2" loading={pendente} onClick={ir}>Sim, apagar</PM.Button></>}>
+    <form onSubmit={e => { e.preventDefault(); ir(); }}>
+      <PM.Field label="Senha do sistema" required error={tentou && !senha ? "Digite a senha" : undefined}
+        hint="A senha da conta sistema do Firebase.">
+        <PM.Input type="password" autoFocus autoComplete="off" value={senha} invalid={tentou && !senha}
+          onChange={e => setSenha(e.target.value)} />
+      </PM.Field>
+    </form>
+  </PM.Modal>;
+}
+
 function PagamentosModal({ lista, onChange, pedido, onClose, onToast, acao, pendente }) {
   const real = MODO_REAL();
   const [valor, setValor] = React.useState("");
@@ -80,7 +100,8 @@ function PagamentosModal({ lista, onChange, pedido, onClose, onToast, acao, pend
             {p.origem === "site"
               ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}><PM.Icon name="check" size={14} />Confirmado automaticamente</span>
               : real ? <span /> : <Anexo arquivo={p.arquivo} onFile={n => onChange(lista.map((x, j) => j === i ? { ...x, arquivo: n } : x))} />}
-            {p.origem === "site" || real ? <span /> : <PM.IconButton icon="trash-2" label="Remover pagamento" size={36} onClick={() => setRemover(i)} />}
+            {real ? (p.id ? <PM.IconButton icon="trash-2" label="Apagar registro de pagamento" size={36} onClick={() => setRemover(i)} /> : <span />)
+              : p.origem === "site" ? <span /> : <PM.IconButton icon="trash-2" label="Remover pagamento" size={36} onClick={() => setRemover(i)} />}
           </div>
         )) : <div style={{ padding: "14px", borderTop: "var(--border-hairline) solid var(--color-border)", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Nenhum pagamento registrado.</div>}
         <div style={{ display: "grid", gridTemplateColumns: PG_COLS, gap: 12, alignItems: "center", padding: "12px 14px", borderTop: "var(--border-hairline) solid var(--color-border-strong)", background: "var(--color-accent-soft)" }}>
@@ -97,7 +118,13 @@ function PagamentosModal({ lista, onChange, pedido, onClose, onToast, acao, pend
         <PM.Button tone="success" icon="plus" loading={pendente === "registrar-pagamento"} onClick={registrar} style={{ marginTop: 21 }}>Registrar</PM.Button>
       </div>
     </PM.Modal>
-    {remover != null ? <PM.ConfirmDialog tone="danger" icon="trash-2" title="Remover pagamento?"
+    {remover != null && real ? <SenhaPagamento p={lista[remover]} pendente={pendente === "apagar-pagamento"} onCancel={() => setRemover(null)}
+      onConfirm={async senha => {
+        const ok = await acao("apagar-pagamento", { ok: "Registro de pagamento apagado", falhou: "Não deu pra apagar o pagamento" }, null,
+          { acao: "apagarPagamento", dados: { pagamentoId: lista[remover].id, senha } });
+        if (ok) setRemover(null);
+      }} /> : null}
+    {remover != null && !real ? <PM.ConfirmDialog tone="danger" icon="trash-2" title="Remover pagamento?"
       message={`O registro de ${brl(lista[remover].valor)} sai da lista. Não dá pra desfazer.`}
       confirmLabel="Sim, remover" cancelLabel="Voltar" pending={pendente === "remover-pagamento"} onCancel={() => setRemover(null)}
       onConfirm={async () => {

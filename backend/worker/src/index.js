@@ -65,6 +65,11 @@ const ACOES = {
     if (!(await senhaDoSistema(env, senha))) throw new ErroDominio("invalid-argument", "Senha errada");
     return pedidos.apagarPedido(db, { pedidoId });
   },
+  /* Apagar um registro de pagamento também pede a senha da conta sistema. */
+  async apagarPagamento(db, { pagamentoId, senha }, por, env) {
+    if (!(await senhaDoSistema(env, senha))) throw new ErroDominio("invalid-argument", "Senha errada");
+    return pedidos.apagarPagamento(db, { pagamentoId }, por);
+  },
 
   /* Pix direto na conta, dinheiro, maquininha, ou "outro". A tela manda uma `chave` nova por clique
      (crypto.randomUUID()), então um clique repetido não paga duas vezes. */
@@ -185,6 +190,7 @@ const DEPOIS = {
     efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id), efeitos.telegramNovoPedido(env, db, r.id)
   ],
   editarPedido: (env, db, dados, r) => r.mudou ? [efeitos.sincronizarAgenda(env, db, dados.pedidoId)] : [],
+  apagarPagamento: (env, db, dados, r) => r.pedidoId && r.pagamento ? [efeitos.sincronizarAgenda(env, db, r.pedidoId)] : [],
   mudarStatus: (env, db, dados, r, por) => !r.mudou ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId),
     ...(r.status === "Pronto" ? [efeitos.avisarClientePronto(env, db, dados.pedidoId)] : []),
