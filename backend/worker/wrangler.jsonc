@@ -53,4 +53,6 @@
   // a Evolution usava antes, com o token dele — por isso é segredo): o que não é da assistente segue para lá.
   // TELEGRAM_TOKEN (do @BotFather) e TELEGRAM_WEBHOOK_TOKEN (o secret_token do setWebhook).
   // VOICEMONKEY_TOKEN (Voice Monkey → API): o aviso falado da cozinha.
+  // MACHINE_API_KEY, MACHINE_USUARIO, MACHINE_SENHA, LOJA_ENDERECO ("Rua, nº|Bairro|Cidade|UF") e, opcional,
+  // MACHINE_CATEGORIA: taxa de entrega do site pela estimativa da Moblets (src/frete.js).
 }

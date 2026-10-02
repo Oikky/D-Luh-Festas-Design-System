@@ -1,7 +1,7 @@
 /* API do sistema D'Luh.
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
-     POST /site/pedido, /site/consultar  site dos clientes, sem login (site.js)
+     POST /site/pedido, /site/consultar, /site/frete  site dos clientes, sem login (site.js, frete.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
@@ -31,6 +31,7 @@ import * as alexa from "./alexa.js";
 const CRON_LEMBRETE = "0 12 * * *";
 const CRON_COZINHA = "*/15 * * * *";
 import * as site from "./site.js";
+import { estimarFrete } from "./frete.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
 
@@ -247,6 +248,8 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
   }
   try {
     const dados = (await request.json().catch(() => { throw new ErroDominio("invalid-argument", "Corpo não é JSON"); })) || {};
+    /* Frete antes do anti-robô: a revisão do pedido pede a taxa sem desafio; o limite por IP segura abuso. */
+    if (rota === "frete") return json(await estimarFrete(env, dados.local), 200, cors);
     if (!(await site.turnstileOk(env, dados.turnstile, ip))) throw new ErroDominio("permission-denied", "Confirme que você não é um robô");
     const db = banco(env);
     if (rota === "consultar") return json(await site.consultarDoSite(db, dados), 200, cors);
@@ -259,7 +262,7 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
     }
     dados.cliente = { ...(dados.cliente || {}), email: claims.email, nome: String(dados.cliente?.nome || claims.name || "").trim() };
     dados.clienteUid = claims.sub;
-    const r = await site.pedidoDoSite(db, dados);
+    const r = await site.pedidoDoSite(db, dados, { frete: local => estimarFrete(env, local) });
     depois(ctx, [...DEPOIS.criarPedido(env, db, dados, r), efeitos.avisarClienteRecebido(env, db, r.id)], "pedidoDoSite", r.id);
     return json({ id: r.id, total: r.total }, 200, cors);
   } catch (e) {
@@ -455,7 +458,7 @@ export default {
     }
 
     const cors = corsDe(request, env);
-    const rotaSite = url.pathname.match(/^\/site\/(pedido|consultar)$/)?.[1];
+    const rotaSite = url.pathname.match(/^\/site\/(pedido|consultar|frete)$/)?.[1];
     if (rotaSite) return rotaDoSite(request, env, ctx, rotaSite, cors);
     const acao = url.pathname.match(/^\/api\/(\w+)$/)?.[1];
     if (!acao || ![ACOES, ACOES_CLIENTE, ACOES_SISTEMA].some(a => Object.hasOwn(a, acao))) return json({ erro: "Não encontrado" }, 404, cors);

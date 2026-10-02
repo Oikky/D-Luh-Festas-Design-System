@@ -28,6 +28,8 @@
   // O pedido vai com o login Google (login.js); o Worker recusa sem ele.
   const criarPedido = async dados => chamar("pedido", dados, await window.DLuhLogin?.token());
   const consultarPedido = (numero, telefone) => chamar("consultar", { numero, telefone });
+  // Taxa de entrega para o endereço (estimativa da Moblets, arredondada): { disponivel, taxa, km }.
+  const estimarFrete = local => chamar("frete", { local });
 
-  window.DLuhAPI = { criarPedido, consultarPedido, modo: "producao" };
+  window.DLuhAPI = { criarPedido, consultarPedido, estimarFrete, modo: "producao" };
 })();

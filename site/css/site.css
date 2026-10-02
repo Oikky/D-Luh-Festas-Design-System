@@ -522,6 +522,9 @@ textarea.entrada { min-height: 96px; resize: vertical; }
 .revisao__itens small { color: var(--cafe-2); }
 .painel .total { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--linha); }
 .painel .total__nota { margin-top: 8px; }
+/* Linha da taxa de entrega acima do total: mais leve, e o total logo abaixo sem outro traço. */
+.total--linha strong { font-size: 1.125rem; font-weight: 700; }
+.painel .total--linha:not([hidden]) + .total { margin-top: 8px; padding-top: 0; border-top: 0; }
 
 /* ── Pedido recebido ───────────────────────────────────────────── */
 

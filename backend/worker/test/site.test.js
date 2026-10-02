@@ -55,6 +55,20 @@ test("usa o preço e o nome do catálogo, não os do navegador", async () => {
   assert.deepEqual(p.itens[1].topo, { tema: "Frozen" });
 });
 
+test("entrega: a taxa vem da estimativa do servidor, não do navegador; sem estimativa fica 0", async () => {
+  const entrega = { modo: "entrega", data: "2026-10-05", hora: "15:00", endereco: "Rua A, 1 — Centro", local: { rua: "Rua A", numero: "1", bairro: "Centro" } };
+  const pedidos = [];
+  const r = await pedidoDoSite(db, pedido({ entrega, taxaEntrega: 1 }), { agora: AGORA, frete: async l => { pedidos.push(l); return { disponivel: true, taxa: 1200 }; } });
+  const p = (await db.collection("sis_pedidos").doc(r.id).get()).data();
+  assert.equal(p.taxaEntrega, 1200);
+  assert.equal(p.total, 50 * 75 + 1200);
+  assert.equal(pedidos[0].bairro, "Centro");
+  const sem = await pedidoDoSite(db, pedido({ entrega }), { agora: AGORA, frete: async () => ({ disponivel: false }) });
+  assert.equal((await db.collection("sis_pedidos").doc(sem.id).get()).get("taxaEntrega"), 0);
+  const retirada = await pedidoDoSite(db, pedido(), { agora: AGORA, frete: async () => { throw new Error("retirada não tem frete"); } });
+  assert.equal((await db.collection("sis_pedidos").doc(retirada.id).get()).get("taxaEntrega"), 0);
+});
+
 test("recusa produto inativo, mínimo não atingido e dia que já passou", async () => {
   await assert.rejects(pedidoDoSite(db, pedido({ itens: [{ produtoId: "velho", qtd: 1 }] }), { agora: AGORA }), /saiu do cardápio/);
   await assert.rejects(pedidoDoSite(db, pedido({ itens: [{ produtoId: "coxinha", qtd: 10 }] }), { agora: AGORA }), /mínimo é 25/);

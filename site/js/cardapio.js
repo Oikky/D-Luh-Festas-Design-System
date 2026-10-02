@@ -440,9 +440,11 @@
     if (e.target.name === "modo") camposEndereco.hidden = modoAtual() !== "entrega";
   });
   const cep = document.getElementById("f-cep");
+  let cidadeCep = null; // { cidade, uf } do ViaCEP, para a estimativa do frete
   cep.addEventListener("input", async () => {
     const d = D.soDigitos(cep.value).slice(0, 8);
     cep.value = d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+    cidadeCep = null;
     if (d.length !== 8) return;
     const ajuda = document.getElementById("f-cep-ajuda");
     ajuda.textContent = "Procurando o CEP…";
@@ -452,6 +454,7 @@
       if (j.erro) throw new Error("cep");
       if (j.logradouro) document.getElementById("f-rua").value = j.logradouro;
       if (j.bairro) document.getElementById("f-bairro").value = j.bairro;
+      cidadeCep = { cidade: j.localidade || "", uf: j.uf || "" };
       ajuda.textContent = `${j.localidade || ""}${j.uf ? " · " + j.uf : ""}`;
       document.getElementById(j.logradouro ? "f-numero" : "f-rua").focus();
     } catch (_) {
@@ -473,6 +476,30 @@
   function enderecoTexto() {
     const v = id => document.getElementById(id).value.trim();
     return [`${v("f-rua")}, ${v("f-numero")}`, v("f-complemento"), v("f-bairro"), v("f-cep") ? `CEP ${v("f-cep")}` : ""].filter(Boolean).join(" — ");
+  }
+  /* O mesmo endereço em partes, para a estimativa da entrega (o servidor refaz a conta no pedido). */
+  function localEntrega() {
+    const v = id => document.getElementById(id).value.trim();
+    return { rua: v("f-rua"), numero: v("f-numero"), bairro: v("f-bairro"), cep: v("f-cep"), ...(cidadeCep || {}) };
+  }
+
+  /* Taxa de entrega: pedida uma vez por endereço. Sem estimativa (endereço que a Moblets não
+     acha, sistema fora do ar), vale o combinado de antes: a taxa vem na confirmação da loja. */
+  const frete = { chave: "", estado: "nada", taxa: 0, km: null };
+  async function calcularFrete() {
+    const local = localEntrega();
+    const chave = JSON.stringify(local);
+    if (chave === frete.chave && frete.estado !== "erro") return;
+    Object.assign(frete, { chave, estado: "carregando", taxa: 0, km: null });
+    mostrarTotais();
+    try {
+      const r = API.estimarFrete ? await API.estimarFrete(local) : { disponivel: false };
+      if (frete.chave !== chave) return; // o endereço mudou enquanto calculava
+      Object.assign(frete, r && r.disponivel ? { estado: "ok", taxa: r.taxa, km: r.km || null } : { estado: "sem" });
+    } catch (_) {
+      if (frete.chave === chave) frete.estado = "erro";
+    }
+    mostrarTotais();
   }
 
   /* Revisão */
@@ -530,13 +557,26 @@
         <h3>${modo === "entrega" ? "Entrega" : "Retirada na loja"} <button type="button" data-ir-passo="entrega">Mudar</button></h3>
         <p>${modo === "entrega" ? D.esc(enderecoTexto()) : "Você busca na loja na hora marcada."}</p>
       </div>`;
-    document.getElementById("revisao-total").textContent = D.brl(totalCarrinho());
-    const pode = podeSoEntrada(data);
-    document.getElementById("bloco-pagamento").hidden = !pode;
+    document.getElementById("bloco-pagamento").hidden = !podeSoEntrada(data);
+    mostrarTotais();
+    if (modo === "entrega") calcularFrete();
+  }
+  /* Itens + entrega (quando já calculada), a entrada e a nota de baixo. */
+  function mostrarTotais() {
+    const data = document.getElementById("f-data").value;
+    const modo = modoAtual();
+    const comFrete = modo === "entrega" && frete.estado === "ok";
+    const linha = document.getElementById("revisao-frete");
+    linha.hidden = modo !== "entrega" || frete.estado === "sem" || frete.estado === "erro" || frete.estado === "nada";
+    document.getElementById("revisao-frete-valor").textContent = frete.estado === "carregando" ? "Calculando…" : D.brl(frete.taxa);
+    const total = totalCarrinho() + (comFrete ? frete.taxa : 0);
+    document.getElementById("revisao-total-rotulo").textContent = comFrete ? "Total" : "Total dos itens";
+    document.getElementById("revisao-total").textContent = D.brl(total);
     document.getElementById("pg-entrada-texto").textContent =
-      `${D.brl(Math.round(totalCarrinho() / 2))} agora, o resto na ${modo === "entrega" ? "entrega" : "retirada"}`;
-    const taxa = modo === "entrega" ? "A taxa de entrega entra na confirmação. " : "";
-    document.getElementById("revisao-nota").textContent = pode
+      `${D.brl(Math.round(total / 2))} agora, o resto na ${modo === "entrega" ? "entrega" : "retirada"}`;
+    const taxa = modo !== "entrega" || comFrete || frete.estado === "carregando" ? ""
+      : "A taxa de entrega para esse endereço vem na confirmação da loja. ";
+    document.getElementById("revisao-nota").textContent = podeSoEntrada(data)
       ? `${taxa}O link de pagamento chega pelo WhatsApp depois que a loja confirmar.`
       : `${taxa}Para pedidos de até ${D.brl(LIMITE_ENTRADA)} para hoje ou amanhã, o pagamento é do valor total. O link chega pelo WhatsApp depois que a loja confirmar.`;
   }
@@ -587,7 +627,7 @@
     const modo = modoAtual();
     const dados = {
       cliente: { nome, telefone },
-      entrega: { modo, data: document.getElementById("f-data").value, hora: document.getElementById("f-hora").value, ...(modo === "entrega" ? { endereco: enderecoTexto() } : {}) },
+      entrega: { modo, data: document.getElementById("f-data").value, hora: document.getElementById("f-hora").value, ...(modo === "entrega" ? { endereco: enderecoTexto(), local: localEntrega() } : {}) },
       itens,
       entradaPct: entradaEscolhida(document.getElementById("f-data").value),
       obs: document.getElementById("f-obs").value.trim()
@@ -618,12 +658,14 @@
 
   function mostrarRecebido(id, dados) {
     const total = dados.itens.reduce((s, it) => s + it.qtd * it.valorUnit, 0);
+    const taxa = dados.entrega.modo === "entrega" && frete.estado === "ok" ? frete.taxa : 0;
     document.getElementById("ficha").innerHTML = `
       <div class="ficha__numero"><span>Pedido</span><strong class="num">${D.esc(id)}</strong></div>
       <dl>
         <dt>Dia</dt><dd>${D.esc(D.dataCurta(dados.entrega.data))} · ${D.esc(D.hora(dados.entrega.hora))}</dd>
         <dt>${dados.entrega.modo === "entrega" ? "Entrega" : "Retirada"}</dt><dd>${dados.entrega.modo === "entrega" ? "no endereço" : "na loja"}</dd>
         <dt>Itens</dt><dd class="num">${D.brl(total)}</dd>
+        ${taxa ? `<dt>Entrega</dt><dd class="num">${D.brl(taxa)}</dd>` : ""}
         <dt>Situação</dt><dd>Aguardando confirmação</dd>
       </dl>`;
     document.getElementById("recebido-whats").href = D.linkWhats(`Oi! Acabei de fazer o pedido ${id} pelo site.`);

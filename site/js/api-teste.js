@@ -1,5 +1,5 @@
-/* API de TESTE do site (só com ?api=teste na URL) — mesmo formato das rotas /site/pedido e
-   /site/consultar do Worker dluh-api (js/api.js). Nada sai do aparelho: os pedidos ficam no
+/* API de TESTE do site (só com ?api=teste na URL) — mesmo formato das rotas /site/pedido,
+   /site/consultar e /site/frete do Worker dluh-api (js/api.js). Nada sai do aparelho: os pedidos ficam no
    localStorage. Na etapa 4 este arquivo é trocado por api.js, com as mesmas duas funções. */
 (function () {
   "use strict";
@@ -52,7 +52,21 @@
     return x.slice(-8) === y.slice(-8);
   }
 
+  /* Frete de mentira, igual para o mesmo bairro: R$ 8 a R$ 19. Bairro com "longe" fica sem
+     estimativa, para ver o caso "a taxa entra na confirmação". */
+  async function estimarFrete(local) {
+    await espera(500);
+    const bairro = String(local && local.bairro || "").toLowerCase();
+    if (!bairro || bairro.includes("longe")) return { disponivel: false };
+    const n = [...bairro].reduce((s, c) => s + c.charCodeAt(0), 0);
+    return { disponivel: true, taxa: 800 + (n % 12) * 100, km: 2 + (n % 9) };
+  }
+
   async function criarPedido(dados) {
+    if (dados.entrega.modo === "entrega") {
+      const f = await estimarFrete(dados.entrega.local);
+      dados = { ...dados, taxaEntrega: f.disponivel ? f.taxa : 0 };
+    }
     await espera(900);
     const todos = lerTodos();
     const ultimo = Object.keys(todos).map(k => Number(k.split("-")[1])).filter(Boolean);
@@ -74,5 +88,5 @@
     return { pedido: p };
   }
 
-  window.DLuhAPI = { criarPedido, consultarPedido, modo: "teste" };
+  window.DLuhAPI = { criarPedido, consultarPedido, estimarFrete, modo: "teste" };
 })();

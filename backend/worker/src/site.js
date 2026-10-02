@@ -1,6 +1,7 @@
 /* Rotas públicas do site dos clientes (sem login):
      POST /site/pedido     cria o pedido — preço, nome e mínimo vêm do catálogo (sis_produtos), nunca do navegador
      POST /site/consultar  "Acompanhar pedido": nº do pedido + telefone de quem pediu
+     POST /site/frete      taxa de entrega para um endereço, pela estimativa da Moblets (frete.js)
    Quem protege: limite por IP (binding LIMITE_SITE no wrangler.jsonc) e, se TURNSTILE_SECRET existir,
    o desafio do Turnstile. O pedido nasce "Aguardando confirmação", como os do admin. */
 import { ErroDominio } from "./dominio.js";
@@ -15,7 +16,9 @@ function hojeBrasilia(agora = new Date()) {
   return new Date(agora.getTime() - 3 * 3600e3).toISOString().slice(0, 10);
 }
 
-async function pedidoDoSite(db, dados, { agora = new Date() } = {}) {
+/* frete: (local) => { disponivel, taxa } — a taxa é refeita aqui, nunca vem do navegador. Sem
+   estimativa (Moblets fora do ar, sem chave), a taxa fica 0 e a loja combina na confirmação. */
+async function pedidoDoSite(db, dados, { agora = new Date(), frete = null } = {}) {
   const itensEntrada = Array.isArray(dados?.itens) ? dados.itens : [];
   if (!itensEntrada.length) throw new ErroDominio("invalid-argument", "O pedido precisa de pelo menos um item");
   if (itensEntrada.length > MAX_ITENS) throw new ErroDominio("invalid-argument", "Itens demais num pedido só");
@@ -78,6 +81,7 @@ async function pedidoDoSite(db, dados, { agora = new Date() } = {}) {
   const entradaPct = podeEntrada && dados?.entradaPct !== 100 ? 50 : 100;
 
   const modo = dados?.entrega?.modo;
+  const estimativa = modo === "entrega" && frete ? await frete(dados?.entrega?.local) : null;
   return criarPedido(db, {
     entradaPct,
     cliente: { nome: texto(dados?.cliente?.nome, 80), telefone: texto(dados?.cliente?.telefone, 20), email: texto(dados?.cliente?.email, 120) },
@@ -87,7 +91,7 @@ async function pedidoDoSite(db, dados, { agora = new Date() } = {}) {
       ...(modo === "entrega" ? { endereco: texto(dados?.entrega?.endereco, 300) } : {})
     },
     itens,
-    taxaEntrega: 0,
+    taxaEntrega: estimativa?.disponivel ? estimativa.taxa : 0,
     obs: texto(dados?.obs, 1000),
     origem: "site"
   }, "site");
