@@ -3,11 +3,60 @@ import { Icon } from "../core/Icon.jsx";
 
 const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
+/* Phone back button. Every open layer (dialog, menu, sheet, a screen other than home) holds one
+   history entry, so "back" closes the top layer instead of leaving the app. Opt-in: the app sets
+   window.DLUH_VOLTAR = true, so design-system previews never touch history.
+   Entries are reconciled after the current task, so closing a menu and opening the dialog it
+   launched in the same click nets out to no history change. A layer that refuses to close on back
+   (unsaved changes, a request in flight) gets its entry back. */
+const camadas = [];
+let noHistorico = 0, acertando = false, ignorar = 0;
+function acertar() {
+  if (acertando) return;
+  acertando = true;
+  setTimeout(() => {
+    acertando = false;
+    const alvo = camadas.length;
+    while (noHistorico < alvo) history.pushState({ dluh: ++noHistorico }, "");
+    if (noHistorico > alvo) { ignorar++; history.go(alvo - noHistorico); noHistorico = alvo; }
+  }, 0);
+}
+if (typeof window !== "undefined") window.addEventListener("popstate", () => {
+  if (ignorar) { ignorar--; return; }
+  if (!window.DLUH_VOLTAR) return;
+  noHistorico = Math.max(0, noHistorico - 1);
+  const c = camadas.pop();
+  if (!c) return;
+  const lugar = camadas.length;
+  c.fechar.current && c.fechar.current();
+  /* Still open (e.g. it asked "Descartar alterações?" instead): back in its old place, under
+     whatever it opened, with its entry restored. */
+  setTimeout(() => { if (c.vivo && !camadas.includes(c)) { camadas.splice(Math.min(lugar, camadas.length), 0, c); acertar(); } }, 50);
+});
+
+export function useVoltar(ativo, fechar) {
+  const ref = React.useRef(fechar);
+  ref.current = fechar;
+  React.useEffect(() => {
+    if (!ativo || typeof window === "undefined" || !window.DLUH_VOLTAR) return;
+    const c = { fechar: ref, vivo: true };
+    camadas.push(c);
+    acertar();
+    return () => {
+      c.vivo = false;
+      const i = camadas.indexOf(c);
+      if (i >= 0) { camadas.splice(i, 1); acertar(); }
+    };
+  }, [ativo]);
+}
+
 /* Shared by Modal and ConfirmDialog: moves focus into the dialog, keeps Tab inside it, maps
-   Escape to the dialog's own exit and hands focus back to whatever opened it. */
+   Escape (and the phone's back button) to the dialog's own exit and hands focus back to whatever
+   opened it. */
 export function useDialogFocus(ref, onEscape) {
   const esc = React.useRef(onEscape);
   esc.current = onEscape;
+  useVoltar(true, () => esc.current && esc.current());
   React.useEffect(() => {
     const node = ref.current;
     if (!node) return;

@@ -53,6 +53,7 @@ button,[role="tab"],[role="menuitem"],label[data-target]{touch-action:manipulati
      conferido no servidor (fetch no-cache → 304 se não mudou), então o app instalado e o navegador pegam a
      versão nova logo depois de publicar, sem Ctrl+Shift+R. A ordem é a mesma de antes. -->
 <script>
+window.DLUH_VOLTAR = true; // botão voltar do celular fecha camadas em vez de sair (Modal.jsx, useVoltar)
 (async () => {
   const V = ""; // tools/publicar-site.py troca por "?v=<data>" na cópia de www.dluhfestas.com/admin
   const LOCAIS = ["../../_ds_bundle.js","data.js","contratos-data.js","data-extremos.js","api.js","firebase.js"];

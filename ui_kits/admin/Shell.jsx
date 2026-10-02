@@ -1,4 +1,4 @@
-const { SearchInput, IconButton, UserChip, Icon, Modal, FilterPill, Button, ListRow, EmptyState } = window.DLuhFestasDesignSystem_c861a2;
+const { SearchInput, IconButton, UserChip, Icon, Modal, FilterPill, Button, ListRow, EmptyState, useVoltar } = window.DLuhFestasDesignSystem_c861a2;
 
 /* Rail counts are derived, never typed in: open orders (not Finalizado or Cancelado),
    commitments on the shop day, and the kitchen queue. */
@@ -88,6 +88,7 @@ const PRINCIPAIS = ["visao", "pedidos", "cozinha"];
 
 function BottomNav({ value, onChange }) {
   const [mais, setMais] = React.useState(false);
+  useVoltar(mais, () => setMais(false));
   const itens = navItems();
   const extras = itens.filter(it => !PRINCIPAIS.includes(it.id));
   const extraAtivo = extras.some(it => it.id === value);

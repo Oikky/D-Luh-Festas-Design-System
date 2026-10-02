@@ -3,12 +3,15 @@
    - admin em /admin: ui_kits/admin + o que ele usa do design system (styles.css, tokens/, _ds_bundle.js,
      assets/logo) dentro de admin/ds/. Na cópia publicada o admin já abre ligado ao sistema de verdade
      (sem ?fonte=firebase); o modo demonstração fica em ?fonte=demo.
-   Não faz commit nem push. Uso:  python tools/publicar-site.py [pasta do repositório do site]"""
+   Não faz commit nem push. Uso:  python tools/publicar-site.py [--so-admin] [pasta do repositório do site]
+   --so-admin: publica só o admin, sem tocar no site dos clientes (útil com o site/ em obra)."""
 import os, re, shutil, sys, time
 VERSAO = time.strftime("%Y%m%d%H%M%S")
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DESTINO = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/Downloads/dluhfestas"))
+SO_ADMIN = "--so-admin" in sys.argv
+ARGS = [a for a in sys.argv[1:] if a != "--so-admin"]
+DESTINO = os.path.abspath(ARGS[0] if ARGS else os.path.expanduser("~/Downloads/dluhfestas"))
 if not os.path.isdir(os.path.join(DESTINO, ".git")):
     sys.exit(f"{DESTINO} não é o repositório do site")
 
@@ -22,10 +25,11 @@ def copiar(de, para):
         shutil.copy2(de, para)
 
 # Site dos clientes
-for f in ["index.html", "cardapio.html", "pedido.html"]:
-    copiar(f"site/{f}", f)
-for d in ["css", "js", "img", "midia"]:
-    copiar(f"site/{d}", d)
+if not SO_ADMIN:
+    for f in ["index.html", "cardapio.html", "pedido.html"]:
+        copiar(f"site/{f}", f)
+    for d in ["css", "js", "img", "midia"]:
+        copiar(f"site/{d}", d)
 
 # Admin
 admin = os.path.join(DESTINO, "admin")

@@ -110,6 +110,9 @@ function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast,
   const tipo = contrato.tipo;
   const modelo = modelos.find(m => m.id === tipo);
   const [verPrevia, setVerPrevia] = React.useState(!compact);
+  /* Voltar do celular: da prévia volta aos dados; dos dados, sai do editor. */
+  DS.useVoltar(true, onBack);
+  DS.useVoltar(compact && verPrevia, () => setVerPrevia(false));
   const [finalizar, setFinalizar] = React.useState(false);
   const set = (id, v) => onChange({ dados: { ...contrato.dados, [tipo]: { ...contrato.dados[tipo], [id]: v } } });
 

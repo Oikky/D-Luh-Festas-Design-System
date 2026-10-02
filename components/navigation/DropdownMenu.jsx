@@ -1,5 +1,6 @@
 import React from "react";
 import { Icon } from "../core/Icon.jsx";
+import { useVoltar } from "../feedback/Modal.jsx";
 
 /* The menu is position: fixed against the trigger's rect, so a parent with overflow: hidden
    (every Card) can no longer clip it. It flips above the trigger when there is no room below. */
@@ -31,6 +32,7 @@ export function DropdownMenu({ trigger, items = [], open: openProp, onOpenChange
     setOpen(false);
     if (refocus) { const b = ref.current && ref.current.querySelector("button"); if (b) b.focus(); }
   };
+  useVoltar(open, () => close(false));
 
   React.useLayoutEffect(() => {
     if (!open) { setPos(null); return; }

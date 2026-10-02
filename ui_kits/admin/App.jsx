@@ -14,6 +14,9 @@ function App() {
   const compact = useCompact();
   const [theme, setTheme] = React.useState("dark");
   const [q, setQ] = React.useState("");
+  /* Botão voltar do celular: fecha o que estiver aberto por cima; sem nada aberto, volta para a
+     Visão geral; só da Visão geral ele sai do app. */
+  window.DLuhFestasDesignSystem_c861a2.useVoltar(view !== "visao", () => setView("visao"));
   const Screen = { visao: window.VisaoGeral, pedidos: window.Pedidos, agenda: window.Agenda, cozinha: window.Cozinha, produtos: window.Produtos, clientes: window.TelaClientes, financeiro: window.Financeiro }[view];
   return (
     <div style={{ height: "100dvh" }}>

@@ -1337,11 +1337,81 @@ Object.assign(__ds_scope, {
 try { (() => {
 const FOCUSABLE = 'button:not([disabled]),[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
+/* Phone back button. Every open layer (dialog, menu, sheet, a screen other than home) holds one
+   history entry, so "back" closes the top layer instead of leaving the app. Opt-in: the app sets
+   window.DLUH_VOLTAR = true, so design-system previews never touch history.
+   Entries are reconciled after the current task, so closing a menu and opening the dialog it
+   launched in the same click nets out to no history change. A layer that refuses to close on back
+   (unsaved changes, a request in flight) gets its entry back. */
+const camadas = [];
+let noHistorico = 0,
+  acertando = false,
+  ignorar = 0;
+function acertar() {
+  if (acertando) return;
+  acertando = true;
+  setTimeout(() => {
+    acertando = false;
+    const alvo = camadas.length;
+    while (noHistorico < alvo) history.pushState({
+      dluh: ++noHistorico
+    }, "");
+    if (noHistorico > alvo) {
+      ignorar++;
+      history.go(alvo - noHistorico);
+      noHistorico = alvo;
+    }
+  }, 0);
+}
+if (typeof window !== "undefined") window.addEventListener("popstate", () => {
+  if (ignorar) {
+    ignorar--;
+    return;
+  }
+  if (!window.DLUH_VOLTAR) return;
+  noHistorico = Math.max(0, noHistorico - 1);
+  const c = camadas.pop();
+  if (!c) return;
+  const lugar = camadas.length;
+  c.fechar.current && c.fechar.current();
+  /* Still open (e.g. it asked "Descartar alterações?" instead): back in its old place, under
+     whatever it opened, with its entry restored. */
+  setTimeout(() => {
+    if (c.vivo && !camadas.includes(c)) {
+      camadas.splice(Math.min(lugar, camadas.length), 0, c);
+      acertar();
+    }
+  }, 50);
+});
+function useVoltar(ativo, fechar) {
+  const ref = React.useRef(fechar);
+  ref.current = fechar;
+  React.useEffect(() => {
+    if (!ativo || typeof window === "undefined" || !window.DLUH_VOLTAR) return;
+    const c = {
+      fechar: ref,
+      vivo: true
+    };
+    camadas.push(c);
+    acertar();
+    return () => {
+      c.vivo = false;
+      const i = camadas.indexOf(c);
+      if (i >= 0) {
+        camadas.splice(i, 1);
+        acertar();
+      }
+    };
+  }, [ativo]);
+}
+
 /* Shared by Modal and ConfirmDialog: moves focus into the dialog, keeps Tab inside it, maps
-   Escape to the dialog's own exit and hands focus back to whatever opened it. */
+   Escape (and the phone's back button) to the dialog's own exit and hands focus back to whatever
+   opened it. */
 function useDialogFocus(ref, onEscape) {
   const esc = React.useRef(onEscape);
   esc.current = onEscape;
+  useVoltar(true, () => esc.current && esc.current());
   React.useEffect(() => {
     const node = ref.current;
     if (!node) return;
@@ -1521,6 +1591,7 @@ function ModalPanel({
   }, footer) : null));
 }
 Object.assign(__ds_scope, {
+  useVoltar,
   useDialogFocus,
   useEntrada,
   Modal
@@ -1906,6 +1977,7 @@ function DropdownMenu({
       if (b) b.focus();
     }
   };
+  __ds_scope.useVoltar(open, () => close(false));
   React.useLayoutEffect(() => {
     if (!open) {
       setPos(null);
@@ -2976,11 +3048,16 @@ function App() {
   const compact = useCompact();
   const [theme, setTheme] = React.useState("dark");
   const [q, setQ] = React.useState("");
+  /* Botão voltar do celular: fecha o que estiver aberto por cima; sem nada aberto, volta para a
+     Visão geral; só da Visão geral ele sai do app. */
+  window.DLuhFestasDesignSystem_c861a2.useVoltar(view !== "visao", () => setView("visao"));
   const Screen = {
     visao: window.VisaoGeral,
     pedidos: window.Pedidos,
     agenda: window.Agenda,
     cozinha: window.Cozinha,
+    produtos: window.Produtos,
+    clientes: window.TelaClientes,
     financeiro: window.Financeiro
   }[view];
   return /*#__PURE__*/React.createElement("div", {
@@ -2998,10 +3075,11 @@ function App() {
   }, Screen ? /*#__PURE__*/React.createElement(Screen, {
     compact: compact,
     q: q,
+    onQ: setQ,
     onView: setView
   }) : null));
 }
-ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(window.Portao, null, /*#__PURE__*/React.createElement(App, null)));
 })(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/admin/App.jsx", error: String((e && e.message) || e) }); }
 
 // ui_kits/admin/Busca.jsx
@@ -3541,6 +3619,9 @@ function ContratoEditor({
   const tipo = contrato.tipo;
   const modelo = modelos.find(m => m.id === tipo);
   const [verPrevia, setVerPrevia] = React.useState(!compact);
+  /* Voltar do celular: da prévia volta aos dados; dos dados, sai do editor. */
+  DS.useVoltar(true, onBack);
+  DS.useVoltar(compact && verPrevia, () => setVerPrevia(false));
   const [finalizar, setFinalizar] = React.useState(false);
   const set = (id, v) => onChange({
     dados: {
@@ -6889,7 +6970,8 @@ const {
   FilterPill,
   Button,
   ListRow,
-  EmptyState
+  EmptyState,
+  useVoltar
 } = window.DLuhFestasDesignSystem_c861a2;
 
 /* Rail counts are derived, never typed in: open orders (not Finalizado or Cancelado),
@@ -7142,6 +7224,7 @@ function BottomNav({
   onChange
 }) {
   const [mais, setMais] = React.useState(false);
+  useVoltar(mais, () => setMais(false));
   const itens = navItems();
   const extras = itens.filter(it => !PRINCIPAIS.includes(it.id));
   const extraAtivo = extras.some(it => it.id === value);
@@ -8914,6 +8997,7 @@ __ds_ns.UserChip = __ds_scope.UserChip;
 __ds_ns.ConfirmDialog = __ds_scope.ConfirmDialog;
 
 __ds_ns.Modal = __ds_scope.Modal;
+__ds_ns.useVoltar = __ds_scope.useVoltar;
 
 __ds_ns.Toast = __ds_scope.Toast;
 
