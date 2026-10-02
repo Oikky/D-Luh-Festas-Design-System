@@ -164,7 +164,7 @@ function Agenda({ compact }) {
         <Badge tone="warn" icon="receipt">A pagar no mês: R$ {aPagar.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</Badge>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1.35fr 1fr", gap: 12, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "1.35fr 1fr", gap: 12, alignItems: "start" }}>
         <Card header={<>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <IconButton icon="chevron-left" label="Mês anterior" size={36} onClick={() => irPara(ano, mes - 1)} />

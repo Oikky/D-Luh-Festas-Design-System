@@ -1,5 +1,5 @@
 <!-- @dsCard group="Admin" viewport="1280x820" name="D'Luh Admin" subtitle="Painel de pedidos — visão geral, pedidos, agenda, cozinha, produtos e financeiro; desktop e mobile" -->
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>D'Luh Admin</title>
 <!-- App instalável (PC e celular): ícone D + "admin", gerado por tools/icones-admin.mjs -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -42,6 +42,11 @@ button:not(:disabled):active{transform:scale(var(--press-scale))}
   button:not([data-cell]):not([role="tab"]):not([role="menuitem"]){min-width:var(--tap-min)!important}
 }
 @media (prefers-reduced-motion:reduce){button:not(:disabled):active{transform:none}}
+/* Celular: sem o flash cinza do toque, sem o atraso de toque duplo, sem selecionar o texto do botão
+   num toque longo, e campos com 16px para o iPhone não dar zoom na página ao focar. */
+html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button,[role="tab"],[role="menuitem"],label[data-target]{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+@media (pointer:coarse){input,textarea,select{font-size:16px!important}}
 </style>
 </head><body><div id="root"></div>
 <!-- Os arquivos do admin passam por aqui em vez de <script src> direto: antes de carregar, cada um é

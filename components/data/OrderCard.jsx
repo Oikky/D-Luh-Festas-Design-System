@@ -14,7 +14,7 @@ export function OrderCard({ id, customer, status, meta = [], items = [], total, 
           {id ? <div style={{ fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-accent)", letterSpacing: "var(--ls-caps)", textTransform: "uppercase", marginBottom: 4 }}>{id}</div> : null}
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", overflowWrap: "anywhere" }}>{customer || "Cliente sem nome"}</div>
           {meta.length ? <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-body)", fontWeight: "var(--fw-medium)", marginTop: 3 }}>
-            {meta.map((m, i) => <React.Fragment key={i}>{i ? <span style={{ opacity: .45, margin: "0 6px" }}>·</span> : null}{m}</React.Fragment>)}
+            {meta.map((m, i) => <React.Fragment key={i}>{i ? <span style={{ opacity: .45, margin: "0 6px" }}>·</span> : null}<span style={{ whiteSpace: "nowrap" }}>{m}</span></React.Fragment>)}
           </div> : null}
           {badges ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{badges}</div> : null}
         </div>
@@ -29,7 +29,7 @@ export function OrderCard({ id, customer, status, meta = [], items = [], total, 
             {due != null ? <> · Falta <b style={{ color: "var(--action-warn)" }}>{due}</b></> : null}
           </div> : null}
         </div>
-        <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>{actions}</div>
+        <div style={{ flex: "1 1 auto", display: "flex", gap: "var(--gap-inline)", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>{actions}</div>
       </>}>
       {!items.length ? <div style={{ fontFamily: "var(--font-ui)", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Nenhum item registrado neste pedido.</div> : null}
       {items.length ? <div style={{ fontFamily: "var(--font-ui)" }}>

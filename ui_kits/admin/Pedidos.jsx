@@ -309,7 +309,20 @@ function Pedidos({ compact, q }) {
 
       {lista.length ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
-          {lista.map(p => (
+          {lista.map(p => {
+            const menu = <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
+              { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
+              { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
+              { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
+              { label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) },
+              ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
+              { divider: true },
+              { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) },
+              { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => setApagando(p) }
+            ]} />;
+            /* A ação principal cresce no celular para ser fácil de acertar com o polegar. */
+            const cresce = compact ? { flex: "1 1 auto" } : undefined;
+            return (
             <OrderCard key={p.id} id={p.id} customer={p.cliente} status={p.status}
               meta={[p.entrega, p.tel, p.pgto].filter(Boolean)}
               badges={<>
@@ -320,37 +333,32 @@ function Pedidos({ compact, q }) {
               </>}
               items={p.itens || []} total={p.total} paid={p.pago} due={p.falta}
               actions={<>
-                <Button size="sm" variant="ghost" icon="file-text" onClick={() => setDetalhe(p)}>Detalhes</Button>
+                <Button size="sm" variant="ghost" icon={compact ? undefined : "file-text"} onClick={() => setDetalhe(p)}>Detalhes</Button>
+                {/* No celular o ☰ vem antes da ação principal: se a linha não couber, quem desce é a ação principal, e ela ocupa a largura toda. */}
+                {compact ? menu : null}
                 {p.status === "Aguardando confirmação"
-                  ? <Button size="sm" icon="check" onClick={() => pede("estoque", p)}>Confirmar estoque</Button>
+                  ? <Button size="sm" style={cresce} icon="check" onClick={() => pede("estoque", p)}>Confirmar estoque</Button>
                   : p.status === "Confirmado — Esperando pagamento"
-                  ? <Button size="sm" tone="chargeEntry" icon="link" onClick={() => pede("entrada", p)}>Cobrar entrada</Button>
+                  ? <Button size="sm" style={cresce} tone="chargeEntry" icon="link" onClick={() => pede("entrada", p)}>Cobrar entrada</Button>
                   : p.status === "Em produção"
-                  ? <Button size="sm" tone="delivered" icon="truck" loading={pendente === "entregue-" + p.id}
+                  ? <Button size="sm" style={cresce} tone="delivered" icon="truck" loading={pendente === "entregue-" + p.id}
                       onClick={() => acao("entregue-" + p.id, { ok: p.pagamento === "Totalmente pago" ? "Pedido entregue e finalizado" : "Pedido marcado como entregue", falhou: "Não deu pra marcar como entregue" }, null,
                         { acao: "mudarStatus", dados: { pedidoId: p.id, status: p.pagamento === "Totalmente pago" ? "Finalizado" : "Entregue — Esperando restante" } })}>Marcar entregue</Button>
                   : p.status === "Entregue — Esperando restante" && p.pagamento === "Totalmente pago"
-                  ? <Button size="sm" tone="delivered" icon="circle-check" loading={pendente === "finalizar-" + p.id}
+                  ? <Button size="sm" style={cresce} tone="delivered" icon="circle-check" loading={pendente === "finalizar-" + p.id}
                       onClick={() => acao("finalizar-" + p.id, { ok: "Pedido finalizado", falhou: "Não deu pra finalizar o pedido" }, null,
                         { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Finalizado" } })}>Finalizar</Button>
                   : p.status === "Entregue — Esperando restante"
-                  ? <Button size="sm" tone="chargeAll" icon="banknote" onClick={() => pede("restante", p)}>Cobrar restante</Button>
+                  ? <Button size="sm" style={cresce} tone="chargeAll" icon="banknote" onClick={() => pede("restante", p)}>Cobrar restante</Button>
                   : p.status === "Finalizado"
-                  ? <Button size="sm" variant="outline" icon="printer" onClick={() => imprimir(p)}>Recibo</Button>
+                  ? <Button size="sm" style={cresce} variant="outline" icon="printer" onClick={() => imprimir(p)}>Recibo</Button>
                   : null}
-                <IconButton icon="trash-2" label={`Apagar ${p.id}`} onClick={() => setApagando(p)} />
-                <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
-                  { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
-                  { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
-                  { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
-                  { label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) },
-                  ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
-                  { divider: true },
-                  { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) },
-                  { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => setApagando(p) }
-                ]} />
+                {/* No celular a lixeira sai da linha: "Apagar pedido" já está no menu, e com ela o ☰ caía sozinho numa segunda linha. */}
+                {compact ? null : <IconButton icon="trash-2" label={`Apagar ${p.id}`} onClick={() => setApagando(p)} />}
+                {compact ? null : menu}
               </>} />
-          ))}
+          );
+          })}
         </div>
       ) : q && (tab === "busca" || !achouEmOutra) ? (
         <Card padded={false}><EmptyState icon="search-x" title={`Nenhum pedido encontrado para “${q}”`}

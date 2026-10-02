@@ -145,7 +145,7 @@ function VisaoGeral({ compact, onView, onQ }) {
           sub={`${r.ticketN} ${r.ticketN === 1 ? "pedido" : "pedidos"} nos últimos 30 dias`} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: compact ? "1fr" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
         <ChartCard compact={compact} r={r} />
         <Card header={<>
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Pagamentos recentes</div>

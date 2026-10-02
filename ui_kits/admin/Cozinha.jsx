@@ -204,7 +204,7 @@ const Selos = ({ x }) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap"
    to the left. On a phone the two stack. */
 function FilaTrilho({ hoje = true, fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia, onImprimir }) {
   const q = quando(p && p.hora);
-  return <div style={{ display: "grid", gridTemplateColumns: compact || !p ? "1fr" : "minmax(0, 5fr) minmax(0, 4fr)", gap: "var(--gap-section)", alignItems: "start" }}>
+  return <div style={{ display: "grid", gridTemplateColumns: compact || !p ? "minmax(0,1fr)" : "minmax(0, 5fr) minmax(0, 4fr)", gap: "var(--gap-section)", alignItems: "start" }}>
     {p ? <section aria-label="Fazer agora" style={{
       position: compact ? "static" : "sticky", top: 0, background: "var(--color-surface)", border: "var(--border-hairline) solid var(--color-border)",
       borderRadius: "var(--radius-xl)", padding: compact ? 18 : 28, display: "flex", flexDirection: "column", gap: 18, boxShadow: "var(--shadow-card)"

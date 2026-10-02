@@ -841,7 +841,11 @@ function OrderCard({
         opacity: .45,
         margin: "0 6px"
       }
-    }, "\xB7") : null, m))) : null, badges ? /*#__PURE__*/React.createElement("div", {
+    }, "\xB7") : null, /*#__PURE__*/React.createElement("span", {
+      style: {
+        whiteSpace: "nowrap"
+      }
+    }, m)))) : null, badges ? /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         gap: 6,
@@ -885,9 +889,11 @@ function OrderCard({
       }
     }, due)) : null) : null), /*#__PURE__*/React.createElement("div", {
       style: {
+        flex: "1 1 auto",
         display: "flex",
         gap: "var(--gap-inline)",
         alignItems: "center",
+        justifyContent: "flex-end",
         flexWrap: "wrap"
       }
     }, actions))
@@ -1867,13 +1873,30 @@ function DropdownMenu({
   const ref = React.useRef(null);
   const menu = React.useRef(null);
   const [pos, setPos] = React.useState(null);
+  /* On a phone the menu is an action sheet pinned to the bottom: a 220px popover anchored to a
+     trigger that wrapped to the left edge opened off-screen, past where a finger can reach. */
+  const sheet = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+
+  /* Popover: kept 8px inside the viewport on every side, scrolling if it is taller than the room. */
   const place = () => {
+    if (sheet) {
+      setPos({});
+      return;
+    }
     const t = ref.current.getBoundingClientRect();
-    const h = menu.current ? menu.current.offsetHeight : 0;
-    const below = t.bottom + 6 + h <= window.innerHeight - 8;
+    const w = menu.current ? menu.current.offsetWidth : 220;
+    const h = menu.current ? menu.current.scrollHeight : 0;
+    const vw = window.innerWidth,
+      vh = window.innerHeight;
+    const roomBelow = vh - 8 - (t.bottom + 6),
+      roomAbove = t.top - 6 - 8;
+    const below = h <= roomBelow || roomBelow >= roomAbove;
+    const maxH = Math.max(120, below ? roomBelow : roomAbove);
+    const left = Math.min(Math.max(8, align === "right" ? t.right - w : t.left), vw - 8 - w);
     setPos({
-      top: below ? t.bottom + 6 : Math.max(8, t.top - 6 - h),
-      [align]: align === "right" ? window.innerWidth - t.right : t.left
+      top: below ? t.bottom + 6 : Math.max(8, t.top - 6 - Math.min(h, maxH)),
+      left: Math.max(8, left),
+      maxHeight: maxH
     });
   };
   const close = refocus => {
@@ -1889,19 +1912,39 @@ function DropdownMenu({
       return;
     }
     place();
+    /* The sheet has its own backdrop that closes it on click. Closing on touchstart there would
+       unmount the backdrop and let the same tap's click land on the button underneath. */
+    if (sheet) {
+      const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (menu.current && menu.current.animate && !reduz) menu.current.animate([{
+        transform: "translateY(24px)",
+        opacity: 0
+      }, {
+        transform: "none",
+        opacity: 1
+      }], {
+        duration: 220,
+        easing: "cubic-bezier(.16,1,.3,1)"
+      });
+      return;
+    }
     const away = e => {
       if (ref.current && !ref.current.contains(e.target) && menu.current && !menu.current.contains(e.target)) close(false);
     };
     const drop = () => close(false);
     document.addEventListener("mousedown", away);
     document.addEventListener("touchstart", away);
+    /* Scrolling the page closes the popover (it would drift off its trigger), except its own list. */
+    const scrolled = e => {
+      if (!(menu.current && menu.current.contains(e.target))) drop();
+    };
     window.addEventListener("resize", drop);
-    document.addEventListener("scroll", drop, true);
+    document.addEventListener("scroll", scrolled, true);
     return () => {
       document.removeEventListener("mousedown", away);
       document.removeEventListener("touchstart", away);
       window.removeEventListener("resize", drop);
-      document.removeEventListener("scroll", drop, true);
+      document.removeEventListener("scroll", scrolled, true);
     };
   }, [open]);
 
@@ -1949,7 +1992,16 @@ function DropdownMenu({
       display: "inline-flex",
       ...style
     }
-  }, trig, open ? /*#__PURE__*/React.createElement("div", {
+  }, trig, open && sheet ? /*#__PURE__*/React.createElement("div", {
+    "aria-hidden": "true",
+    onClick: () => close(true),
+    style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 949,
+      background: "rgba(8,6,10,.55)"
+    }
+  }) : null, open ? /*#__PURE__*/React.createElement("div", {
     ref: menu,
     role: "menu",
     onKeyDown: onMenuKey,
@@ -1957,19 +2009,30 @@ function DropdownMenu({
       position: "fixed",
       zIndex: 950,
       visibility: pos ? "visible" : "hidden",
-      ...(pos || {
-        top: 0,
-        [align]: 0
+      ...(sheet ? {
+        left: 8,
+        right: 8,
+        bottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
+        maxHeight: "calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+        padding: "8px 8px",
+        borderRadius: "var(--radius-lg)"
+      } : {
+        ...(pos || {
+          top: 0,
+          left: 0
+        }),
+        minWidth: 220,
+        maxWidth: "calc(100vw - 16px)",
+        padding: 6,
+        borderRadius: "var(--radius-md)"
       }),
       display: "flex",
       flexDirection: "column",
       gap: 2,
-      minWidth: 220,
-      maxWidth: "calc(100vw - 16px)",
-      padding: 6,
+      overflowY: "auto",
+      overscrollBehavior: "contain",
       background: "var(--color-surface)",
       border: "var(--border-hairline) solid var(--color-border)",
-      borderRadius: "var(--radius-md)",
       boxShadow: "var(--shadow-pop)",
       fontFamily: "var(--font-ui)"
     }
@@ -1977,6 +2040,7 @@ function DropdownMenu({
     key: i,
     role: "separator",
     style: {
+      flex: "0 0 1px",
       height: 1,
       background: "var(--color-border)",
       margin: "4px 0"
@@ -1993,24 +2057,25 @@ function DropdownMenu({
     style: {
       display: "flex",
       alignItems: "center",
-      gap: 9,
+      gap: sheet ? 14 : 9,
       width: "100%",
-      minHeight: 40,
+      minHeight: sheet ? 52 : 40,
+      flex: "0 0 auto",
       textAlign: "left",
-      padding: "9px 10px",
-      borderRadius: "var(--radius-xs)",
+      padding: sheet ? "0 14px" : "9px 10px",
+      borderRadius: sheet ? "var(--radius-md)" : "var(--radius-xs)",
       border: "none",
       cursor: "pointer",
       background: "transparent",
-      color: it.tone === "danger" ? "var(--action-danger)" : "var(--text-body)",
+      color: it.tone === "danger" ? "var(--action-danger)" : sheet ? "var(--text-strong)" : "var(--text-body)",
       fontFamily: "var(--font-ui)",
-      fontSize: "var(--fs-small)",
+      fontSize: sheet ? "var(--fs-body)" : "var(--fs-small)",
       fontWeight: "var(--fw-semibold)",
-      whiteSpace: "nowrap"
+      whiteSpace: sheet ? "normal" : "nowrap"
     }
   }, it.icon ? /*#__PURE__*/React.createElement(__ds_scope.Icon, {
     name: it.icon,
-    size: 16
+    size: sheet ? 20 : 16
   }) : null, it.label))) : null);
 }
 Object.assign(__ds_scope, {
@@ -2668,8 +2733,8 @@ function ItemAgenda({
 function Agenda({
   compact
 }) {
-  const hoje = window.DLUH.hoje;
-  const carga = useCarga(() => window.DLUH_API.carregar("agenda"));
+  const hoje = window.DLUH_API.hoje();
+  const carga = useAoVivo("agenda");
   const [filtro, setFiltro] = React.useState("tudo");
   const [sel, setSel] = React.useState(hoje);
   const [cursor, setCursor] = React.useState(() => ({
@@ -2755,7 +2820,7 @@ function Agenda({
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: compact ? "1fr" : "1.35fr 1fr",
+      gridTemplateColumns: compact ? "minmax(0,1fr)" : "1.35fr 1fr",
       gap: 12,
       alignItems: "start"
     }
@@ -3832,7 +3897,10 @@ const {
   Icon,
   ConfirmDialog,
   Toast,
-  EmptyState
+  EmptyState,
+  Modal,
+  Field,
+  Input
 } = DS;
 const PAGO_TONE = {
   "Totalmente pago": "success",
@@ -3840,99 +3908,85 @@ const PAGO_TONE = {
   "Não pago": "danger"
 };
 
-/* Kitchen cards are read at arm's length on a shared tablet: what to make is the largest,
-   darkest text on the card, and the one action is a full 44px target. */
-function FilaCard({
-  p,
-  onEntregar,
-  pendente
-}) {
-  return /*#__PURE__*/React.createElement(Card, {
-    style: {
-      display: "flex",
-      flexDirection: "column"
-    },
-    header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: "var(--fs-caption)",
-        fontWeight: "var(--fw-semibold)",
-        color: "var(--text-accent)",
-        letterSpacing: "var(--ls-caps)"
-      }
-    }, p.hora), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: "var(--fs-title)",
-        fontWeight: "var(--fw-semibold)",
-        marginTop: 3,
-        overflowWrap: "anywhere"
-      }
-    }, p.cliente || "Cliente sem nome")), p.pago ? /*#__PURE__*/React.createElement(Badge, {
-      tone: PAGO_TONE[p.pago] || "neutral",
-      style: {
-        flex: "0 0 auto"
-      }
-    }, p.pago) : null)
-  }, p.itens ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: "var(--fs-subhead)",
-      fontWeight: "var(--fw-medium)",
-      color: "var(--text-strong)",
-      lineHeight: "var(--lh-snug)",
-      overflowWrap: "anywhere"
-    }
-  }, p.itens) : /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: "var(--fs-body-s)",
-      color: "var(--text-muted)"
-    }
-  }, "Itens n\xE3o informados. Confira o pedido antes de produzir."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      marginTop: 14,
-      alignItems: "center"
-    }
-  }, /*#__PURE__*/React.createElement(Badge, {
-    icon: p.entrega === "Entrega" ? "truck" : "shopping-bag"
-  }, p.entrega), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1
-    }
-  }), /*#__PURE__*/React.createElement(Button, {
-    size: "lg",
-    tone: "delivered",
-    icon: "check",
-    loading: pendente,
-    onClick: () => onEntregar(p)
-  }, "Feito")));
+/* The tablet sits on the counter all shift: keep the screen awake while the queue is open.
+   Browsers drop the lock when the tab hides, so it is asked for again on return. */
+function useTelaAcesa() {
+  React.useEffect(() => {
+    if (!("wakeLock" in navigator)) return;
+    let lock = null,
+      vivo = true;
+    const pedir = () => {
+      if (document.visibilityState === "visible") navigator.wakeLock.request("screen").then(l => {
+        if (vivo) lock = l;else l.release();
+      }, () => {});
+    };
+    pedir();
+    document.addEventListener("visibilitychange", pedir);
+    return () => {
+      vivo = false;
+      document.removeEventListener("visibilitychange", pedir);
+      if (lock) lock.release().catch(() => {});
+    };
+  }, []);
+}
+function useOnline() {
+  const [on, setOn] = React.useState(navigator.onLine);
+  React.useEffect(() => {
+    const sim = () => setOn(true),
+      nao = () => setOn(false);
+    window.addEventListener("online", sim);
+    window.addEventListener("offline", nao);
+    return () => {
+      window.removeEventListener("online", sim);
+      window.removeEventListener("offline", nao);
+    };
+  }, []);
+  return on;
 }
 
-/* The "Fazer agora" panel sits on the darker terracotta (white text 4.8:1), and its chips darken
-   the panel rather than lighten it, so their white labels hold 6:1. */
-const chip = {
-  padding: "5px 12px",
-  borderRadius: "var(--radius-pill)",
-  background: "rgba(0,0,0,.15)",
-  fontSize: "var(--fs-caption)",
-  fontWeight: "var(--fw-semibold)"
-};
-const seta = {
-  width: 48,
-  height: 48,
-  background: "rgba(255,255,255,.16)",
-  border: "1.5px solid rgba(255,255,255,.5)",
-  color: "inherit"
-};
+/* A queue that looks current but isn't is worse than a delay: say it loudly. */
+function SemConexao() {
+  return /*#__PURE__*/React.createElement("div", {
+    role: "status",
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "12px 16px",
+      borderRadius: "var(--radius-lg)",
+      background: "var(--action-warn-bg)",
+      color: "var(--action-warn)",
+      border: "1.5px solid var(--action-warn-line)",
+      fontSize: "var(--fs-subhead)",
+      fontWeight: "var(--fw-semibold)"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "wifi-off",
+    size: 20
+  }), " Sem conex\xE3o \u2014 a fila pode estar desatualizada. Ela volta a atualizar sozinha.");
+}
 function Cozinha({
   compact
 }) {
-  const carga = useCarga(() => window.DLUH_API.carregar("fila"));
-  const fila = carga.dados || [];
+  const carga = useAoVivo("fila");
+  const online = useOnline();
+  useTelaAcesa();
+  /* One day at a time, any day of the calendar. "Hoje" is today plus anything late; the days
+     that have orders in production are one tap away, so the kitchen can get ahead. */
+  const todos = carga.dados || [];
+  const hoje = window.DLUH_API.hoje();
+  const diaDe = x => !x.data || x.data < hoje ? hoje : x.data;
+  const diasComPedido = [...new Set(todos.map(diaDe))].sort();
+  const [dia, setDia] = React.useState(hoje);
+  const fila = todos.filter(x => diaDe(x) === dia);
   const [feature, setFeature] = React.useState(0);
+  const trocarDia = d => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d || "")) {
+      setDia(d);
+      setFeature(0);
+    }
+  };
+  const [imprimirVarios, setImprimirVarios] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
@@ -3945,8 +3999,20 @@ function Cozinha({
     await acao("feito-" + x.id, {
       ok: "Pedido marcado como feito",
       falhou: "Não deu pra marcar como feito"
-    }, () => carga.setDados(l => l.filter(y => y.id !== x.id)));
+    }, () => carga.setDados(l => l.filter(y => y.id !== x.id)), {
+      acao: "marcarFeito",
+      dados: {
+        pedidoId: x.id
+      }
+    });
     setConfirm(null);
+  };
+
+  /* One slip per order, cut apart by the printer (Catalogo.jsx). The queue prints soonest first,
+     the order the kitchen makes them in. */
+  const imprimir = lista => {
+    if (!lista.length) return showToast("A fila está vazia");
+    window.imprimirPedidos(lista).then(n => showToast(n === 1 ? "Pedido enviado para a impressora" : `${n} pedidos enviados para a impressora`));
   };
   if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
     erro: carga.erro,
@@ -3956,102 +4022,7 @@ function Cozinha({
   if (!carga.dados) return /*#__PURE__*/React.createElement(Carregando, {
     oque: "a fila"
   });
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "relative",
-      display: "flex",
-      flexDirection: "column",
-      gap: "var(--gap-section)",
-      minHeight: "100%"
-    }
-  }, p ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      borderRadius: "var(--radius-xl)",
-      padding: compact ? "18px" : "24px 28px",
-      background: "var(--color-accent-strong)",
-      color: "var(--color-accent-contrast)",
-      display: "flex",
-      gap: 20,
-      alignItems: "center",
-      flexWrap: "wrap"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      minWidth: 220
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      fontSize: "var(--fs-body-s)",
-      fontWeight: "var(--fw-semibold)"
-    }
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "flame",
-    size: 16
-  }), " Fazer agora \xB7 ", atual + 1, " de ", fila.length), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "var(--font-display)",
-      fontSize: compact ? "var(--fs-display-s)" : "var(--fs-display)",
-      fontWeight: "var(--fw-bold)",
-      lineHeight: "var(--lh-tight)",
-      marginTop: 8,
-      overflowWrap: "anywhere"
-    }
-  }, p.cliente || "Cliente sem nome"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: "var(--fs-title)",
-      fontWeight: "var(--fw-semibold)",
-      marginTop: 8,
-      lineHeight: "var(--lh-snug)",
-      overflowWrap: "anywhere"
-    }
-  }, p.itens || "Itens não informados"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      marginTop: 14,
-      flexWrap: "wrap"
-    }
-  }, [p.hora, p.entrega, p.pago].filter(Boolean).map(c => /*#__PURE__*/React.createElement("span", {
-    key: c,
-    style: chip
-  }, c)))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: compact ? "row" : "column",
-      alignItems: compact ? "center" : "stretch",
-      gap: 8,
-      width: compact ? "100%" : "auto"
-    }
-  }, /*#__PURE__*/React.createElement(Button, {
-    size: "lg",
-    icon: "check",
-    loading: pendente === "feito-" + p.id,
-    onClick: () => setConfirm(p),
-    style: {
-      background: "var(--color-accent-contrast)",
-      color: "var(--color-accent-strong)",
-      flex: compact ? 1 : "none"
-    }
-  }, "Feito"), fila.length > 1 ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement(IconButton, {
-    icon: "chevron-left",
-    label: "Pedido anterior",
-    onClick: () => setFeature((atual - 1 + fila.length) % fila.length),
-    style: seta
-  }), /*#__PURE__*/React.createElement(IconButton, {
-    icon: "chevron-right",
-    label: "Pr\xF3ximo pedido",
-    onClick: () => setFeature((atual + 1) % fila.length),
-    style: seta
-  })) : null)) : null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  const barra = /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -4065,7 +4036,7 @@ function Cozinha({
       fontSize: "var(--fs-heading)",
       fontWeight: "var(--fw-semibold)"
     }
-  }, "Fila de hoje"), /*#__PURE__*/React.createElement(Badge, null, fila.length, " ", fila.length === 1 ? "pedido" : "pedidos"), /*#__PURE__*/React.createElement("div", {
+  }, "Fila de produ\xE7\xE3o"), /*#__PURE__*/React.createElement(Badge, null, fila.length, " ", fila.length === 1 ? "pedido" : "pedidos"), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -4080,35 +4051,532 @@ function Cozinha({
   }, "Alerta sonoro"), /*#__PURE__*/React.createElement(FilterPill, {
     icon: "printer",
     trailingIcon: null,
-    onClick: () => showToast("Fila enviada para impressão")
-  }, "Imprimir fila")), fila.length ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: compact ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))",
-      gap: 12
-    }
-  }, fila.map(x => /*#__PURE__*/React.createElement(FilaCard, {
-    key: x.id,
-    p: x,
-    onEntregar: setConfirm,
-    pendente: pendente === "feito-" + x.id
-  }))) : /*#__PURE__*/React.createElement(Card, {
+    onClick: () => imprimir(fila)
+  }, "Imprimir dia"), /*#__PURE__*/React.createElement(FilterPill, {
+    icon: "calendar-range",
+    trailingIcon: null,
+    onClick: () => setImprimirVarios(true)
+  }, "Imprimir v\xE1rios dias"));
+  const outros = todos.length - fila.length;
+  const vazia = /*#__PURE__*/React.createElement(Card, {
     padded: false
   }, /*#__PURE__*/React.createElement(EmptyState, {
     icon: "chef-hat",
-    title: "Fila vazia",
-    description: "Tudo o que era para hoje j\xE1 foi feito. Pedidos pagos entram aqui automaticamente."
-  }))), confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
+    title: `Nada para ${nomeDia(dia, hoje).toLowerCase()}`,
+    description: outros ? `Não há pedido em produção para esse dia. ${outros === 1 ? "Há 1 pedido" : `Há ${outros} pedidos`} em outros dias, nos botões acima.` : "Tudo o que estava em produção já foi feito. Pedidos que entram em produção aparecem aqui sozinhos."
+  }));
+  const seletorDias = /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement(IconButton, {
+    icon: "chevron-left",
+    label: "Dia anterior",
+    onClick: () => trocarDia(somarDias(dia, -1))
+  }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      position: "relative",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 8,
+      height: "var(--tap-min)",
+      padding: "0 14px",
+      borderRadius: "var(--radius-sm)",
+      border: "var(--border-hairline) solid var(--color-border-strong)",
+      background: "var(--color-surface)",
+      cursor: "pointer",
+      fontSize: "var(--fs-subhead)",
+      fontWeight: "var(--fw-semibold)",
+      minWidth: 150
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "calendar-days",
+    size: 17
+  }), " ", nomeDia(dia, hoje), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    "aria-label": "Escolher o dia",
+    value: dia,
+    onChange: e => trocarDia(e.target.value),
+    onClick: e => e.currentTarget.showPicker?.(),
+    style: {
+      position: "absolute",
+      inset: 0,
+      opacity: 0,
+      cursor: "pointer",
+      width: "100%",
+      colorScheme: "dark light"
+    }
+  })), /*#__PURE__*/React.createElement(IconButton, {
+    icon: "chevron-right",
+    label: "Pr\xF3ximo dia",
+    onClick: () => trocarDia(somarDias(dia, 1))
+  }), dia !== hoje ? /*#__PURE__*/React.createElement(Button, {
+    variant: "ghost",
+    icon: "flame",
+    onClick: () => trocarDia(hoje)
+  }, "Hoje") : null, diasComPedido.filter(d => d !== dia).length ? /*#__PURE__*/React.createElement("div", {
+    role: "group",
+    "aria-label": "Dias com pedido",
+    style: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      marginLeft: 4
+    }
+  }, diasComPedido.filter(d => d !== dia).map(d => /*#__PURE__*/React.createElement(FilterPill, {
+    key: d,
+    trailingIcon: null,
+    onClick: () => trocarDia(d)
+  }, nomeDia(d, hoje), " \xB7 ", todos.filter(x => diaDe(x) === d).length))) : null);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "relative",
+      display: "flex",
+      flexDirection: "column",
+      gap: "var(--gap-section)",
+      minHeight: "100%"
+    }
+  }, !online || carga.doCache ? /*#__PURE__*/React.createElement(SemConexao, null) : null, seletorDias, /*#__PURE__*/React.createElement(FilaTrilho, {
+    hoje: dia === hoje,
+    fila: fila,
+    atual: atual,
+    p: p,
+    setFeature: setFeature,
+    setConfirm: setConfirm,
+    pendente: pendente,
+    compact: compact,
+    barra: barra,
+    vazia: vazia,
+    onImprimir: x => imprimir([x])
+  }), confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
     tone: "delivered",
     icon: "check",
     title: "Marcar como feito?",
-    message: [confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila de hoje.",
+    message: [confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila.",
     cancelLabel: "Voltar",
     confirmLabel: "Sim, marcar feito",
     pending: pendente === "feito-" + confirm.id,
     onCancel: () => setConfirm(null),
     onConfirm: () => feito(confirm)
+  }) : null, imprimirVarios ? /*#__PURE__*/React.createElement(ImprimirPeriodo, {
+    todos: todos,
+    diaDe: diaDe,
+    hoje: hoje,
+    inicio: dia,
+    onClose: () => setImprimirVarios(false),
+    onImprimir: lista => {
+      setImprimirVarios(false);
+      imprimir(lista);
+    }
   }) : null, toastNode);
+}
+
+/* Pick a range of days and print every order in it, day by day and hour by hour, each on its
+   own cut slip. Late orders count as today. */
+function ImprimirPeriodo({
+  todos,
+  diaDe,
+  hoje,
+  inicio,
+  onClose,
+  onImprimir
+}) {
+  const [de, setDe] = React.useState(inicio);
+  const [ate, setAte] = React.useState(somarDias(inicio, 6));
+  const [a, b] = de <= ate ? [de, ate] : [ate, de];
+  const lista = todos.filter(x => diaDe(x) >= a && diaDe(x) <= b).sort((x, y) => `${diaDe(x)} ${x.imp?.hora || ""}`.localeCompare(`${diaDe(y)} ${y.imp?.hora || ""}`));
+  const porDia = [...new Set(lista.map(diaDe))].map(d => [d, lista.filter(x => diaDe(x) === d).length]);
+  return /*#__PURE__*/React.createElement(Modal, {
+    width: 460,
+    title: "Imprimir v\xE1rios dias",
+    onClose: onClose,
+    subtitle: "Cada pedido sai num papel cortado, em ordem de dia e hor\xE1rio.",
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      onClick: onClose
+    }, "Voltar"), /*#__PURE__*/React.createElement(Button, {
+      block: true,
+      icon: "printer",
+      disabled: !lista.length,
+      onClick: () => onImprimir(lista)
+    }, lista.length ? `Imprimir ${lista.length} ${lista.length === 1 ? "pedido" : "pedidos"}` : "Nada para imprimir"))
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "De"
+  }, /*#__PURE__*/React.createElement(Input, {
+    type: "date",
+    value: de,
+    onChange: e => e.target.value && setDe(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "At\xE9"
+  }, /*#__PURE__*/React.createElement(Input, {
+    type: "date",
+    value: ate,
+    onChange: e => e.target.value && setAte(e.target.value)
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 14,
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-body)",
+      lineHeight: "var(--lh-normal)"
+    }
+  }, porDia.length ? porDia.map(([d, n]) => /*#__PURE__*/React.createElement("div", {
+    key: d,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      padding: "6px 0",
+      borderTop: "var(--border-hairline) solid var(--color-border)"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, nomeDia(d, hoje)), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: "var(--fw-semibold)"
+    }
+  }, n, " ", n === 1 ? "pedido" : "pedidos"))) : "Nenhum pedido em produção nesses dias."));
+}
+
+/* "50 Kibe · 25 Coxinha" → one line per item, quantity split out so it can be read at a glance. */
+const linhas = s => String(s || "").split(" · ").filter(Boolean).map(t => {
+  const m = t.match(/^(\d+)\s+(.+)$/);
+  return m ? {
+    qtd: m[1],
+    nome: m[2]
+  } : {
+    qtd: null,
+    nome: t
+  };
+});
+/* "28/09 · 19:00" → { dia, hora }; a bare "14:00" is today. */
+const quando = h => {
+  const s = String(h || "—"),
+    i = s.indexOf(" · ");
+  return i < 0 ? {
+    dia: "Hoje",
+    hora: s
+  } : {
+    dia: s.slice(0, i),
+    hora: s.slice(i + 3)
+  };
+};
+const num = {
+  fontVariantNumeric: "tabular-nums"
+};
+const somarDias = (iso, n) => {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+/* "2026-10-01" → "Hoje", "Amanhã", "Ontem" or "Qua 01/10". */
+const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+function nomeDia(iso, hoje) {
+  if (iso === hoje) return "Hoje";
+  const d = new Date(iso + "T12:00:00");
+  if (iso === somarDias(hoje, 1)) return "Amanhã";
+  if (iso === somarDias(hoje, -1)) return "Ontem";
+  return `${SEMANA[d.getDay()]} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
+function Itens({
+  itens,
+  grande
+}) {
+  const l = linhas(itens);
+  if (!l.length) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)"
+    }
+  }, "Itens n\xE3o informados. Confira o pedido antes de produzir.");
+  return /*#__PURE__*/React.createElement("ul", {
+    style: {
+      listStyle: "none",
+      margin: 0,
+      padding: 0,
+      display: "flex",
+      flexDirection: "column",
+      gap: grande ? 8 : 5
+    }
+  }, l.map((x, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    style: {
+      display: "flex",
+      gap: 10,
+      alignItems: "baseline",
+      fontSize: grande ? "var(--fs-title)" : "var(--fs-subhead)",
+      lineHeight: "var(--lh-snug)",
+      color: "var(--text-strong)"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...num,
+      minWidth: grande ? 40 : 30,
+      textAlign: "right",
+      flex: "0 0 auto",
+      fontWeight: "var(--fw-bold)",
+      color: "var(--text-accent)"
+    }
+  }, x.qtd || "–"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: "var(--fw-medium)",
+      overflowWrap: "anywhere"
+    }
+  }, x.nome))));
+}
+function Setas({
+  fila,
+  atual,
+  setFeature
+}) {
+  if (fila.length < 2) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(IconButton, {
+    icon: "chevron-left",
+    label: "Pedido anterior",
+    onClick: () => setFeature((atual - 1 + fila.length) % fila.length)
+  }), /*#__PURE__*/React.createElement(IconButton, {
+    icon: "chevron-right",
+    label: "Pr\xF3ximo pedido",
+    onClick: () => setFeature((atual + 1) % fila.length)
+  }));
+}
+const Selos = ({
+  x
+}) => /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap"
+  }
+}, /*#__PURE__*/React.createElement(Badge, {
+  icon: x.entrega === "Entrega" ? "truck" : "shopping-bag"
+}, x.entrega), x.pago ? /*#__PURE__*/React.createElement(Badge, {
+  tone: PAGO_TONE[x.pago] || "neutral"
+}, x.pago) : null);
+
+/* The order to make now stays pinned on the left, read at arm's length on the counter tablet;
+   the rest of the queue is a rail of rows on the right, latest first. Tapping a row brings it
+   to the left. On a phone the two stack. */
+function FilaTrilho({
+  hoje = true,
+  fila,
+  atual,
+  p,
+  setFeature,
+  setConfirm,
+  pendente,
+  compact,
+  barra,
+  vazia,
+  onImprimir
+}) {
+  const q = quando(p && p.hora);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: compact || !p ? "minmax(0,1fr)" : "minmax(0, 5fr) minmax(0, 4fr)",
+      gap: "var(--gap-section)",
+      alignItems: "start"
+    }
+  }, p ? /*#__PURE__*/React.createElement("section", {
+    "aria-label": "Fazer agora",
+    style: {
+      position: compact ? "static" : "sticky",
+      top: 0,
+      background: "var(--color-surface)",
+      border: "var(--border-hairline) solid var(--color-border)",
+      borderRadius: "var(--radius-xl)",
+      padding: compact ? 18 : 28,
+      display: "flex",
+      flexDirection: "column",
+      gap: 18,
+      boxShadow: "var(--shadow-card)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      color: "var(--text-accent)",
+      fontSize: "var(--fs-body-s)",
+      fontWeight: "var(--fw-semibold)"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: hoje ? "flame" : "calendar-days",
+    size: 16
+  }), " ", hoje ? "Fazer agora" : "Pedido", " \xB7 ", atual + 1, " de ", fila.length, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }), /*#__PURE__*/React.createElement(Setas, {
+    fila: fila,
+    atual: atual,
+    setFeature: setFeature
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "baseline",
+      gap: 12,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...num,
+      fontSize: compact ? "var(--fs-display)" : "var(--fs-display-l)",
+      fontWeight: "var(--fw-semibold)",
+      letterSpacing: "var(--ls-display)",
+      lineHeight: 1
+    }
+  }, q.hora), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-subhead)",
+      fontWeight: "var(--fw-semibold)",
+      color: "var(--text-muted)"
+    }
+  }, q.dia)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "var(--font-display)",
+      fontSize: compact ? "var(--fs-display-s)" : "var(--fs-display)",
+      fontWeight: "var(--fw-bold)",
+      lineHeight: "var(--lh-tight)",
+      marginTop: 10,
+      overflowWrap: "anywhere"
+    }
+  }, p.cliente || "Cliente sem nome")), /*#__PURE__*/React.createElement(Itens, {
+    itens: p.itens,
+    grande: true
+  }), /*#__PURE__*/React.createElement(Selos, {
+    x: p
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(Button, {
+    size: "lg",
+    variant: "ghost",
+    icon: "printer",
+    onClick: () => onImprimir(p)
+  }, "Imprimir"), /*#__PURE__*/React.createElement(Button, {
+    size: "lg",
+    tone: "delivered",
+    icon: "check",
+    block: true,
+    loading: pendente === "feito-" + p.id,
+    onClick: () => setConfirm(p),
+    style: {
+      flex: 1
+    }
+  }, "Feito"))) : null, /*#__PURE__*/React.createElement("section", null, barra, fila.length ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, fila.map((x, i) => ({
+    x,
+    i
+  })).reverse().map(({
+    x,
+    i
+  }) => {
+    const r = quando(x.hora),
+      sel = i === atual;
+    return /*#__PURE__*/React.createElement("div", {
+      key: x.id,
+      "data-row-action": true,
+      role: "button",
+      tabIndex: 0,
+      "aria-pressed": sel,
+      onClick: () => setFeature(i),
+      onKeyDown: e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setFeature(i);
+        }
+      },
+      style: {
+        display: "grid",
+        gridTemplateColumns: "64px minmax(0, 1fr) auto",
+        gap: 14,
+        alignItems: "center",
+        padding: "12px 14px",
+        borderRadius: "var(--radius-lg)",
+        cursor: "pointer",
+        transition: "var(--transition-control)",
+        background: sel ? "var(--color-accent-soft)" : "var(--color-surface)",
+        border: `var(--border-hairline) solid ${sel ? "var(--color-accent)" : "var(--color-border)"}`
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: {
+        ...num,
+        fontSize: "var(--fs-heading)",
+        fontWeight: "var(--fw-semibold)",
+        lineHeight: 1.1,
+        color: sel ? "var(--text-accent)" : "var(--text-strong)"
+      }
+    }, r.hora), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: "var(--fs-caption)",
+        fontWeight: "var(--fw-semibold)",
+        color: "var(--text-muted)",
+        marginTop: 2
+      }
+    }, r.dia)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: "var(--fs-subhead)",
+        fontWeight: "var(--fw-semibold)",
+        overflowWrap: "anywhere"
+      }
+    }, x.cliente || "Cliente sem nome"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: "var(--fs-body-s)",
+        color: "var(--text-body)",
+        marginTop: 3,
+        lineHeight: "var(--lh-snug)",
+        display: "-webkit-box",
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical",
+        overflow: "hidden"
+      }
+    }, x.itens || "Itens não informados")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 6,
+        alignItems: "center"
+      }
+    }, /*#__PURE__*/React.createElement(IconButton, {
+      icon: "printer",
+      label: `Imprimir pedido de ${x.cliente || "cliente sem nome"}`,
+      onClick: e => {
+        e.stopPropagation();
+        onImprimir(x);
+      }
+    }), /*#__PURE__*/React.createElement(Button, {
+      tone: "delivered",
+      icon: "check",
+      loading: pendente === "feito-" + x.id,
+      onClick: e => {
+        e.stopPropagation();
+        setConfirm(x);
+      }
+    }, "Feito")));
+  })) : vazia));
 }
 function Clientes() {
   return /*#__PURE__*/React.createElement(Card, {
@@ -4121,7 +4589,6 @@ function Clientes() {
 }
 Object.assign(window, {
   Cozinha,
-  FilaCard,
   Clientes
 });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/admin/Cozinha.jsx", error: String((e && e.message) || e) }); }
@@ -4771,105 +5238,383 @@ const TABS = [{
   filtro: ["Cancelado"]
 }];
 const valor = s => Number(String(s || "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
-const casa = (p, q) => !q || [p.cliente, p.id, p.tel].some(v => String(v || "").toLowerCase().includes(q.toLowerCase()));
+const REAL = () => window.DLUH_API.modo === "firebase";
+const reais = c => window.brl((c || 0) / 100);
+/* What "Cobrar entrada" will ask for: the order's entry share (50% or 100%) minus what came in. */
+const entradaDe = p => p._c ? reais(Math.max(0, Math.round(p._c.total * p._c.entradaPct / 100) - p._c.pago)) : p.falta;
+const uuid = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+const para = p => p.cliente || "o cliente";
+const semAcento = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+/* Nome, número do pedido ou telefone; sem diferença de maiúscula e acento, e o telefone casa só pelos dígitos. */
+const casa = (p, q) => {
+  const t = semAcento(q),
+    digitos = String(q || "").replace(/\D/g, "");
+  return !t || [p.cliente, p.id].some(v => semAcento(v).includes(t)) || digitos.length >= 4 && String(p.tel || "").replace(/\D/g, "").includes(digitos);
+};
+/* Com texto na busca aparece a aba "Resultados", com o que casou em todos os status. */
+const BUSCA = {
+  id: "busca",
+  label: "Resultados",
+  filtro: null
+};
 
 /* Every confirmation the order card can open. Money actions name the amount in the question. */
 const quem = p => p.cliente || "O cliente";
 const CONFIRMA = {
+  /* Confirming stock moves the order on and prepares the entry link in one go; the link opens
+     in a dialog so the atendente sends it on WhatsApp. */
   estoque: p => ({
     tone: "accent",
     icon: "circle-check",
     title: "Confirmar estoque?",
-    message: "O cliente recebe o link de pagamento da entrada e o pedido vai para Esperando pagamento.",
+    message: "O pedido vai para Esperando pagamento e o cliente recebe no WhatsApp a confirmação com o link da entrada.",
     confirmLabel: "Sim, confirmar",
     ok: "Estoque confirmado",
     falhou: "Não deu pra confirmar o estoque",
     aplicar: l => l.map(x => x.id === p.id ? {
       ...x,
       status: "Confirmado — Esperando pagamento"
-    } : x)
+    } : x),
+    pedido: async chamar => {
+      await chamar("mudarStatus", {
+        pedidoId: p.id,
+        status: "Confirmado — Esperando pagamento"
+      });
+      return {
+        ...(await chamar("gerarCobranca", {
+          pedidoId: p.id,
+          tipo: "entrada"
+        })),
+        rotulo: "Entrada"
+      };
+    }
   }),
   entrada: p => ({
     tone: "chargeEntry",
     icon: "link",
-    title: p.falta ? `Cobrar entrada de ${p.falta}?` : "Cobrar entrada?",
-    message: `${quem(p)} recebe o link de pagamento da entrada.` + (p.falta ? "" : " O valor da entrada não está preenchido neste pedido."),
-    confirmLabel: "Sim, cobrar",
-    ok: "Link de cobrança enviado",
-    falhou: "Não deu pra enviar a cobrança"
+    title: entradaDe(p) ? `Cobrar entrada de ${entradaDe(p)}?` : "Cobrar entrada?",
+    message: `Gera o link de pagamento da entrada para enviar a ${para(p)}.` + (entradaDe(p) ? "" : " O valor da entrada não está preenchido neste pedido."),
+    confirmLabel: "Sim, gerar link",
+    ok: "Link de cobrança gerado",
+    falhou: "Não deu pra gerar a cobrança",
+    pedido: async chamar => ({
+      ...(await chamar("gerarCobranca", {
+        pedidoId: p.id,
+        tipo: "entrada"
+      })),
+      rotulo: "Entrada"
+    })
   }),
   restante: p => ({
     tone: "chargeAll",
     icon: "banknote",
     title: p.falta ? `Cobrar restante de ${p.falta}?` : "Cobrar restante?",
-    message: `${quem(p)} recebe o link de pagamento do restante.` + (p.falta ? "" : " O valor do restante não está preenchido neste pedido."),
-    confirmLabel: "Sim, cobrar",
-    ok: "Cobrança do restante enviada",
-    falhou: "Não deu pra enviar a cobrança do restante"
+    message: `Gera o link de pagamento do restante para enviar a ${para(p)}.` + (p.falta ? "" : " O valor do restante não está preenchido neste pedido."),
+    confirmLabel: "Sim, gerar link",
+    ok: "Link do restante gerado",
+    falhou: "Não deu pra gerar a cobrança do restante",
+    pedido: async chamar => ({
+      ...(await chamar("gerarCobranca", {
+        pedidoId: p.id,
+        tipo: "restante"
+      })),
+      rotulo: "Restante"
+    })
   }),
   pago: p => ({
     tone: "success",
     icon: "badge-check",
-    title: "Marcar como pago?",
-    message: `O pedido de ${p.cliente || "este cliente"} fica como totalmente pago. Nenhuma cobrança é enviada.`,
+    title: p.falta ? `Marcar como pago (${p.falta})?` : "Marcar como pago?",
+    message: `Registra que ${para(p)} pagou o que faltava, fora do link. Nenhuma cobrança é enviada.`,
     confirmLabel: "Sim, marcar pago",
     ok: "Pagamento registrado",
-    falhou: "Não deu pra registrar o pagamento"
+    falhou: "Não deu pra registrar o pagamento",
+    pedido: p._c ? {
+      acao: "registrarPagamentoManual",
+      dados: {
+        pedidoId: p.id,
+        valor: p._c.falta,
+        meio: p._c.formaPagamento || "outro",
+        chave: uuid()
+      }
+    } : undefined
   }),
-  apagar: p => ({
+  cancelar: p => ({
     tone: "danger",
-    icon: "trash-2",
-    title: "Apagar pedido?",
-    message: "O pedido sai da fila e do Coda. Não dá pra desfazer.",
-    confirmLabel: "Sim, apagar",
-    ok: "Pedido apagado",
-    falhou: "Não deu pra apagar o pedido",
-    aplicar: l => l.filter(x => x.id !== p.id)
+    icon: "circle-x",
+    title: "Cancelar pedido?",
+    message: "O pedido vai para Cancelados e sai da fila da cozinha. O histórico continua guardado.",
+    confirmLabel: "Sim, cancelar",
+    ok: "Pedido cancelado",
+    falhou: "Não deu pra cancelar o pedido",
+    pedido: {
+      acao: "mudarStatus",
+      dados: {
+        pedidoId: p.id,
+        status: "Cancelado"
+      }
+    }
   })
 };
+
+/* A charge is a link the atendente sends; this is where it lands after it's generated. */
+function LinkCobranca({
+  link,
+  onClose,
+  onToast
+}) {
+  const fone = String(link.tel || "").replace(/\D/g, "");
+  const msg = `Olá, ${link.cliente || ""}! 🩷\n\nSeu pedido ${link.pedidoId} na D'Luh Festas — ${link.rotulo.toLowerCase()} de ${reais(link.valor)}.\nPague pelo link: ${link.url}`;
+  const copiar = () => navigator.clipboard.writeText(link.url).then(() => onToast("Link copiado"), () => onToast("Não deu pra copiar: selecione o link e copie", "danger"));
+  return /*#__PURE__*/React.createElement(Modal, {
+    width: 520,
+    title: "Link de pagamento pronto",
+    onClose: onClose,
+    subtitle: `${link.rotulo} de ${reais(link.valor)} · ${link.pedidoId} · ${link.cliente || "cliente"}`,
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      icon: "copy",
+      onClick: copiar
+    }, "Copiar link"), /*#__PURE__*/React.createElement(Button, {
+      block: true,
+      icon: "message-circle",
+      disabled: fone.length < 10,
+      onClick: () => window.open(`https://wa.me/${fone.length <= 11 ? "55" + fone : fone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener")
+    }, "Enviar no WhatsApp"))
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Link"
+  }, /*#__PURE__*/React.createElement(Input, {
+    readOnly: true,
+    value: link.url,
+    onFocus: e => e.target.select()
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)",
+      lineHeight: "var(--lh-normal)"
+    }
+  }, "Quando o cliente pagar, o pagamento entra sozinho no pedido."));
+}
+const copiarPedido = (p, onToast) => navigator.clipboard.writeText([`${p.id} — ${p.cliente}`, p.tel, p.entrega, p.endereco || null, ...(p.itens || []).map(i => `${i.qty}× ${i.name}${i.note ? ` (${i.note})` : ""}`), `Total ${p.total}${p.falta ? ` · falta ${p.falta}` : ""}`].filter(Boolean).join("\n")).then(() => onToast("Dados copiados"), () => onToast("Não deu pra copiar os dados", "danger"));
+
+/* Nota fiscal. The ERP4ME (Alterdata) has no open API yet: the atendente copies the order's data,
+   issues the note there, and records its number here. When the API arrives, "Registrar" becomes
+   "Emitir" and the Worker does the ERP4ME part. */
+const ERP4ME = "https://erpforme.alterdata.com.br/";
+const docFmt = d => d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5") : d;
+const textoNota = (p, tipo, doc) => [`Nota: ${tipo}`, `Cliente: ${p.cliente}`, doc ? `${doc.length === 14 ? "CNPJ" : "CPF"}: ${docFmt(doc)}` : null, p.tel ? `Telefone: ${p.tel}` : null, p.email ? `E-mail: ${p.email}` : null, p.endereco ? `Endereço: ${p.endereco}` : null, "", ...(p._c ? p._c.itens.map(i => `${i.qtd}× ${i.nome} — ${reais(i.valorUnit)} cada = ${reais(i.qtd * i.valorUnit)}`) : (p.itens || []).map(i => `${i.qty}× ${i.name} — ${i.price}`)), p._c && p._c.taxaEntrega ? `Taxa de entrega: ${reais(p._c.taxaEntrega)}` : null, `Total: ${p.total}`, "", `Informações complementares: pedido ${p.id} — D'Luh Festas`].filter(x => x !== null).join("\n");
+function NotaModal({
+  p,
+  onClose,
+  onToast,
+  acao,
+  pendente,
+  aoSalvar
+}) {
+  const [tipo, setTipo] = React.useState(p.nota ? p.nota.tipo : p.tipo === "Empresa" ? "NFS-e" : "NFC-e");
+  const [doc, setDoc] = React.useState(p.nota && p.nota.documento ? docFmt(p.nota.documento) : "");
+  const [numero, setNumero] = React.useState(p.nota ? p.nota.numero : "");
+  const [tentou, setTentou] = React.useState(false);
+  const digitos = doc.replace(/\D/g, "");
+  const erroDoc = digitos && digitos.length !== 11 && digitos.length !== 14 ? "CPF tem 11 dígitos e CNPJ, 14" : undefined;
+  const texto = textoNota(p, tipo, digitos);
+  const copiar = () => navigator.clipboard.writeText(texto).then(() => onToast("Dados da nota copiados"), () => onToast("Não deu pra copiar: selecione o texto e copie", "danger"));
+  const salvar = async () => {
+    setTentou(true);
+    const n = numero.trim();
+    if (!n || erroDoc) return;
+    const nota = {
+      tipo,
+      numero: n,
+      documento: digitos
+    };
+    const ok = await acao("nota", {
+      ok: `${tipo} ${n} registrada no pedido`,
+      falhou: "Não deu pra registrar a nota"
+    }, REAL() ? null : () => aoSalvar(nota), {
+      acao: "registrarNota",
+      dados: {
+        pedidoId: p.id,
+        ...nota
+      }
+    });
+    if (ok) onClose();
+  };
+  return /*#__PURE__*/React.createElement(Modal, {
+    width: 600,
+    title: p.nota ? "Nota fiscal" : "Emitir nota fiscal",
+    onClose: pendente === "nota" ? null : onClose,
+    subtitle: `${p.id} · ${p.cliente || "cliente"} · ${p.total}`,
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      icon: "external-link",
+      onClick: () => window.open(ERP4ME, "_blank", "noopener")
+    }, "Abrir ERP4ME"), /*#__PURE__*/React.createElement(Button, {
+      block: true,
+      icon: "save",
+      loading: pendente === "nota",
+      onClick: salvar
+    }, p.nota ? "Salvar correção" : "Registrar nota"))
+  }, /*#__PURE__*/React.createElement("form", {
+    onSubmit: e => {
+      e.preventDefault();
+      salvar();
+    },
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Tipo",
+    hint: tipo === "NFS-e" ? "Serviço: festa, decoração, locação" : "Venda ao consumidor"
+  }, /*#__PURE__*/React.createElement(Select, {
+    options: ["NFS-e", "NFC-e"],
+    value: tipo,
+    onChange: e => setTipo(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "CPF ou CNPJ",
+    error: erroDoc,
+    hint: p.tipo === "Empresa" ? "Empresa: coloque o CNPJ" : "Opcional para pessoa"
+  }, /*#__PURE__*/React.createElement(Input, {
+    inputMode: "numeric",
+    autoComplete: "off",
+    value: doc,
+    invalid: !!erroDoc,
+    onChange: e => setDoc(e.target.value),
+    onBlur: () => setDoc(docFmt(digitos))
+  }))), /*#__PURE__*/React.createElement(Field, {
+    label: "Dados para a nota",
+    hint: "Copie, emita no ERP4ME e confira os valores antes de transmitir."
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "relative"
+    }
+  }, /*#__PURE__*/React.createElement("pre", {
+    style: {
+      margin: 0,
+      padding: "12px 14px",
+      paddingRight: 48,
+      borderRadius: "var(--radius-sm)",
+      border: "var(--border-hairline) solid var(--color-border)",
+      background: "var(--color-surface-sunken, var(--color-bg))",
+      fontFamily: "var(--font-ui)",
+      fontSize: "var(--fs-body-s)",
+      lineHeight: "var(--lh-normal)",
+      whiteSpace: "pre-wrap",
+      overflowWrap: "anywhere",
+      maxHeight: 240,
+      overflowY: "auto"
+    }
+  }, texto), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: 6,
+      right: 6
+    }
+  }, /*#__PURE__*/React.createElement(IconButton, {
+    icon: "copy",
+    label: "Copiar dados da nota",
+    onClick: copiar
+  })))), /*#__PURE__*/React.createElement(Field, {
+    label: "N\xFAmero da nota",
+    required: true,
+    error: tentou && !numero.trim() ? "Digite o número que o ERP4ME deu à nota" : undefined,
+    hint: "Depois de emitir, anote o n\xFAmero aqui para o pedido ficar com a nota."
+  }, /*#__PURE__*/React.createElement(Input, {
+    autoComplete: "off",
+    value: numero,
+    invalid: tentou && !numero.trim(),
+    onChange: e => setNumero(e.target.value)
+  }))));
+}
+
+/* Details is the edit form: the same fields as Pedido manual, filled from the order. Status,
+   payments and the kitchen don't change here; the total and payment state follow the items. */
 function DetalhesModal({
   pedido,
   onClose,
   onToast,
   acao,
-  pendente
+  pendente,
+  compact,
+  produtos,
+  onNota
 }) {
-  /* What the order already received comes from the order itself. The site does not report
-     when it was paid, so that row carries no timestamp until Coda provides one. */
-  const [pgtos, setPgtos] = React.useState(() => pedido && valor(pedido.pago) > 0 ? [{
+  /* Demo: what the order already received comes from the order itself. Real system: every
+     payment is its own record, live. */
+  const [pgtosDemo, setPgtos] = React.useState(() => pedido && valor(pedido.pago) > 0 ? [{
     quando: null,
     valor: valor(pedido.pago),
     origem: "site",
     meio: pedido.pgto
   }] : []);
+  const aoVivo = useAoVivo(REAL() ? "pagamentos" : "nada", REAL() && pedido ? pedido.id : undefined);
+  const pgtos = REAL() ? aoVivo.dados || [] : pgtosDemo;
   const [verPgtos, setVerPgtos] = React.useState(false);
-  if (!pedido) return null;
-  const recebido = pgtos.reduce((s, p) => s + p.valor, 0);
+  const inicial = React.useMemo(() => window.rascunhoDe(pedido), [pedido.id]);
+  const [r, setR] = React.useState(inicial);
+  const [tentou, setTentou] = React.useState(false);
+  const [sair, setSair] = React.useState(false);
+  const set = (k, v) => setR(x => ({
+    ...x,
+    [k]: v
+  }));
+  const mudou = JSON.stringify(r) !== JSON.stringify(inicial);
+  const erros = tentou ? window.faltas(r) : {};
+  const cancelado = pedido.status === "Cancelado";
+  const recebido = REAL() ? valor(pedido.pago) : pgtos.reduce((s, p) => s + p.valor, 0);
+  const fechar = () => pendente === "salvar" ? null : mudou ? setSair(true) : onClose();
+  const salvar = async () => {
+    if (Object.keys(window.faltas(r)).length) {
+      setTentou(true);
+      return;
+    }
+    if (!mudou) {
+      onClose();
+      return;
+    }
+    const ok = await acao("salvar", {
+      ok: "Pedido atualizado",
+      falhou: "Não deu pra salvar o pedido"
+    }, null, {
+      acao: "editarPedido",
+      dados: {
+        pedidoId: pedido.id,
+        ...window.paraApi(r)
+      }
+    });
+    if (ok) onClose();
+  };
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Modal, {
-    width: 620,
+    width: 860,
     title: "Detalhes do pedido",
-    onClose: onClose,
-    subtitle: "Edite os dados do cliente, a entrega e o pagamento.",
+    onClose: fechar,
+    subtitle: cancelado ? "Pedido cancelado: dá pra ver e imprimir, mas não editar." : "Edite cliente, entrega e itens. O total e o que falta pagar se ajustam sozinhos.",
     footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
       variant: "ghost",
       block: true,
-      onClick: onClose
-    }, "Fechar"), /*#__PURE__*/React.createElement(Button, {
+      onClick: fechar
+    }, mudou ? "Descartar" : "Fechar"), /*#__PURE__*/React.createElement(Button, {
       variant: "ghost",
       block: true,
       icon: "printer",
-      onClick: () => onToast("Pedido enviado para impressão")
-    }, "Imprimir"), /*#__PURE__*/React.createElement(Button, {
+      onClick: () => window.imprimirPedido(pedido, produtos) || onToast("O navegador bloqueou a janela de impressão", "danger")
+    }, "Imprimir"), cancelado ? null : /*#__PURE__*/React.createElement(Button, {
       block: true,
       icon: "save",
       loading: pendente === "salvar",
-      onClick: async () => {
-        if (await acao("salvar", {
-          ok: "Pedido atualizado",
-          falhou: "Não deu pra salvar o pedido"
-        })) onClose();
-      }
-    }, "Salvar"))
+      onClick: salvar
+    }, mudou ? "Salvar alterações" : "Salvar"))
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -4887,79 +5632,35 @@ function DetalhesModal({
     }
   }, pedido.id), /*#__PURE__*/React.createElement(StatusBadge, {
     status: pedido.status
-  }), pedido.tipo ? /*#__PURE__*/React.createElement(Badge, {
+  }), pedido.pagamento ? /*#__PURE__*/React.createElement(Badge, {
+    tone: pedido.pagamento === "Totalmente pago" ? "success" : pedido.pagamento === "Só entrada" ? "warn" : "neutral"
+  }, pedido.pagamento) : null, pedido.tipo ? /*#__PURE__*/React.createElement(Badge, {
     tone: "accent",
     icon: "building-2"
-  }, pedido.tipo) : null), /*#__PURE__*/React.createElement("div", {
+  }, pedido.tipo) : null), /*#__PURE__*/React.createElement("fieldset", {
+    disabled: cancelado,
     style: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-      gap: "10px 12px"
+      border: "none",
+      margin: 0,
+      padding: 0,
+      minWidth: 0
     }
-  }, /*#__PURE__*/React.createElement(Field, {
-    label: "Cliente",
-    required: true
-  }, /*#__PURE__*/React.createElement(Input, {
-    defaultValue: pedido.cliente || ""
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "WhatsApp",
-    required: true
-  }, /*#__PURE__*/React.createElement(Input, {
-    defaultValue: pedido.tel || ""
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Entrega"
-  }, /*#__PURE__*/React.createElement(Select, {
-    options: ["Retirada no local", "Entrega em endereço"],
-    defaultValue: pedido.modo || undefined
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Data"
-  }, /*#__PURE__*/React.createElement(Input, {
-    type: "date",
-    defaultValue: pedido.data || ""
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Hora"
-  }, /*#__PURE__*/React.createElement(Input, {
-    type: "time",
-    defaultValue: pedido.hora || ""
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Pagamento"
-  }, /*#__PURE__*/React.createElement(Select, {
-    options: ["Pix", "Cartão", "Dinheiro"],
-    defaultValue: pedido.pgto || undefined
-  }))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 16
-    }
-  }, /*#__PURE__*/React.createElement(DataTable, {
-    minWidth: 0,
-    empty: /*#__PURE__*/React.createElement("div", {
-      style: {
-        padding: "12px",
-        fontSize: "var(--fs-body-s)",
-        color: "var(--text-muted)"
-      }
-    }, "Nenhum item registrado neste pedido."),
-    rows: (pedido.itens || []).map((it, i) => ({
-      id: i,
-      ...it
-    })),
-    columns: [{
-      key: "name",
-      label: "Produto",
-      strong: true,
-      wrap: true
-    }, {
-      key: "qty",
-      label: "Qtd",
-      align: "center",
-      width: 60
-    }, {
-      key: "price",
-      label: "Subtotal",
-      align: "right",
-      width: 100,
-      strong: true
-    }]
+  }, /*#__PURE__*/React.createElement(window.CamposPedido, {
+    r: r,
+    set: set,
+    erros: erros
+  }), /*#__PURE__*/React.createElement(window.ListaProdutos, {
+    id: "dluh-produtos-detalhe",
+    produtos: produtos
+  }), /*#__PURE__*/React.createElement(window.ItensPedido, {
+    r: r,
+    set: set,
+    compact: compact,
+    produtos: produtos,
+    erro: erros.itens,
+    acao: acao,
+    onToast: onToast,
+    listaId: "dluh-produtos-detalhe"
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 16,
@@ -4978,7 +5679,15 @@ function DetalhesModal({
       fontSize: "var(--fs-body-l)",
       fontWeight: "var(--fw-bold)"
     }
-  }, window.brl(recebido))), /*#__PURE__*/React.createElement("div", {
+  }, window.brl(recebido))), window.totalRascunho(r) - recebido > 0.004 ? /*#__PURE__*/React.createElement(Field, {
+    label: "Falta"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body-l)",
+      fontWeight: "var(--fw-bold)",
+      color: "var(--text-accent)"
+    }
+  }, window.brl(window.totalRascunho(r) - recebido))) : null, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1
     }
@@ -4987,14 +5696,106 @@ function DetalhesModal({
     variant: "outline",
     icon: "list",
     onClick: () => setVerPgtos(true)
-  }, "Pagamentos (", pgtos.length, ")"))), verPgtos ? /*#__PURE__*/React.createElement(PagamentosModal, {
+  }, "Pagamentos (", pgtos.length, ")")), onNota && !cancelado ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      flexWrap: "wrap",
+      padding: "12px 14px",
+      borderRadius: "var(--radius-sm)",
+      border: "var(--border-hairline) solid var(--color-border)"
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Nota fiscal"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body-l)",
+      fontWeight: "var(--fw-bold)"
+    }
+  }, pedido.nota ? `${pedido.nota.tipo} ${pedido.nota.numero}` : "Não emitida")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }), /*#__PURE__*/React.createElement(Button, {
+    size: "sm",
+    variant: "outline",
+    icon: "receipt-text",
+    onClick: onNota
+  }, pedido.nota ? "Ver nota" : "Emitir nota")) : null), verPgtos ? /*#__PURE__*/React.createElement(PagamentosModal, {
     lista: pgtos,
-    onChange: setPgtos,
+    onChange: REAL() ? () => {} : setPgtos,
+    pedido: pedido,
     onClose: () => setVerPgtos(false),
     onToast: onToast,
     acao: acao,
     pendente: pendente
+  }) : null, sair ? /*#__PURE__*/React.createElement(ConfirmDialog, {
+    tone: "danger",
+    icon: "trash-2",
+    title: "Descartar altera\xE7\xF5es?",
+    message: "O que foi mudado neste pedido se perde. O pedido fica como estava.",
+    confirmLabel: "Sim, descartar",
+    cancelLabel: "Voltar",
+    onCancel: () => setSair(false),
+    onConfirm: () => {
+      setSair(false);
+      onClose();
+    }
   }) : null);
+}
+
+/* Apagar de vez: pede a senha da conta sistema do Firebase (a mesma de SISTEMA_SENHA no Worker).
+   A senha vai só nessa chamada; nada fica guardado no aparelho. */
+function ApagarComSenha({
+  p,
+  pendente,
+  onCancel,
+  onConfirm
+}) {
+  const [senha, setSenha] = React.useState("");
+  const [tentou, setTentou] = React.useState(false);
+  const ir = () => {
+    setTentou(true);
+    if (senha) onConfirm(senha);
+  };
+  return /*#__PURE__*/React.createElement(Modal, {
+    width: 420,
+    title: `Apagar ${p.id}?`,
+    onClose: pendente ? null : onCancel,
+    dismissible: false,
+    subtitle: `${p.cliente || "Cliente sem nome"}${p.total ? " · " + p.total : ""}. O pedido, o histórico e os pagamentos dele saem do sistema. Não dá pra desfazer.`,
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      disabled: pendente,
+      onClick: onCancel
+    }, "Voltar"), /*#__PURE__*/React.createElement(Button, {
+      tone: "danger",
+      block: true,
+      icon: "trash-2",
+      loading: pendente,
+      onClick: ir
+    }, "Sim, apagar"))
+  }, /*#__PURE__*/React.createElement("form", {
+    onSubmit: e => {
+      e.preventDefault();
+      ir();
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Senha do sistema",
+    required: true,
+    error: tentou && !senha ? "Digite a senha" : undefined,
+    hint: "A senha da conta sistema do Firebase."
+  }, /*#__PURE__*/React.createElement(Input, {
+    type: "password",
+    autoFocus: true,
+    autoComplete: "off",
+    value: senha,
+    invalid: tentou && !senha,
+    onChange: e => setSenha(e.target.value)
+  }))));
 }
 function Pedidos({
   compact,
@@ -5004,26 +5805,32 @@ function Pedidos({
   const [detalhe, setDetalhe] = React.useState(null);
   const [manual, setManual] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
+  const [apagando, setApagando] = React.useState(null);
+  const [nota, setNota] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
-  const carga = useCarga(() => window.DLUH_API.carregar("pedidos"));
+  /* Busca e as abas de pedidos encerrados leem o histórico inteiro; o resto só o recente (firebase.js). */
+  const carga = useAoVivo(q || tab === "final" || tab === "cancelado" || tab === "busca" ? "pedidosTodos" : "pedidos");
+  const catalogo = useAoVivo("produtos");
+  const produtos = catalogo.dados || [];
+  const [link, setLink] = React.useState(null);
+  const imprimir = p => window.imprimirPedido(p, produtos) || showToast("O navegador bloqueou a janela de impressão", "danger");
   const todos = carga.dados || [];
-  const filtro = (TABS.find(t => t.id === tab) || TABS[0]).filtro;
-  const lista = todos.filter(p => filtro.includes(p.status)).filter(p => casa(p, q));
+  const abas = q ? [BUSCA, ...TABS] : TABS;
+  const filtro = (abas.find(t => t.id === tab) || TABS[0]).filtro;
+  const lista = todos.filter(p => !filtro || filtro.includes(p.status)).filter(p => casa(p, q));
   /* Orders whose Status is not in the Coda single-select would fall between the tabs. They are
      listed on their own, above the tabs, so a typo in Coda is visible instead of lost. */
   const fora = todos.filter(p => !TABS.some(t => t.filtro.includes(p.status)));
   const achouEmOutra = !!q && todos.some(p => casa(p, q));
 
-  /* A search that only matches in another status moves to that tab, so picking a pedido in
-     the global search never lands on an empty list. */
+  /* Digitar na busca abre "Resultados" (todos os status); limpar volta para a primeira aba. As
+     contagens das abas passam a ser do que casou, para ver em que status estão. */
   React.useEffect(() => {
-    if (!q || lista.length) return;
-    const alvo = TABS.find(t => todos.some(p => t.filtro.includes(p.status) && casa(p, q)));
-    if (alvo) setTab(alvo.id);
-  }, [q, carga.estado]);
+    if (q) setTab("busca");else setTab(t => t === "busca" ? "estoque" : t);
+  }, [!!q]);
   const counts = {};
-  TABS.forEach(t => counts[t.id] = todos.filter(p => t.filtro.includes(p.status)).length);
+  abas.forEach(t => counts[t.id] = todos.filter(p => (!t.filtro || t.filtro.includes(p.status)) && casa(p, q)).length);
   const pede = (tipo, p) => setConfirm({
     tipo,
     p,
@@ -5070,7 +5877,7 @@ function Pedidos({
         color: "var(--text-muted)",
         marginTop: 2
       }
-    }, "O status n\xE3o bate com nenhuma aba. Corrija no Coda para o pedido voltar ao fluxo.")),
+    }, "O status n\xE3o bate com nenhuma aba. Corrija o status para o pedido voltar ao fluxo.")),
     bodyStyle: {
       display: "flex",
       flexDirection: "column",
@@ -5086,7 +5893,7 @@ function Pedidos({
   }))) : null, /*#__PURE__*/React.createElement(Tabs, {
     value: tab,
     onChange: setTab,
-    items: TABS.map(t => ({
+    items: abas.map(t => ({
       id: t.id,
       label: t.label,
       count: counts[t.id]
@@ -5094,9 +5901,32 @@ function Pedidos({
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      justifyContent: "flex-end"
+      justifyContent: "flex-end",
+      gap: 8,
+      flexWrap: "wrap"
     }
-  }, /*#__PURE__*/React.createElement(Button, {
+  }, tab === "pagamento" && lista.length ? /*#__PURE__*/React.createElement(Button, {
+    size: "sm",
+    variant: "ghost",
+    icon: "bell-ring",
+    onClick: () => setConfirm({
+      tipo: "lembrete",
+      p: {},
+      tone: "chargeEntry",
+      icon: "bell-ring",
+      title: lista.length === 1 ? "Mandar lembrete para 1 cliente?" : `Mandar lembrete para ${lista.length} clientes?`,
+      message: "Cada cliente desta aba recebe no WhatsApp que a produção começa quando a entrada for paga, com o link da entrada. Quem já está sem valor a pagar ou sem telefone fica de fora.",
+      confirmLabel: "Sim, mandar",
+      ok: "Lembretes sendo enviados no WhatsApp",
+      falhou: "Não deu pra mandar os lembretes",
+      pedido: {
+        acao: "lembrarEntrada",
+        dados: {
+          pedidoIds: lista.map(p => p.id)
+        }
+      }
+    })
+  }, "Lembrar todos da entrada") : null, /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     icon: "plus",
     onClick: () => setManual(true)
@@ -5106,56 +5936,8 @@ function Pedidos({
       flexDirection: "column",
       gap: "var(--space-8)"
     }
-  }, lista.map(p => /*#__PURE__*/React.createElement(OrderCard, {
-    key: p.id,
-    id: p.id,
-    customer: p.cliente,
-    status: p.status,
-    meta: [p.entrega, p.tel, p.pgto].filter(Boolean),
-    badges: /*#__PURE__*/React.createElement(React.Fragment, null, p.tipo ? /*#__PURE__*/React.createElement(Badge, {
-      tone: "accent",
-      icon: "building-2"
-    }, p.tipo) : null, p.falta ? /*#__PURE__*/React.createElement(Badge, {
-      tone: "warn"
-    }, "Falta ", p.falta) : null),
-    items: p.itens || [],
-    total: p.total,
-    paid: p.pago,
-    due: p.falta,
-    actions: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
-      size: "sm",
-      variant: "ghost",
-      icon: "file-text",
-      onClick: () => setDetalhe(p)
-    }, "Detalhes"), p.status === "Aguardando confirmação" ? /*#__PURE__*/React.createElement(Button, {
-      size: "sm",
-      icon: "check",
-      onClick: () => pede("estoque", p)
-    }, "Confirmar estoque") : p.status === "Confirmado — Esperando pagamento" ? /*#__PURE__*/React.createElement(Button, {
-      size: "sm",
-      tone: "chargeEntry",
-      icon: "link",
-      onClick: () => pede("entrada", p)
-    }, "Cobrar entrada") : p.status === "Em produção" ? /*#__PURE__*/React.createElement(Button, {
-      size: "sm",
-      tone: "delivered",
-      icon: "truck",
-      loading: pendente === "entregue-" + p.id,
-      onClick: () => acao("entregue-" + p.id, {
-        ok: "Pedido marcado como entregue",
-        falhou: "Não deu pra marcar como entregue"
-      })
-    }, "Marcar entregue") : p.status === "Entregue — Esperando restante" ? /*#__PURE__*/React.createElement(Button, {
-      size: "sm",
-      tone: "chargeAll",
-      icon: "banknote",
-      onClick: () => pede("restante", p)
-    }, "Cobrar restante") : p.status === "Finalizado" ? /*#__PURE__*/React.createElement(Button, {
-      size: "sm",
-      variant: "outline",
-      icon: "printer",
-      onClick: () => showToast("Recibo gerado")
-    }, "Recibo") : null, /*#__PURE__*/React.createElement(DropdownMenu, {
+  }, lista.map(p => {
+    const menu = /*#__PURE__*/React.createElement(DropdownMenu, {
       trigger: /*#__PURE__*/React.createElement(IconButton, {
         icon: "menu",
         label: "Mais a\xE7\xF5es"
@@ -5163,7 +5945,7 @@ function Pedidos({
       items: [{
         label: "Copiar dados do pedido",
         icon: "copy",
-        onClick: () => showToast("Dados copiados")
+        onClick: () => copiarPedido(p, showToast)
       }, {
         label: "Marcar como pago",
         icon: "badge-check",
@@ -5174,21 +5956,127 @@ function Pedidos({
         onClick: () => acao("notificar-" + p.id, {
           ok: "Cliente avisado no WhatsApp",
           falhou: "Não deu pra avisar o cliente"
+        }, null, {
+          acao: "avisarCliente",
+          dados: {
+            pedidoId: p.id
+          }
         })
       }, {
-        label: "Imprimir recibo",
+        label: "Imprimir pedido",
         icon: "printer",
-        onClick: () => showToast("Recibo enviado para impressão")
-      }, {
+        onClick: () => imprimir(p)
+      }, ...(p.status === "Cancelado" ? [] : [{
+        label: p.nota ? "Nota fiscal" : "Emitir nota fiscal",
+        icon: "receipt-text",
+        onClick: () => setNota(p)
+      }]), {
         divider: true
+      }, {
+        label: "Cancelar pedido",
+        icon: "circle-x",
+        tone: "danger",
+        onClick: () => pede("cancelar", p)
       }, {
         label: "Apagar pedido",
         icon: "trash-2",
         tone: "danger",
-        onClick: () => pede("apagar", p)
+        onClick: () => setApagando(p)
       }]
-    }))
-  }))) : q && !achouEmOutra ? /*#__PURE__*/React.createElement(Card, {
+    });
+    /* A ação principal cresce no celular para ser fácil de acertar com o polegar. */
+    const cresce = compact ? {
+      flex: "1 1 auto"
+    } : undefined;
+    return /*#__PURE__*/React.createElement(OrderCard, {
+      key: p.id,
+      id: p.id,
+      customer: p.cliente,
+      status: p.status,
+      meta: [p.entrega, p.tel, p.pgto].filter(Boolean),
+      badges: /*#__PURE__*/React.createElement(React.Fragment, null, p.tipo ? /*#__PURE__*/React.createElement(Badge, {
+        tone: "accent",
+        icon: "building-2"
+      }, p.tipo) : null, p.falta ? /*#__PURE__*/React.createElement(Badge, {
+        tone: "warn"
+      }, "Falta ", p.falta) : null, p.feitoNaCozinha && p.status === "Em produção" ? /*#__PURE__*/React.createElement(Badge, {
+        tone: "success",
+        icon: "chef-hat"
+      }, "Feito na cozinha") : null, p.nota ? /*#__PURE__*/React.createElement(Badge, {
+        tone: "neutral",
+        icon: "receipt-text"
+      }, p.nota.tipo, " ", p.nota.numero) : null),
+      items: p.itens || [],
+      total: p.total,
+      paid: p.pago,
+      due: p.falta,
+      actions: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+        size: "sm",
+        variant: "ghost",
+        icon: compact ? undefined : "file-text",
+        onClick: () => setDetalhe(p)
+      }, "Detalhes"), compact ? menu : null, p.status === "Aguardando confirmação" ? /*#__PURE__*/React.createElement(Button, {
+        size: "sm",
+        style: cresce,
+        icon: "check",
+        onClick: () => pede("estoque", p)
+      }, "Confirmar estoque") : p.status === "Confirmado — Esperando pagamento" ? /*#__PURE__*/React.createElement(Button, {
+        size: "sm",
+        style: cresce,
+        tone: "chargeEntry",
+        icon: "link",
+        onClick: () => pede("entrada", p)
+      }, "Cobrar entrada") : p.status === "Em produção" ? /*#__PURE__*/React.createElement(Button, {
+        size: "sm",
+        style: cresce,
+        tone: "delivered",
+        icon: "truck",
+        loading: pendente === "entregue-" + p.id,
+        onClick: () => acao("entregue-" + p.id, {
+          ok: p.pagamento === "Totalmente pago" ? "Pedido entregue e finalizado" : "Pedido marcado como entregue",
+          falhou: "Não deu pra marcar como entregue"
+        }, null, {
+          acao: "mudarStatus",
+          dados: {
+            pedidoId: p.id,
+            status: p.pagamento === "Totalmente pago" ? "Finalizado" : "Entregue — Esperando restante"
+          }
+        })
+      }, "Marcar entregue") : p.status === "Entregue — Esperando restante" && p.pagamento === "Totalmente pago" ? /*#__PURE__*/React.createElement(Button, {
+        size: "sm",
+        style: cresce,
+        tone: "delivered",
+        icon: "circle-check",
+        loading: pendente === "finalizar-" + p.id,
+        onClick: () => acao("finalizar-" + p.id, {
+          ok: "Pedido finalizado",
+          falhou: "Não deu pra finalizar o pedido"
+        }, null, {
+          acao: "mudarStatus",
+          dados: {
+            pedidoId: p.id,
+            status: "Finalizado"
+          }
+        })
+      }, "Finalizar") : p.status === "Entregue — Esperando restante" ? /*#__PURE__*/React.createElement(Button, {
+        size: "sm",
+        style: cresce,
+        tone: "chargeAll",
+        icon: "banknote",
+        onClick: () => pede("restante", p)
+      }, "Cobrar restante") : p.status === "Finalizado" ? /*#__PURE__*/React.createElement(Button, {
+        size: "sm",
+        style: cresce,
+        variant: "outline",
+        icon: "printer",
+        onClick: () => imprimir(p)
+      }, "Recibo") : null, compact ? null : /*#__PURE__*/React.createElement(IconButton, {
+        icon: "trash-2",
+        label: `Apagar ${p.id}`,
+        onClick: () => setApagando(p)
+      }), compact ? null : menu)
+    });
+  })) : q && (tab === "busca" || !achouEmOutra) ? /*#__PURE__*/React.createElement(Card, {
     padded: false
   }, /*#__PURE__*/React.createElement(EmptyState, {
     icon: "search-x",
@@ -5201,17 +6089,23 @@ function Pedidos({
     title: "Nenhum pedido nesta aba",
     description: "Assim que um pedido entrar nesse status ele aparece aqui automaticamente."
   })), detalhe ? /*#__PURE__*/React.createElement(DetalhesModal, {
-    pedido: detalhe,
+    key: detalhe.id,
+    pedido: todos.find(x => x.id === detalhe.id) || detalhe,
     onClose: () => setDetalhe(null),
     onToast: showToast,
     acao: acao,
-    pendente: pendente
+    pendente: pendente,
+    compact: compact,
+    produtos: produtos,
+    onNota: () => setNota(todos.find(x => x.id === detalhe.id) || detalhe)
   }) : null, manual ? /*#__PURE__*/React.createElement(ManualModal, {
     compact: compact,
     onClose: () => setManual(false),
     onToast: showToast,
     acao: acao,
-    pendente: pendente
+    pendente: pendente,
+    produtos: produtos,
+    clientes: window.clientesDe(todos)
   }) : null, confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
     tone: confirm.tone,
     icon: confirm.icon,
@@ -5223,12 +6117,51 @@ function Pedidos({
     onCancel: () => setConfirm(null),
     onConfirm: async () => {
       const c = confirm;
-      await acao(c.tipo, {
+      const r = await acao(c.tipo, {
         ok: c.ok,
         falhou: c.falhou
-      }, c.aplicar ? () => carga.setDados(c.aplicar) : null);
+      }, c.aplicar ? () => carga.setDados(c.aplicar) : null, c.pedido);
       setConfirm(null);
+      if (r && r.url) setLink({
+        ...r,
+        pedidoId: c.p.id,
+        cliente: c.p.cliente,
+        tel: c.p.tel
+      });
     }
+  }) : null, apagando ? /*#__PURE__*/React.createElement(ApagarComSenha, {
+    p: apagando,
+    pendente: pendente === "apagar",
+    onCancel: () => setApagando(null),
+    onConfirm: async senha => {
+      const p = apagando;
+      const ok = await acao("apagar", {
+        ok: `${p.id} apagado`,
+        falhou: `Não deu pra apagar ${p.id}`
+      }, REAL() ? null : () => carga.setDados(l => l.filter(x => x.id !== p.id)), {
+        acao: "apagarPedido",
+        dados: {
+          pedidoId: p.id,
+          senha
+        }
+      });
+      if (ok) setApagando(null);
+    }
+  }) : null, nota ? /*#__PURE__*/React.createElement(NotaModal, {
+    key: "nota-" + nota.id,
+    p: todos.find(x => x.id === nota.id) || nota,
+    onClose: () => setNota(null),
+    onToast: showToast,
+    acao: acao,
+    pendente: pendente,
+    aoSalvar: n => carga.setDados(l => l.map(x => x.id === nota.id ? {
+      ...x,
+      nota: n
+    } : x))
+  }) : null, link ? /*#__PURE__*/React.createElement(LinkCobranca, {
+    link: link,
+    onClose: () => setLink(null),
+    onToast: showToast
   }) : null, toastNode);
 }
 Object.assign(window, {
@@ -5963,7 +6896,8 @@ const {
    commitments on the shop day, and the kitchen queue. */
 const FECHADOS = ["Finalizado", "Cancelado"];
 const navItems = () => {
-  const d = window.DLUH;
+  // The real system has no counts here yet; the example rows would show numbers that aren't true.
+  const d = window.DLUH_API.modo === "firebase" ? null : window.DLUH;
   return [{
     id: "visao",
     label: "Visão geral",
@@ -5972,17 +6906,25 @@ const navItems = () => {
     id: "pedidos",
     label: "Pedidos",
     icon: "receipt-text",
-    count: d.pedidos.filter(p => !FECHADOS.includes(p.status)).length
+    count: d && d.pedidos.filter(p => !FECHADOS.includes(p.status)).length
   }, {
     id: "agenda",
     label: "Agenda",
     icon: "calendar-days",
-    count: d.agenda.filter(x => x.data === d.hoje).length
+    count: d && d.agenda.filter(x => x.data === d.hoje).length
   }, {
     id: "cozinha",
     label: "Cozinha",
     icon: "chef-hat",
-    count: d.fila.length
+    count: d && d.fila.length
+  }, {
+    id: "produtos",
+    label: "Produtos",
+    icon: "package"
+  }, {
+    id: "clientes",
+    label: "Clientes",
+    icon: "users"
   }, {
     id: "financeiro",
     label: "Financeiro",
@@ -6082,6 +7024,7 @@ function Sidebar({
 }) {
   const [open, setOpen] = React.useState(false);
   const [viaTeclado, setViaTeclado] = React.useState(false);
+  const eu = window.useUsuario();
   /* The rail opens for keyboard focus as well as hover, so labels are never mouse-only. Opened
      from the keyboard it snaps open: Tab runs through it many times a day and should never wait
      on an animation. The hover expand keeps its documented 250ms. */
@@ -6124,21 +7067,34 @@ function Sidebar({
       transition: viaTeclado ? "none" : "width var(--dur-move) var(--ease-out), box-shadow var(--dur-base) var(--ease-out)"
     }
   }, /*#__PURE__*/React.createElement("div", {
+    "aria-label": "D'Luh admin",
+    role: "img",
     style: {
+      width: 48,
       display: "flex",
+      flexDirection: "column",
       alignItems: "center",
+      gap: 3,
       padding: "var(--space-2) 0 var(--space-8)"
     }
   }, /*#__PURE__*/React.createElement("img", {
-    src: "../../assets/logo-dluh-festas.png",
-    alt: "D'Luh Festas",
+    src: "icones/d.svg",
+    alt: "",
     style: {
       width: 44,
-      height: 44,
-      objectFit: "contain",
-      marginLeft: 2
+      height: "auto",
+      display: "block"
     }
-  })), navItems().map(it => /*#__PURE__*/React.createElement(RailItem, _extends({
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9.5,
+      fontWeight: "var(--fw-bold)",
+      letterSpacing: ".14em",
+      paddingLeft: ".14em",
+      lineHeight: 1,
+      color: "#c29a48"
+    }
+  }, "admin")), navItems().map(it => /*#__PURE__*/React.createElement(RailItem, _extends({
     key: it.id
   }, it, {
     open: open,
@@ -6171,72 +7127,172 @@ function Sidebar({
       whiteSpace: "nowrap"
     }
   }, /*#__PURE__*/React.createElement(UserChip, {
-    name: "Luciana",
-    role: "Dona",
+    name: eu.nome,
+    role: eu.papel,
+    src: eu.foto,
     compact: !open
   }))));
 }
+
+/* Phone: three main screens plus "Mais", which opens the rest as a sheet over the bar. Bigger
+   than the rail items on purpose: seven tabs in 390px were too small to hit and to read. */
+const PRINCIPAIS = ["visao", "pedidos", "cozinha"];
 function BottomNav({
   value,
   onChange
 }) {
-  return /*#__PURE__*/React.createElement("nav", {
-    "aria-label": "Principal",
+  const [mais, setMais] = React.useState(false);
+  const itens = navItems();
+  const extras = itens.filter(it => !PRINCIPAIS.includes(it.id));
+  const extraAtivo = extras.some(it => it.id === value);
+  const contaExtras = extras.reduce((s, it) => s + (it.count || 0), 0);
+  React.useEffect(() => {
+    if (!mais) return;
+    const f = e => e.key === "Escape" && setMais(false);
+    window.addEventListener("keydown", f);
+    return () => window.removeEventListener("keydown", f);
+  }, [mais]);
+  const aba = (it, active, onClick) => /*#__PURE__*/React.createElement("button", {
+    key: it.id,
+    type: "button",
+    onClick: onClick,
+    "aria-current": active ? "page" : undefined,
+    "aria-expanded": it.id === "mais" ? mais : undefined,
     style: {
+      flex: 1,
+      minHeight: 58,
       display: "flex",
-      borderTop: "1px solid var(--color-border)",
-      background: "var(--color-surface)",
-      padding: "6px 4px calc(8px + env(safe-area-inset-bottom))",
-      gap: 2,
-      flex: "0 0 auto"
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      border: "none",
+      background: "transparent",
+      cursor: "pointer",
+      color: active ? "var(--text-accent)" : "var(--text-muted)",
+      fontFamily: "var(--font-ui)",
+      fontSize: "var(--fs-tiny)",
+      fontWeight: "var(--fw-semibold)",
+      position: "relative"
     }
-  }, navItems().map(it => {
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: it.icon,
+    size: 26
+  }), it.label, it.count ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      position: "absolute",
+      top: 4,
+      right: "50%",
+      marginRight: -26,
+      minWidth: 18,
+      height: 18,
+      padding: "0 5px",
+      borderRadius: "var(--radius-pill)",
+      background: "var(--color-accent-strong)",
+      color: "var(--color-accent-contrast)",
+      fontSize: "var(--fs-micro)",
+      fontWeight: "var(--fw-bold)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  }, it.count) : null);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, mais ? /*#__PURE__*/React.createElement("div", {
+    onClick: () => setMais(false),
+    style: {
+      position: "absolute",
+      inset: 0,
+      zIndex: 30,
+      background: "rgba(8,6,10,.55)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    role: "dialog",
+    "aria-label": "Mais telas",
+    onClick: e => e.stopPropagation(),
+    style: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: "calc(66px + env(safe-area-inset-bottom))",
+      background: "var(--color-surface)",
+      borderTop: "var(--border-hairline) solid var(--color-border)",
+      borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
+      padding: "10px 12px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 4
+    }
+  }, extras.map(it => {
     const active = it.id === value;
     return /*#__PURE__*/React.createElement("button", {
       key: it.id,
       type: "button",
-      onClick: () => onChange(it.id),
+      autoFocus: it === extras[0],
       "aria-current": active ? "page" : undefined,
+      onClick: () => {
+        setMais(false);
+        onChange(it.id);
+      },
       style: {
-        flex: 1,
-        minHeight: "var(--tap-min)",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        gap: 3,
+        gap: 14,
+        minHeight: 56,
+        padding: "0 14px",
+        width: "100%",
         border: "none",
-        background: "transparent",
+        borderRadius: "var(--radius-md)",
         cursor: "pointer",
-        color: active ? "var(--text-accent)" : "var(--text-muted)",
+        textAlign: "left",
+        background: active ? "var(--color-accent-soft)" : "transparent",
+        color: active ? "var(--text-accent)" : "var(--text-strong)",
         fontFamily: "var(--font-ui)",
-        fontSize: "var(--fs-micro)",
-        fontWeight: "var(--fw-semibold)",
-        position: "relative"
+        fontSize: "var(--fs-body)",
+        fontWeight: "var(--fw-semibold)"
       }
     }, /*#__PURE__*/React.createElement(Icon, {
       name: it.icon,
-      size: 21
-    }), it.label, it.count ? /*#__PURE__*/React.createElement("span", {
+      size: 24
+    }), /*#__PURE__*/React.createElement("span", {
       style: {
-        position: "absolute",
-        top: 2,
-        right: "50%",
-        marginRight: -22,
-        minWidth: 16,
-        height: 16,
-        padding: "0 4px",
+        flex: 1
+      }
+    }, it.label), it.count ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        minWidth: 22,
+        height: 22,
+        padding: "0 6px",
         borderRadius: "var(--radius-pill)",
         background: "var(--color-accent-strong)",
         color: "var(--color-accent-contrast)",
-        fontSize: "var(--fs-micro)",
+        fontSize: "var(--fs-tiny)",
         fontWeight: "var(--fw-bold)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center"
       }
     }, it.count) : null);
-  }));
+  }))) : null, /*#__PURE__*/React.createElement("nav", {
+    "aria-label": "Principal",
+    style: {
+      display: "flex",
+      borderTop: "1px solid var(--color-border)",
+      background: "var(--color-surface)",
+      padding: "4px 6px calc(4px + env(safe-area-inset-bottom))",
+      gap: 4,
+      flex: "0 0 auto",
+      position: "relative",
+      zIndex: 31
+    }
+  }, itens.filter(it => PRINCIPAIS.includes(it.id)).map(it => aba(it, it.id === value && !mais, () => {
+    setMais(false);
+    onChange(it.id);
+  })), aba({
+    id: "mais",
+    label: "Mais",
+    icon: mais ? "x" : "menu",
+    count: mais ? 0 : contaExtras
+  }, extraAtivo || mais, () => setMais(m => !m))));
 }
 function Shell({
   view,
@@ -6250,6 +7306,7 @@ function Shell({
 }) {
   const [cfg, setCfg] = React.useState(false);
   const [notif, setNotif] = React.useState(false);
+  const eu = window.useUsuario();
   const [notifs, setNotifs] = React.useState(() => [...(window.NOTIF_DEMO || [])]);
   const search = /*#__PURE__*/React.createElement(window.GlobalSearch, {
     q: q,
@@ -6286,7 +7343,7 @@ function Shell({
       display: "flex",
       alignItems: "center",
       gap: 8,
-      padding: compact ? "12px 12px 0" : "var(--space-10) var(--space-11) 0"
+      padding: compact ? "calc(12px + env(safe-area-inset-top, 0px)) 12px 0" : "var(--space-10) var(--space-11) 0"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -6314,7 +7371,8 @@ function Shell({
       justifyContent: "center"
     }
   }, /*#__PURE__*/React.createElement(UserChip, {
-    name: "Luciana",
+    name: eu.nome,
+    src: eu.foto,
     compact: true
   }))) : null), /*#__PURE__*/React.createElement("main", {
     style: {
@@ -6409,7 +7467,7 @@ function Shell({
     trailingIcon: null,
     active: theme === "dark",
     onClick: () => theme !== "dark" && onTheme()
-  }, "Escuro"))), /*#__PURE__*/React.createElement("div", {
+  }, "Escuro"))), window.DLUH_FB ? /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 16,
       paddingTop: 16,
@@ -6419,8 +7477,11 @@ function Shell({
     variant: "ghost",
     block: true,
     icon: "log-out",
-    onClick: () => setCfg(false)
-  }, "Sair da conta"))));
+    onClick: () => {
+      setCfg(false);
+      window.DLUH_FB.then(fb => fb.sair());
+    }
+  }, "Sair da conta")) : null));
 }
 Object.assign(window, {
   Shell,
@@ -6441,28 +7502,92 @@ const {
   Icon,
   EmptyState
 } = window.DLuhFestasDesignSystem_c861a2;
+const MESES_V = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const isoDe = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const somaDias = (iso, n) => {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return isoDe(d);
+};
+const curtoK = c => {
+  const r = c / 100;
+  return r >= 1000 ? (r / 1000).toFixed(1).replace(".", ",") + "k" : String(Math.round(r));
+};
+
+/* Everything on this screen is computed from the orders and the payments received; nothing is
+   typed in. `pags` are payments in centavos with a local date (api.js → todosPagamentos). */
+const A_RECEBER = ["Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante"];
+function resumoDe(pedidos, pags, hoje) {
+  const vivos = pedidos.filter(p => p.status !== "Cancelado");
+  const cent = window.clCentavos;
+  const deHoje = vivos.filter(p => p.data === hoje);
+  const receber = vivos.filter(p => A_RECEBER.includes(p.status) && cent(p, "falta") > 0);
+  const fila = vivos.filter(p => p.status === "Em produção" && !p.feitoNaCozinha && p.data && p.data <= hoje);
+  const desde = somaDias(hoje, -29);
+  const mes = vivos.filter(p => p.data >= desde && p.data <= hoje);
+  const dow = (new Date(hoje + "T12:00:00").getDay() + 6) % 7;
+  const seg = somaDias(hoje, -dow),
+    dom = somaDias(seg, 6);
+  const dias = Array.from({
+    length: 7
+  }, (_, i) => somaDias(seg, i));
+  const serie = dias.map(d => pags.filter(p => p.data === d).reduce((s, p) => s + p.valor, 0));
+  const [a, b] = [seg, dom].map(d => ({
+    dia: Number(d.slice(8, 10)),
+    mes: MESES_V[Number(d.slice(5, 7)) - 1]
+  }));
+  const porId = new Map(pedidos.map(p => [p.id, p]));
+  return {
+    hoje: deHoje.length,
+    hojeValor: deHoje.reduce((s, p) => s + cent(p, "total"), 0),
+    receber: receber.reduce((s, p) => s + cent(p, "falta"), 0),
+    receberN: receber.length,
+    receberLista: receber,
+    fila: fila.length,
+    atrasados: fila.filter(p => p.data < hoje).length,
+    ticket: mes.length ? Math.round(mes.reduce((s, p) => s + cent(p, "total"), 0) / mes.length) : 0,
+    ticketN: mes.length,
+    serie,
+    dias,
+    hojeIdx: dow,
+    semana: serie.reduce((s, v) => s + v, 0),
+    rotuloSemana: a.mes === b.mes ? `${a.dia} – ${b.dia} de ${b.mes}` : `${a.dia} de ${a.mes} – ${b.dia} de ${b.mes}`,
+    pagamentos: pags.slice().sort((a, b) => `${b.data} ${b.hora}`.localeCompare(`${a.data} ${a.hora}`)).slice(0, 6).map(p => ({
+      ...p,
+      cliente: (porId.get(p.pedidoId) || {}).cliente
+    })),
+    recentes: pedidos.slice(0, 6)
+  };
+}
 function ChartCard({
   compact,
-  serie
+  r
 }) {
-  const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-  const max = Math.max(1, ...serie);
+  const nomes = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const max = Math.max(1, ...r.serie);
   return /*#__PURE__*/React.createElement(Card, {
     header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: "var(--fs-title)",
         fontWeight: "var(--fw-semibold)"
       }
-    }, "Receita da semana"), /*#__PURE__*/React.createElement("div", {
+    }, "Recebido na semana"), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: "var(--fs-tiny)",
         color: "var(--text-muted)",
         marginTop: 2
       }
-    }, "08 \u2013 14 de junho")))
-  }, !serie.length || !serie.some(v => v > 0) ? /*#__PURE__*/React.createElement(EmptyState, {
+    }, r.rotuloSemana)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: "var(--fs-title)",
+        fontWeight: "var(--fw-semibold)",
+        color: "var(--text-strong)",
+        whiteSpace: "nowrap"
+      }
+    }, window.brl(r.semana / 100)))
+  }, !r.serie.some(v => v > 0) ? /*#__PURE__*/React.createElement(EmptyState, {
     icon: "chart-no-axes-column",
-    title: "Sem receita registrada nesta semana"
+    title: "Nenhum pagamento recebido nesta semana"
   }) : /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -6470,8 +7595,9 @@ function ChartCard({
       gap: compact ? 6 : 12,
       height: 150
     }
-  }, serie.map((v, i) => /*#__PURE__*/React.createElement("div", {
+  }, r.serie.map((v, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
+    title: window.brl(v / 100),
     style: {
       flex: 1,
       display: "flex",
@@ -6486,40 +7612,204 @@ function ChartCard({
       color: "var(--text-muted)",
       fontWeight: "var(--fw-semibold)"
     }
-  }, (v / 1000).toFixed(1).replace(".", ","), "k"), /*#__PURE__*/React.createElement("div", {
+  }, v ? curtoK(v) : ""), /*#__PURE__*/React.createElement("div", {
     style: {
       width: "100%",
-      height: v / max * 104,
+      height: Math.max(v ? 3 : 1, v / max * 104),
       borderRadius: "var(--radius-xs)",
-      background: "var(--color-accent-soft)",
-      border: "1px solid var(--color-accent)"
+      background: v ? "var(--color-accent-soft)" : "var(--color-border)",
+      border: v ? "1px solid var(--color-accent)" : "none"
     }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: "var(--fs-micro)",
-      color: "var(--text-muted)"
+      color: i === r.hojeIdx ? "var(--text-accent)" : "var(--text-muted)",
+      fontWeight: i === r.hojeIdx ? "var(--fw-bold)" : undefined
     }
-  }, dias[i])))));
+  }, nomes[i])))));
+}
+function Indicador({
+  icon,
+  label,
+  value,
+  sub,
+  tone,
+  onClick
+}) {
+  const card = /*#__PURE__*/React.createElement(window.DLuhFestasDesignSystem_c861a2.StatCard, {
+    icon: icon,
+    label: label,
+    value: value,
+    tone: tone,
+    style: {
+      height: "100%",
+      boxSizing: "border-box"
+    },
+    chart: /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: "var(--fs-tiny)",
+        color: "var(--text-muted)",
+        marginTop: -4
+      }
+    }, sub)
+  });
+  return onClick ? /*#__PURE__*/React.createElement("div", {
+    role: "button",
+    tabIndex: 0,
+    "data-indicador": "",
+    onClick: onClick,
+    onKeyDown: e => e.key === "Enter" && onClick(),
+    style: {
+      cursor: "pointer",
+      minWidth: 0,
+      borderRadius: "var(--radius-lg)"
+    }
+  }, card) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0
+    }
+  }, card);
 }
 const RECENT_COLS = "minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,.8fr)";
+
+/* What "A receber" adds up, order by order: how much is missing, grouped by status, so an odd
+   total can be traced (an old order that was paid outside the system, for instance). */
+const ORDEM_RECEBER = [{
+  id: "valor",
+  label: "Maior valor",
+  fn: (a, b) => window.clCentavos(b, "falta") - window.clCentavos(a, "falta")
+}, {
+  id: "antigos",
+  label: "Mais antigos",
+  fn: (a, b) => (a.data || "").localeCompare(b.data || "")
+}];
+function AReceberModal({
+  lista,
+  hoje,
+  onClose,
+  onPedido
+}) {
+  const [status, setStatus] = React.useState(null);
+  const [ordem, setOrdem] = React.useState("valor");
+  const cent = window.clCentavos,
+    soma = l => l.reduce((s, p) => s + cent(p, "falta"), 0);
+  const grupos = A_RECEBER.map(st => ({
+    st,
+    l: lista.filter(p => p.status === st)
+  })).filter(g => g.l.length);
+  const velhos = lista.filter(p => p.data && p.data < somaDias(hoje, -60));
+  const vis = lista.filter(p => !status || (status === "velhos" ? velhos.includes(p) : p.status === status)).slice().sort(ORDEM_RECEBER.find(o => o.id === ordem).fn);
+  const pill = (id, rotulo, l) => /*#__PURE__*/React.createElement(window.DLuhFestasDesignSystem_c861a2.FilterPill, {
+    key: id || "todos",
+    trailingIcon: null,
+    active: status === id,
+    onClick: () => setStatus(id)
+  }, rotulo, " \xB7 ", l.length, " \xB7 ", window.brl(soma(l) / 100));
+  return /*#__PURE__*/React.createElement(window.DLuhFestasDesignSystem_c861a2.Modal, {
+    width: 640,
+    title: "A receber",
+    onClose: onClose,
+    subtitle: `${window.brl(soma(lista) / 100)} em ${lista.length} ${lista.length === 1 ? "pedido" : "pedidos"} confirmados que ainda não foram pagos por inteiro. Toque num pedido para abrir.`
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, pill(null, "Todos", lista), grupos.map(g => pill(g.st, window.DLuhFestasDesignSystem_c861a2.STATUS?.[g.st]?.short || g.st, g.l)), velhos.length ? pill("velhos", "Entrega há mais de 60 dias", velhos) : null), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-tiny)",
+      color: "var(--text-muted)"
+    }
+  }, "Ordenar:"), ORDEM_RECEBER.map(o => /*#__PURE__*/React.createElement(window.DLuhFestasDesignSystem_c861a2.FilterPill, {
+    key: o.id,
+    trailingIcon: null,
+    active: ordem === o.id,
+    onClick: () => setOrdem(o.id)
+  }, o.label))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 6
+    }
+  }, vis.map(p => /*#__PURE__*/React.createElement(ListRow, {
+    key: p.id,
+    icon: "receipt-text",
+    title: p.cliente || "Cliente sem nome",
+    subtitle: /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: "inline-flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: 6
+      }
+    }, p.id, " \xB7 entrega ", p.data ? p.data.slice(8, 10) + "/" + p.data.slice(5, 7) + "/" + p.data.slice(2, 4) : "sem data", /*#__PURE__*/React.createElement(StatusBadge, {
+      status: p.status,
+      short: true
+    })),
+    value: window.brl(cent(p, "falta") / 100),
+    valueSub: `de ${p.total || "—"}${p.pago ? " · pago " + p.pago : ""}`,
+    onClick: () => onPedido(p.id)
+  })))));
+}
+const MEIO_ICONE = {
+  Pix: "qr-code",
+  Dinheiro: "banknote",
+  "Cartão": "credit-card"
+};
+const ddmm = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "";
 function VisaoGeral({
   compact,
-  onView
+  onView,
+  onQ
 }) {
-  const carga = useCarga(() => window.DLUH_API.carregar());
-  if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
-    erro: carga.erro,
+  const ped = useAoVivo("pedidos");
+  const pag = useAoVivo("pagamentosRecentes");
+  const [verReceber, setVerReceber] = React.useState(false);
+  const erro = ped.estado === "erro" && !ped.dados ? ped : pag.estado === "erro" && !pag.dados ? pag : null;
+  const r = React.useMemo(() => ped.dados && pag.dados ? resumoDe(ped.dados, pag.dados, window.DLUH_API.hoje()) : null, [ped.dados, pag.dados]);
+  if (erro) return /*#__PURE__*/React.createElement(ErroCarga, {
+    erro: erro.erro,
     oque: "a vis\xE3o geral",
-    onTentar: carga.tentar
+    onTentar: erro.tentar
   });
-  if (!carga.dados) return /*#__PURE__*/React.createElement(Carregando, {
+  if (!r) return /*#__PURE__*/React.createElement(Carregando, {
     oque: "a vis\xE3o geral"
   });
+  const abrirPedido = id => {
+    onQ && onQ(id);
+    onView("pedidos");
+  };
   const d = {
-    ...carga.dados,
-    pagamentos: carga.dados.pagamentos || [],
-    recentes: carga.dados.recentes || [],
-    serieReceita: carga.dados.serieReceita || []
+    pagamentos: r.pagamentos.map(p => ({
+      icon: MEIO_ICONE[p.meio] || "wallet",
+      title: p.cliente || p.pedidoId,
+      sub: [p.pedidoId, p.meio, [ddmm(p.data), p.hora].filter(Boolean).join(" ")].filter(Boolean).join(" · "),
+      value: "+ " + window.brl(p.valor / 100),
+      tone: "in",
+      id: p.pedidoId
+    })),
+    recentes: r.recentes.map(p => ({
+      id: p.id,
+      nome: p.cliente,
+      status: p.status,
+      total: p.total || "—",
+      data: ddmm(p.data) || "sem data",
+      hora: p.hora || "",
+      cat: p.tipo === "Empresa" ? "Empresa" : p._c && p._c.itens[0] && (p._c.itens[0].categoria || p._c.itens[0].nome) || p.itens && p.itens[0] && p.itens[0].name || p.id
+    }))
   };
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -6527,28 +7817,46 @@ function VisaoGeral({
       flexDirection: "column",
       gap: "var(--gap-section)"
     }
-  }, /*#__PURE__*/React.createElement(Card, {
-    padded: false,
-    header: /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: "var(--fs-title)",
-        fontWeight: "var(--fw-semibold)"
-      }
-    }, "Indicadores")
-  }, /*#__PURE__*/React.createElement(EmptyState, {
-    icon: "chart-no-axes-column",
-    title: "Sem dados para os indicadores ainda",
-    description: "Pedidos do dia, valor a receber, fila da cozinha e ticket m\xE9dio aparecem aqui quando houver uma fonte de dados ligada."
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: compact ? "repeat(2, minmax(0,1fr))" : "repeat(4, minmax(0,1fr))",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement(Indicador, {
+    icon: "calendar-days",
+    label: "Pedidos para hoje",
+    value: String(r.hoje),
+    tone: "accent",
+    sub: r.hoje ? window.brl(r.hojeValor / 100) + " no total" : "Nenhuma entrega hoje",
+    onClick: () => onView("agenda")
+  }), /*#__PURE__*/React.createElement(Indicador, {
+    icon: "hourglass",
+    label: "A receber",
+    value: window.brl(r.receber / 100),
+    sub: r.receberN ? `${r.receberN} ${r.receberN === 1 ? "pedido confirmado" : "pedidos confirmados"}` : "Nada pendente",
+    onClick: () => setVerReceber(true)
+  }), /*#__PURE__*/React.createElement(Indicador, {
+    icon: "chef-hat",
+    label: "Fila da cozinha",
+    value: String(r.fila),
+    sub: r.atrasados ? `${r.atrasados} ${r.atrasados === 1 ? "atrasado" : "atrasados"}` : "Nenhum atrasado",
+    onClick: () => onView("cozinha")
+  }), /*#__PURE__*/React.createElement(Indicador, {
+    icon: "receipt-text",
+    label: "Ticket m\xE9dio",
+    value: window.brl(r.ticket / 100),
+    sub: `${r.ticketN} ${r.ticketN === 1 ? "pedido" : "pedidos"} nos últimos 30 dias`
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: compact ? "1fr" : "1.6fr 1fr",
+      gridTemplateColumns: compact ? "minmax(0,1fr)" : "1.6fr 1fr",
       gap: 12,
       alignItems: "start"
     }
   }, /*#__PURE__*/React.createElement(ChartCard, {
     compact: compact,
-    serie: d.serieReceita
+    r: r
   }), /*#__PURE__*/React.createElement(Card, {
     header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -6572,7 +7880,8 @@ function VisaoGeral({
     title: p.title,
     subtitle: p.sub,
     value: p.value,
-    tone: p.tone
+    tone: p.tone,
+    onClick: () => abrirPedido(p.id)
   })) : /*#__PURE__*/React.createElement(EmptyState, {
     icon: "wallet",
     title: "Nenhum pagamento recente"
@@ -6620,7 +7929,13 @@ function VisaoGeral({
     title: "Nenhum pedido ainda"
   }) : d.recentes.map(r => compact ? /*#__PURE__*/React.createElement("div", {
     key: r.id,
+    "data-row-action": "",
+    role: "button",
+    tabIndex: 0,
+    onClick: () => abrirPedido(r.id),
+    onKeyDown: e => e.key === "Enter" && abrirPedido(r.id),
     style: {
+      cursor: "pointer",
       display: "flex",
       flexDirection: "column",
       gap: 6,
@@ -6673,7 +7988,13 @@ function VisaoGeral({
     size: 13
   }), r.data, " \xB7 ", r.hora))) : /*#__PURE__*/React.createElement("div", {
     key: r.id,
+    "data-row-action": "",
+    role: "button",
+    tabIndex: 0,
+    onClick: () => abrirPedido(r.id),
+    onKeyDown: e => e.key === "Enter" && abrirPedido(r.id),
     style: {
+      cursor: "pointer",
       display: "grid",
       gridTemplateColumns: RECENT_COLS,
       gap: 12,
@@ -6729,7 +8050,15 @@ function VisaoGeral({
       color: "var(--text-strong)",
       whiteSpace: "nowrap"
     }
-  }, r.total))))));
+  }, r.total))))), verReceber ? /*#__PURE__*/React.createElement(AReceberModal, {
+    lista: r.receberLista,
+    hoje: window.DLUH_API.hoje(),
+    onClose: () => setVerReceber(false),
+    onPedido: id => {
+      setVerReceber(false);
+      abrirPedido(id);
+    }
+  }) : null);
 }
 Object.assign(window, {
   VisaoGeral,

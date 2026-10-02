@@ -164,7 +164,7 @@ function Shell({ view, onView, compact, theme, onTheme, children, q, onQ }) {
     }}>
       {compact ? null : <Sidebar view={view} onView={onView} onSettings={() => setCfg(true)} onNotif={() => setNotif(true)} hasNotif={notifs.length > 0} />}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: compact ? "12px 12px 0" : "var(--space-10) var(--space-11) 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: compact ? "calc(12px + env(safe-area-inset-top, 0px)) 12px 0" : "var(--space-10) var(--space-11) 0" }}>
           <div style={{ flex: 1, minWidth: 0, display: "flex" }}>{search}</div>
           {compact ? <>
             <IconButton icon="bell" label="Notificações" badge={notifs.length > 0} onClick={() => setNotif(true)} />
