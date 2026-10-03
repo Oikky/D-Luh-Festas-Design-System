@@ -113,6 +113,8 @@ const ACOES = {
   salvarFinanceiro: (db, dados, por) => financeiro.salvarFinanceiro(db, dados, por),
   apagarFinanceiro: (db, dados) => financeiro.apagarFinanceiro(db, dados),
   pagarBoleto: (db, dados, por) => financeiro.pagarBoleto(db, dados, por),
+  /* Foto ou PDF da nota ou de uma parcela: sobe pro Drive e devolve { url, pdf } para ir em arquivos[]. */
+  enviarArquivoBoleto: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "boleto", aceitaPdf: true }),
 
   /* "Lembrar todos" na aba Esperando pagamento: diz quantos vão receber; o envio (um a um, com
      pausa) segue em DEPOIS, sem segurar a tela. */
@@ -143,6 +145,8 @@ const ACOES_CLIENTE = {
 /* Ações só da conta "sistema" (e-mail/senha de SISTEMA_EMAIL), para scripts de manutenção como
    backend/scripts/fotos-para-drive.mjs. */
 const ACOES_SISTEMA = {
+  /* O mesmo que enviarArquivoBoleto, para backend/scripts/coda-boletos.mjs trazer as fotos do Coda. */
+  enviarArquivoBoletoSistema: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "boleto", aceitaPdf: true }),
   /* Troca a foto de um produto: sobe a imagem pro Drive e grava o link em sis_produtos/{id}.imagem. */
   async trocarFotoProduto(db, { id, dataUrl }, por, env) {
     const ref = db.collection(produtos.PRODUTOS).doc(String(id || ""));

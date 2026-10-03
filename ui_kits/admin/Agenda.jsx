@@ -83,10 +83,14 @@ function Calendario({ ano, mes, sel, onSel, itens, compact, hoje }) {
   );
 }
 
-function ItemAgenda({ x }) {
+/* A parcela de um boleto abre o boleto inteiro (Financeiro → Boletos). */
+function ItemAgenda({ x, onAbrir }) {
   const t = tipoDe(x);
   return (
-    <div style={{
+    <div onClick={onAbrir} role={onAbrir ? "button" : undefined} tabIndex={onAbrir ? 0 : undefined} data-row-action={onAbrir ? "" : undefined}
+      aria-label={onAbrir ? "Abrir o boleto de " + x.cliente : undefined}
+      onKeyDown={onAbrir ? e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onAbrir(); } } : undefined} style={{
+      cursor: onAbrir ? "pointer" : "default", transition: "var(--transition-control)",
       display: "flex", gap: 12, padding: "12px 13px", borderRadius: "var(--radius-sm)",
       background: "var(--color-surface)", border: "var(--border-hairline) solid var(--color-border)",
       fontFamily: "var(--font-ui)"
@@ -117,9 +121,13 @@ function ItemAgenda({ x }) {
   );
 }
 
-function Agenda({ compact }) {
+function Agenda({ compact, onView }) {
   const hoje = window.DLUH_API.hoje();
   const carga = useAoVivo("agenda");
+  /* Boletos vêm do financeiro: cada parcela no dia do vencimento. Se o financeiro não carregar, a
+     agenda segue só com as encomendas. */
+  const fin = useAoVivo("financeiro");
+  const abrirBoleto = x => x.boletoId ? () => onView && onView("financeiro", { boleto: x.boletoId, n: x.n }) : undefined;
   const [filtro, setFiltro] = React.useState("tudo");
   const [sel, setSel] = React.useState(hoje);
   const [cursor, setCursor] = React.useState(() => ({ ano: Number(hoje.slice(0, 4)), mes: Number(hoje.slice(5, 7)) - 1 }));
@@ -135,7 +143,7 @@ function Agenda({ compact }) {
   const escolher = chave => { setSel(chave); setCursor({ ano: Number(chave.slice(0, 4)), mes: Number(chave.slice(5, 7)) - 1 }); };
 
   /* Rows with no date cannot sit on a calendar; they are left out rather than breaking the grid. */
-  const todos = (carga.dados || []).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
+  const todos = [...(carga.dados || []).filter(x => x.tipo !== "boleto"), ...window.boletosNaAgenda(fin.dados, hoje)].filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
   const itens = filtro === "tudo" ? todos : todos.filter(x => x.tipo === filtro);
   const doDia = itens.filter(x => x.data === sel).sort((a, b) => (a.hora || "00:00").localeCompare(b.hora || "00:00"));
   const proximos = itens.filter(x => x.data > sel).sort((a, b) => (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || ""))).slice(0, 4);
@@ -198,7 +206,7 @@ function Agenda({ compact }) {
             </div>
           </>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 8 }} padded={doDia.length > 0}>
             {doDia.length
-              ? doDia.map((x, i) => <ItemAgenda key={i} x={x} />)
+              ? doDia.map((x, i) => <ItemAgenda key={i} x={x} onAbrir={abrirBoleto(x)} />)
               : <EmptyState icon="calendar-check" title="Nada marcado nesse dia"
                   description="Encomendas, eventos, boletos e faturas de cartão aparecem aqui automaticamente." />}
           </Card>
@@ -209,7 +217,7 @@ function Agenda({ compact }) {
               {proximos.map((x, i) => (
                 <ListRow key={i} icon={tipoDe(x).icone} title={x.cliente}
                   subtitle={tipoDe(x).rot + " · " + x.data.split("-").reverse().slice(0, 2).join("/") + (x.hora ? " · " + x.hora : "")}
-                  value={tipoDe(x).fin ? "− " + x.valor : x.valor} tone={tipoDe(x).fin ? "out" : "neutral"} onClick={() => escolher(x.data)} />
+                  value={tipoDe(x).fin ? "− " + x.valor : x.valor} tone={tipoDe(x).fin ? "out" : "neutral"} onClick={abrirBoleto(x) || (() => escolher(x.data))} />
               ))}
             </Card>
           ) : null}

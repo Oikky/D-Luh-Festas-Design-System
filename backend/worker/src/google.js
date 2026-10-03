@@ -56,19 +56,23 @@ async function enviarArquivo(env, { nome, mime, bytes, publico }) {
   return { id, url: `https://lh3.googleusercontent.com/d/${id}` };
 }
 
-const TIPOS_IMAGEM = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const TIPOS_IMAGEM = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf" };
 const MAX_IMAGEM = 5 * 1024 * 1024;
 
-/* A tela manda a imagem como data URL (já reduzida no aparelho). */
-async function enviarImagem(env, { dataUrl, prefixo }) {
+/* A tela manda a imagem como data URL (já reduzida no aparelho). `aceitaPdf`: nota e boleto também
+   chegam em PDF. */
+async function enviarImagem(env, { dataUrl, prefixo, aceitaPdf = false }) {
   if (!googleLigado(env)) throw new ErroDominio("failed-precondition", "O envio de imagens ainda não foi configurado");
-  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
-  if (!m) throw new ErroDominio("invalid-argument", "Envie uma imagem JPG, PNG ou WebP");
-  const bin = atob(m[2]);
-  if (bin.length > MAX_IMAGEM) throw new ErroDominio("invalid-argument", "Imagem maior que 5 MB");
-  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  const m = /^data:(image\/(?:jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ""));
+  if (!m || (m[1] === "application/pdf" && !aceitaPdf)) throw new ErroDominio("invalid-argument", `Envie uma imagem JPG, PNG ou WebP${aceitaPdf ? " ou um PDF" : ""}`);
+  // Buffer (nodejs_compat) decodifica nativo; atob + charCodeAt num arquivo de 1–3 MB estourava o
+  // limite de CPU do Worker (503 em metade das fotos do Coda).
+  const bytes = new Uint8Array(Buffer.from(m[2], "base64"));
+  if (bytes.length > MAX_IMAGEM) throw new ErroDominio("invalid-argument", "Imagem maior que 5 MB");
   const nome = `${prefixo}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${TIPOS_IMAGEM[m[1]]}`;
-  return enviarArquivo(env, { nome, mime: m[1], bytes, publico: true });
+  const r = await enviarArquivo(env, { nome, mime: m[1], bytes, publico: true });
+  // O lh3 só mostra imagem; PDF abre pela visualização do Drive.
+  return m[1] === "application/pdf" ? { ...r, url: `https://drive.google.com/file/d/${r.id}/view`, pdf: true } : { ...r, pdf: false };
 }
 
 // ── Agenda ──

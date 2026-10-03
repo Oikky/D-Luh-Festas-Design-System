@@ -75,9 +75,18 @@ window.DLUH = {
     { id: "f1", tipo: "transacao", desc: "Atacadão · farinha e açúcar", entrada: false, meio: "Cartão", data: "2026-06-11", valor: 61240 },
     { id: "f2", tipo: "transacao", desc: "Gás de cozinha", entrada: false, meio: "Dinheiro", data: "2026-06-10", valor: 13000 },
     { id: "f3", tipo: "transacao", desc: "Venda no balcão", entrada: true, meio: "Pix", data: "2026-06-09", valor: 4500 },
-    { id: "f4", tipo: "boleto", desc: "Cemig · energia", venc: "2026-06-15", valor: 48690, pago: false },
-    { id: "f5", tipo: "boleto", desc: "Embalagens Norte", venc: "2026-06-20", valor: 74000, pago: false },
-    { id: "f6", tipo: "boleto", desc: "Aluguel do salão", venc: "2026-06-05", valor: 220000, pago: true, pagoEm: "2026-06-05" },
+    /* Boleto = o pai com as parcelas dentro (Boletos.jsx). */
+    { id: "f4", tipo: "boleto", desc: "Delly's", periodo: "semanal", cnpjAntigo: false, arquivos: [], parcelas: [
+      { n: 1, venc: "2026-06-05", valor: 10293, codigo: "90190.00009 01118.132008 02733.414177 5 1530000010293", arquivos: [], pago: true, pagoEm: "2026-06-05" },
+      { n: 2, venc: "2026-06-12", valor: 10292, codigo: "", arquivos: [], pago: false, pagoEm: null },
+      { n: 3, venc: "2026-06-19", valor: 10292, codigo: "", arquivos: [], pago: false, pagoEm: null }] },
+    { id: "f5", tipo: "boleto", desc: "Fermontes", periodo: "semanal", cnpjAntigo: false, arquivos: [], parcelas: [
+      { n: 1, venc: "2026-06-08", valor: 37146, codigo: "", arquivos: [], pago: false, pagoEm: null },
+      { n: 2, venc: "2026-06-15", valor: 37146, codigo: "", arquivos: [], pago: false, pagoEm: null }] },
+    { id: "f6", tipo: "boleto", desc: "Cemil", periodo: "semanal", cnpjAntigo: true, arquivos: [], parcelas: [
+      { n: 1, venc: "2026-05-20", valor: 68445, codigo: "", arquivos: [], pago: true, pagoEm: "2026-05-20" },
+      { n: 2, venc: "2026-05-27", valor: 68445, codigo: "", arquivos: [], pago: true, pagoEm: "2026-05-27" },
+      { n: 3, venc: "2026-06-03", valor: 68445, codigo: "", arquivos: [], pago: true, pagoEm: "2026-06-03" }] },
     { id: "f7", tipo: "cartao", nome: "Nubank Empresa", final: "4821", bandeira: "Mastercard", limite: 800000, fatura: 194230, venc: 10 },
     { id: "f8", tipo: "cartao", nome: "Sicoob", final: "0377", bandeira: "Visa", limite: 500000, fatura: 61240, venc: 25 }
   ],

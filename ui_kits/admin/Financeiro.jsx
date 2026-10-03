@@ -13,10 +13,7 @@ const FIN_FORM = {
     { id: "desc", rot: "Descrição", span: 2, req: true }, { id: "tipo", rot: "Tipo", opcoes: ["Saída", "Entrada"] },
     { id: "meio", rot: "Forma", opcoes: ["Pix", "Cartão", "Dinheiro", "Boleto", "Transferência"] },
     { id: "data", rot: "Data", tipo: "date", req: true }, { id: "valor", rot: "Valor", tipo: "dinheiro", req: true }] },
-  boletos: { titulo: "Novo boleto", editar: "Editar boleto", campos: [
-    { id: "desc", rot: "Fornecedor", req: true }, { id: "cnpj", rot: "CNPJ", opcoes: ["Atual", "Antigo"] },
-    { id: "venc", rot: "Vencimento", tipo: "date", req: true },
-    { id: "valor", rot: "Valor", tipo: "dinheiro", req: true }, { id: "codigo", rot: "Linha digitável", span: 2 }] },
+  // Boletos têm formulário próprio (Boletos.jsx): o pai com as parcelas geradas.
   cartoes: { titulo: "Novo cartão", editar: "Editar cartão", campos: [
     { id: "nome", rot: "Nome do cartão", span: 2, req: true }, { id: "final", rot: "Final", ph: "0000", req: true },
     { id: "bandeira", rot: "Bandeira", opcoes: ["Visa", "Mastercard", "Elo", "Outra"] },
@@ -27,7 +24,7 @@ const FIN_FORM = {
 /* What each tab says when it has nothing yet, and the one action that fills it. */
 const FIN_VAZIO = {
   transacoes: { icone: "arrow-left-right", titulo: "Nenhuma transação neste mês", texto: "Pagamentos dos pedidos entram aqui sozinhos. Lance à mão as outras entradas e saídas do caixa." },
-  boletos: { icone: "receipt", titulo: "Nenhum boleto registrado", texto: "Boletos a pagar aparecem aqui, com vencimento e valor." },
+  boletos: { icone: "receipt", titulo: "Nenhum boleto registrado", texto: "Cada boleto guarda o fornecedor, a nota e as parcelas, com código e foto de cada uma." },
   cartoes: { icone: "credit-card", titulo: "Nenhum cartão cadastrado", texto: "Cadastre os cartões da loja para acompanhar fatura, limite e vencimento." }
 };
 
@@ -52,10 +49,8 @@ const finErros = (f, v) => {
 
 /* A stored entry as form values, and form values as what the Worker stores (centavos, ISO dates). */
 const formDe = x => x.tipo === "transacao" ? { desc: x.desc, tipo: x.entrada ? "Entrada" : "Saída", meio: x.meio, data: x.data, valor: reaisTexto(x.valor) }
-  : x.tipo === "boleto" ? { desc: x.desc, cnpj: x.cnpjAntigo ? "Antigo" : "Atual", venc: x.venc, valor: reaisTexto(x.valor), codigo: x.codigo || "" }
   : { nome: x.nome, final: x.final, bandeira: x.bandeira, limite: reaisTexto(x.limite), fatura: reaisTexto(x.fatura), venc: x.venc ? String(x.venc) : "" };
 const finParaApi = (tab, v) => tab === "transacoes" ? { desc: v.desc.trim(), entrada: v.tipo === "Entrada", meio: v.meio, data: v.data, valor: paraCentavos(v.valor) }
-  : tab === "boletos" ? { desc: v.desc.trim(), venc: v.venc, valor: paraCentavos(v.valor), codigo: String(v.codigo || "").trim(), cnpjAntigo: v.cnpj === "Antigo" }
   : { nome: v.nome.trim(), final: v.final, bandeira: v.bandeira, limite: paraCentavos(v.limite), fatura: paraCentavos(v.fatura), venc: v.venc ? Number(v.venc) : null };
 
 function FinRegistro({ tab, item, hoje, onClose, onSave, salvando }) {
@@ -86,30 +81,37 @@ function FinRegistro({ tab, item, hoje, onClose, onSave, salvando }) {
 }
 
 /* The cash view of a month: manual entries, every payment received on an order, and every boleto
-   paid in that month. Only the manual ones can be edited or removed here. */
+   parcela paid in that month. Only the manual ones can be edited or removed here. */
 function transacoesDoMes(docs, pags, pedidos, mes) {
   const nome = new Map((pedidos || []).map(p => [p.id, p.cliente]));
   return [
     ...docs.filter(x => x.tipo === "transacao" && (x.data || "").startsWith(mes)).map(x => ({ ...x, fonte: "manual" })),
     ...pags.filter(p => (p.data || "").startsWith(mes)).map(p => ({ id: p.id, fonte: "pedido", pedidoId: p.pedidoId, entrada: true, meio: p.meio,
       data: p.data, valor: p.valor, desc: [nome.get(p.pedidoId), p.pedidoId].filter(Boolean).join(" · ") })),
-    ...docs.filter(x => x.tipo === "boleto" && x.pago && (x.pagoEm || "").startsWith(mes)).map(x => ({ id: x.id, fonte: "boleto", entrada: false, meio: "Boleto",
-      data: x.pagoEm, valor: x.valor, desc: "Boleto · " + x.desc }))
+    ...window.parcelasPagasNoMes(docs, mes)
   ].sort((a, b) => (b.data || "").localeCompare(a.data || ""));
 }
 
-function Financeiro({ compact, onQ, onView }) {
+/* Demo only: what the Worker does to a boleto on save and on paying a parcela (financeiro.js). */
+const boletoLocal = (antigo, dados) => ({ ...antigo, ...dados,
+  parcelas: dados.parcelas.map((p, i) => { const a = antigo && window.parcelasDoBoleto(antigo)[i]; return { ...p, n: i + 1, pago: !!(a && a.pago), pagoEm: a && a.pago ? a.pagoEm : null }; }) });
+const pagarLocal = (b, n, pago, dia) => ({ ...b, parcelas: window.parcelasDoBoleto(b).map(p => p.n === n ? { ...p, pago, pagoEm: pago ? dia : null } : p) });
+
+/* `alvo` = { boleto, n }: alguém clicou numa parcela fora daqui (Agenda); abre o pai com ela marcada. */
+function Financeiro({ compact, onQ, onView, alvo }) {
   const REAL = window.DLUH_API.modo === "firebase";
   const hoje = window.DLUH_API.hoje();
-  const [tab, setTab] = React.useState("transacoes");
+  const [tab, setTab] = React.useState(alvo && alvo.boleto ? "boletos" : "transacoes");
   const [mes, setMes] = React.useState(hoje.slice(0, 7));
-  const [form, setForm] = React.useState(null); // { item } — item null = novo
+  const [form, setForm] = React.useState(null); // { item, deDetalhe } — item null = novo
+  const [aberto, setAberto] = React.useState(() => alvo && alvo.boleto ? { id: alvo.boleto, n: alvo.n } : null); // boleto aberto
   const [apagar, setApagar] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   const fin = useAoVivo("financeiro");
   const pag = useAoVivo("todosPagamentos");
   const ped = useAoVivo("pedidosTodos");
+  React.useEffect(() => { if (alvo && alvo.boleto) { setTab("boletos"); setAberto({ id: alvo.boleto, n: alvo.n }); } }, [alvo]);
   /* The demo has no server to echo a write back, so it edits its own copy; the real system
      waits for Firestore to send the change. */
   const local = fn => REAL ? null : () => fin.setDados(fn);
@@ -121,27 +123,46 @@ function Financeiro({ compact, onQ, onView }) {
   const docs = fin.dados;
   const listas = {
     transacoes: transacoesDoMes(docs, pag.dados, ped.dados, mes),
-    boletos: docs.filter(x => x.tipo === "boleto").sort((a, b) => (!!a.pago - !!b.pago) || (a.pago ? (b.pagoEm || "").localeCompare(a.pagoEm || "") : (a.venc || "").localeCompare(b.venc || ""))),
+    boletos: docs.filter(x => x.tipo === "boleto"),
     cartoes: docs.filter(x => x.tipo === "cartao").sort((a, b) => (a.nome || "").localeCompare(b.nome || ""))
   };
   const t = FIN_TABS.find(x => x.id === tab);
   const lista = listas[tab] || [];
   const nomeDe = x => x.desc || (x.nome ? x.nome + " · final " + x.final : "este registro");
+  const boletoAberto = aberto && listas.boletos.find(x => x.id === aberto.id);
+  const fornecedores = [...new Set(listas.boletos.map(x => x.desc).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   const salvar = async v => {
     const item = form.item, dados = finParaApi(tab, v);
     const ok = await acao("salvar", { ok: item ? "Alterações salvas" : "Registro salvo", falhou: "Não deu pra salvar o registro" },
-      local(l => item ? l.map(x => x.id === item.id ? { ...x, ...dados } : x) : [{ id: "d" + Date.now(), tipo: TIPO_DA_ABA[tab], ...dados, ...(tab === "boletos" ? { pago: false } : {}) }, ...l]),
+      local(l => item ? l.map(x => x.id === item.id ? { ...x, ...dados } : x) : [{ id: "d" + Date.now(), tipo: TIPO_DA_ABA[tab], ...dados }, ...l]),
       { acao: "salvarFinanceiro", dados: item ? { id: item.id, ...dados } : { tipo: TIPO_DA_ABA[tab], ...dados } });
     if (ok) setForm(null);
   };
+  const salvarBoleto = async dados => {
+    const item = form.item, idLocal = "d" + Date.now();
+    const r = await acao("salvar", { ok: item ? "Boleto salvo" : "Boleto registrado", falhou: "Não deu pra salvar o boleto" },
+      local(l => item ? l.map(x => x.id === item.id ? boletoLocal(x, dados) : x) : [{ id: idLocal, tipo: "boleto", ...boletoLocal(null, dados) }, ...l]),
+      { acao: "salvarFinanceiro", dados: item ? { id: item.id, ...dados } : { tipo: "boleto", ...dados } });
+    if (!r) return;
+    setForm(null);
+    setAberto({ id: item ? item.id : REAL ? r.id : idLocal });
+  };
+  const fecharForm = () => { if (form.deDetalhe) setAberto({ id: form.item.id }); setForm(null); };
   const remover = async x => {
-    await acao("remover", { ok: "Registro removido", falhou: "Não deu pra remover o registro" },
+    const ok = await acao("remover", { ok: "Registro removido", falhou: "Não deu pra remover o registro" },
       local(l => l.filter(y => y.id !== x.id)), { acao: "apagarFinanceiro", dados: { id: x.id } });
     setApagar(null);
+    if (ok && aberto && aberto.id === x.id) setAberto(null);
   };
-  const pagar = x => acao("pagar-" + x.id, { ok: "Boleto marcado como pago", falhou: "Não deu pra marcar o boleto como pago" },
-    local(l => l.map(y => y.id === x.id ? { ...y, pago: true, pagoEm: hoje } : y)), { acao: "pagarBoleto", dados: { id: x.id, data: hoje } });
+  const pagarParcela = (b, n, pago) => acao(`pagar-${b.id}-${n}`,
+    { ok: pago ? "Parcela marcada como paga" : "Pagamento desfeito", falhou: pago ? "Não deu pra marcar a parcela como paga" : "Não deu pra desfazer o pagamento" },
+    local(l => l.map(y => y.id === b.id ? pagarLocal(y, n, pago, hoje) : y)), { acao: "pagarBoleto", dados: { id: b.id, n, pago, data: hoje } });
+  /* Foto ou PDF de um boleto: no sistema vai pro Drive e volta o link; na demo fica no aparelho. */
+  const enviar = Object.assign(arq => REAL
+    ? acao("arquivo", { falhou: "Não deu pra enviar o arquivo" }, null, { acao: "enviarArquivoBoleto", dados: { dataUrl: arq.dataUrl } })
+    : Promise.resolve({ url: arq.dataUrl, pdf: arq.pdf }), { avisar: msg => showToast(msg, "danger") });
+  const copiar = codigo => navigator.clipboard.writeText(codigo).then(() => showToast("Código copiado"), () => showToast("Não deu pra copiar o código", "danger"));
   const abrirPedido = id => { onQ && onQ(id); onView && onView("pedidos"); };
 
   const lixo = x => <FN.IconButton icon="trash-2" label="Remover" size={36} style={{ marginLeft: 10 }} onClick={e => { e.stopPropagation(); setApagar(x); }} />;
@@ -152,13 +173,14 @@ function Financeiro({ compact, onQ, onView }) {
 
   const entradas = listas.transacoes.filter(x => x.entrada).reduce((s, x) => s + (x.valor || 0), 0);
   const saidas = listas.transacoes.filter(x => !x.entrada).reduce((s, x) => s + (x.valor || 0), 0);
-  const emAberto = listas.boletos.filter(x => !x.pago);
+  const abertas = listas.boletos.flatMap(b => window.parcelasDoBoleto(b).filter(p => !p.pago));
+  const comAberto = listas.boletos.filter(b => window.parcelasDoBoleto(b).some(p => !p.pago)).length;
   const nomeMes = `${MESES_FIN[Number(mes.slice(5, 7)) - 1]} ${mes.slice(0, 4)}`;
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", minHeight: "100%" }}>
       <FN.Tabs value={tab} onChange={setTab} items={FIN_TABS.map(x => ({ id: x.id, label: x.label,
-        count: x.id === "contratos" ? undefined : x.id === "boletos" ? emAberto.length : (listas[x.id] || []).length }))} />
+        count: x.id === "contratos" ? undefined : x.id === "boletos" ? comAberto : (listas[x.id] || []).length }))} />
 
       {tab === "contratos" ? <window.Contratos compact={compact} /> : <>
         <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
@@ -171,7 +193,7 @@ function Financeiro({ compact, onQ, onView }) {
             <FN.Badge tone="success" icon="arrow-down-left">Entradas {reaisC(entradas)}</FN.Badge>
             <FN.Badge icon="arrow-up-right">Saídas {reaisC(saidas)}</FN.Badge>
             <FN.Badge tone={entradas - saidas < 0 ? "warn" : "accent"} icon="scale">Saldo {entradas - saidas < 0 ? "− " : ""}{reaisC(Math.abs(entradas - saidas))}</FN.Badge>
-          </> : tab === "boletos" && emAberto.length ? <FN.Badge tone="warn" icon="clock">Em aberto {reaisC(emAberto.reduce((s, x) => s + (x.valor || 0), 0))}</FN.Badge> : null}
+          </> : tab === "boletos" && abertas.length ? <FN.Badge tone="warn" icon="clock">Em aberto {reaisC(abertas.reduce((s, p) => s + (p.valor || 0), 0))}</FN.Badge> : null}
           <div style={{ flex: 1 }} />
           {lista.length || tab === "transacoes" ? <FN.Button size="sm" icon="plus" onClick={() => setForm({ item: null })}>{t.acao}</FN.Button> : null}
         </div>
@@ -179,22 +201,12 @@ function Financeiro({ compact, onQ, onView }) {
           {!lista.length ? vazio : tab === "transacoes" ? lista.map(x => (
             <FN.ListRow key={x.fonte + x.id} icon={x.fonte === "pedido" ? "receipt-text" : x.fonte === "boleto" ? "receipt" : x.entrada ? "arrow-down-left" : "arrow-up-right"}
               title={x.desc || "Sem descrição"}
-              subtitle={[dataCurta(x.data), x.meio, x.fonte === "pedido" ? "pagamento de pedido" : x.fonte === "boleto" ? "boleto pago" : null].filter(Boolean).join(" · ")}
+              subtitle={[dataCurta(x.data), x.meio, x.fonte === "pedido" ? "pagamento de pedido" : x.fonte === "boleto" ? "parcela paga" : null].filter(Boolean).join(" · ")}
               value={x.valor == null ? "—" : (x.entrada ? "+ " : "− ") + reaisC(x.valor)} tone={x.entrada ? "in" : "out"}
-              onClick={x.fonte === "manual" ? editar(x) : x.fonte === "pedido" ? () => abrirPedido(x.pedidoId) : () => setTab("boletos")}
+              onClick={x.fonte === "manual" ? editar(x) : x.fonte === "pedido" ? () => abrirPedido(x.pedidoId) : () => { setTab("boletos"); setAberto({ id: x.boletoId, n: x.n }); }}
               trailing={x.fonte === "manual" ? lixo(x) : null} />
-          )) : tab === "boletos" ? lista.map(x => {
-            const vencido = !x.pago && x.venc && x.venc < hoje;
-            return <FN.ListRow key={x.id} icon="receipt" title={x.desc || "Sem descrição"} onClick={editar(x)}
-              subtitle={(x.pago ? "Pago " + dataCurta(x.pagoEm) : (vencido ? "Venceu " : "Vence ") + dataCurta(x.venc)) + (x.cnpjAntigo ? " · CNPJ antigo" : "")} value={x.valor == null ? "—" : reaisC(x.valor)}
-              trailing={<div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 10 }}>
-                {x.pago ? <FN.Badge tone="success">Pago</FN.Badge> : <>
-                  {vencido ? <FN.Badge tone="warn">Vencido</FN.Badge> : null}
-                  <FN.Button size="sm" variant="outline" icon="check" loading={pendente === "pagar-" + x.id} onClick={e => { e.stopPropagation(); pagar(x); }}>Marcar pago</FN.Button>
-                </>}
-                {lixo(x)}
-              </div>} />;
-          }) : lista.map(x => (
+          )) : tab === "boletos" ? <window.ListaBoletos boletos={lista} hoje={hoje} compact={compact} onAbrir={id => setAberto({ id })} />
+          : lista.map(x => (
             <FN.ListRow key={x.id} icon="credit-card" title={(x.nome || "Cartão") + " · final " + (x.final || "—")} onClick={editar(x)}
               subtitle={[x.bandeira, x.venc ? "vence dia " + x.venc : null, x.limite ? "limite " + reaisC(x.limite) : null].filter(Boolean).join(" · ")}
               value={x.fatura == null ? "—" : reaisC(x.fatura)} trailing={lixo(x)} />
@@ -202,9 +214,17 @@ function Financeiro({ compact, onQ, onView }) {
         </FN.Card>
       </>}
 
-      {form ? <FinRegistro tab={tab} item={form.item} hoje={hoje} onClose={() => setForm(null)} onSave={salvar} salvando={pendente === "salvar"} /> : null}
-      {apagar ? <FN.ConfirmDialog tone="danger" icon="trash-2" title="Remover registro?"
-        message={nomeDe(apagar) + " sai do financeiro. Não dá pra desfazer."} pending={pendente === "remover"}
+      {boletoAberto && !form && !apagar ? <window.BoletoDetalhe key={boletoAberto.id + ":" + (aberto.n || "")} boleto={boletoAberto} destaque={aberto.n} hoje={hoje}
+        pendente={pendente} onClose={() => setAberto(null)} onCopiar={copiar}
+        onPagar={(n, pago) => pagarParcela(boletoAberto, n, pago)}
+        onEditar={() => { setForm({ item: boletoAberto, deDetalhe: true }); setAberto(null); }}
+        onApagar={() => setApagar(boletoAberto)} /> : null}
+      {form && tab === "boletos" ? <window.BoletoForm item={form.item} fornecedores={fornecedores} hoje={hoje} enviar={enviar}
+        onClose={fecharForm} onSave={salvarBoleto} salvando={pendente === "salvar"} />
+        : form ? <FinRegistro tab={tab} item={form.item} hoje={hoje} onClose={() => setForm(null)} onSave={salvar} salvando={pendente === "salvar"} /> : null}
+      {apagar ? <FN.ConfirmDialog tone="danger" icon="trash-2" title={apagar.tipo === "boleto" ? "Apagar boleto?" : "Remover registro?"}
+        message={apagar.tipo === "boleto" ? `O boleto de ${nomeDe(apagar)} sai do financeiro com todas as parcelas. Não dá pra desfazer.` : nomeDe(apagar) + " sai do financeiro. Não dá pra desfazer."}
+        pending={pendente === "remover"}
         confirmLabel="Sim, remover" cancelLabel="Voltar" onCancel={() => setApagar(null)} onConfirm={() => remover(apagar)} /> : null}
       {toastNode}
     </div>

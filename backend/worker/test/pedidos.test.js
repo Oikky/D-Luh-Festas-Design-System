@@ -199,29 +199,65 @@ test("produtos: cria, edita, valida e apaga; recheios sem repetidos", async () =
   assert.deepEqual((await salvarRecheios(db, { lista: ["Ninho", " ninho ", "Brigadeiro", ""] }, "ana")).lista, ["Ninho", "Brigadeiro"]);
 });
 
-test("financeiro: lança, edita, paga boleto e apaga", async () => {
-  const { id } = await salvarFinanceiro(db, { tipo: "boleto", desc: "Cemig", venc: "2026-10-05", valor: 48690 }, "ana");
+test("financeiro: boleto com parcelas — lança, paga uma parcela, edita e apaga", async () => {
+  const parcelas = [
+    { venc: "2026-10-05", valor: 7350, codigo: "111", arquivos: [{ url: "https://lh3.googleusercontent.com/d/a", nome: "boleto1.jpg" }] },
+    { venc: "2026-10-12", valor: 7350 },
+    { venc: "2026-10-19", valor: 7350 }
+  ];
+  const { id } = await salvarFinanceiro(db, { tipo: "boleto", desc: "Delly's", periodo: "semanal", parcelas,
+    arquivos: [{ url: "https://drive.google.com/file/d/x/view", nome: "nota.pdf", pdf: true }] }, "ana");
   let doc = (await db.collection("sis_financeiro").doc(id).get()).data();
   assert.equal(doc.tipo, "boleto");
+  assert.equal(doc.valor, 22050);
+  assert.equal(doc.venc, "2026-10-05");
   assert.equal(doc.pago, false);
-  assert.equal(doc.valor, 48690);
+  assert.equal(doc.cnpjAntigo, false);
+  assert.deepEqual(doc.parcelas.map(p => [p.n, p.pago, p.codigo]), [[1, false, "111"], [2, false, ""], [3, false, ""]]);
+  assert.equal(doc.arquivos[0].pdf, true);
 
-  await salvarFinanceiro(db, { id, desc: "Cemig energia", venc: "2026-10-06", valor: 50000, cnpjAntigo: true }, "ana");
+  assert.deepEqual(await pagarBoleto(db, { id, n: 1, data: "2026-10-04" }, "ana"), { mudou: true });
+  assert.deepEqual(await pagarBoleto(db, { id, n: 1 }, "ana"), { mudou: false });
   doc = (await db.collection("sis_financeiro").doc(id).get()).data();
-  assert.equal(doc.desc, "Cemig energia");
-  assert.equal(doc.cnpjAntigo, true);
+  assert.equal(doc.parcelas[0].pagoEm, "2026-10-04");
+  assert.equal(doc.venc, "2026-10-12"); // o próximo em aberto
   assert.equal(doc.pago, false);
 
-  assert.deepEqual(await pagarBoleto(db, { id, data: "2026-10-04" }, "ana"), { mudou: true });
-  assert.deepEqual(await pagarBoleto(db, { id }, "ana"), { mudou: false });
+  // Editar mantém a parcela 1 paga e pode mudar as outras.
+  await salvarFinanceiro(db, { id, desc: "Delly's", cnpjAntigo: true, periodo: "semanal",
+    parcelas: [parcelas[0], { venc: "2026-10-13", valor: 7350, codigo: "222" }, parcelas[2]] }, "ana");
+  doc = (await db.collection("sis_financeiro").doc(id).get()).data();
+  assert.equal(doc.cnpjAntigo, true);
+  assert.equal(doc.parcelas[0].pago, true);
+  assert.equal(doc.parcelas[1].codigo, "222");
+
+  await pagarBoleto(db, { id, n: 2 }, "ana");
+  await pagarBoleto(db, { id, n: 3, data: "2026-10-20" }, "ana");
   doc = (await db.collection("sis_financeiro").doc(id).get()).data();
   assert.equal(doc.pago, true);
-  assert.equal(doc.pagoEm, "2026-10-04");
-  await pagarBoleto(db, { id, pago: false }, "ana");
-  assert.equal((await db.collection("sis_financeiro").doc(id).get()).get("pagoEm"), null);
+  assert.equal(doc.pagoEm, "2026-10-20");
+  await pagarBoleto(db, { id, n: 3, pago: false }, "ana");
+  doc = (await db.collection("sis_financeiro").doc(id).get()).data();
+  assert.equal(doc.pago, false);
+  assert.equal(doc.parcelas[2].pagoEm, null);
+  await assert.rejects(pagarBoleto(db, { id, n: 9 }, "ana"), /parcela 9/);
 
   assert.deepEqual(await apagarFinanceiro(db, { id }), { apagado: true });
   assert.equal((await db.collection("sis_financeiro").doc(id).get()).exists, false);
+});
+
+test("financeiro: boleto antigo, sem parcelas, paga como parcela única", async () => {
+  await db.collection("sis_financeiro").doc("velho").set({ tipo: "boleto", desc: "Cemig", venc: "2026-10-05", valor: 48690, pago: false });
+  assert.deepEqual(await pagarBoleto(db, { id: "velho", data: "2026-10-05" }, "ana"), { mudou: true });
+  const doc = (await db.collection("sis_financeiro").doc("velho").get()).data();
+  assert.equal(doc.pago, true);
+  assert.deepEqual(doc.parcelas.map(p => [p.n, p.valor, p.pagoEm]), [[1, 48690, "2026-10-05"]]);
+});
+
+test("financeiro: boleto recusa parcela sem vencimento e link que não é https", async () => {
+  await assert.rejects(salvarFinanceiro(db, { tipo: "boleto", desc: "X", parcelas: [] }, "ana"), /pelo menos uma parcela/);
+  await assert.rejects(salvarFinanceiro(db, { tipo: "boleto", desc: "X", parcelas: [{ valor: 100 }] }, "ana"), /Vencimento da parcela 1/);
+  await assert.rejects(salvarFinanceiro(db, { tipo: "boleto", desc: "X", parcelas: [{ venc: "2026-10-01", valor: 100, arquivos: [{ url: "javascript:alert(1)" }] }] }, "ana"), /Link/);
 });
 
 test("financeiro: recusa valores e datas fora do formato", async () => {
