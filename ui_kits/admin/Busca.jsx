@@ -7,7 +7,28 @@ const REAL_B = () => window.DLUH_API.modo === "firebase";
 const grupoPedidos = pedidos => ({ id: "pedidos", label: "Pedidos", icon: "receipt-text", view: "pedidos",
   itens: pedidos.map(p => ({ title: p.cliente, sub: p.id + " · " + (p.status || "sem status"), value: p.total, busca: [p.cliente, p.id, p.tel, p.status, ...(p.itens || []).map(i => i.name)], q: p.id })) });
 
-/* No sistema real só os pedidos existem no Firestore; eventos, boletos e cartões ainda são só da demo. */
+/* Boletos (sis_financeiro), um por boleto-pai: acha pelo fornecedor, código, valor ou vencimento de
+   qualquer parcela, e abre o pai no Financeiro com a parcela que casou marcada. */
+const brData = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
+const grupoBoletos = (docs, hoje) => ({ id: "boletos", label: "Boletos", icon: "receipt", view: "financeiro",
+  itens: (docs || []).filter(b => b.tipo === "boleto").map(b => {
+    const ps = window.parcelasDoBoleto(b);
+    const abertas = ps.filter(p => !p.pago).sort((x, y) => x.venc.localeCompare(y.venc));
+    const brl = c => window.brl((c || 0) / 100);
+    const campos = p => [p.codigo, (p.codigo || "").replace(/\D/g, ""), brl(p.valor), brData(p.venc), dataBR(p.venc)];
+    return {
+      title: b.desc || "Boleto",
+      sub: [ps.length > 1 ? ps.length + " parcelas" : "parcela única",
+        abertas.length ? (abertas[0].venc < hoje ? "venceu " : "vence ") + dataBR(abertas[0].venc) : "pago · última " + dataBR(ps.map(p => p.venc).sort().at(-1)),
+        b.cnpjAntigo ? "CNPJ antigo" : null].filter(Boolean).join(" · "),
+      value: brl(ps.reduce((s, p) => s + (p.valor || 0), 0)),
+      busca: [b.desc, "boleto", b.cnpjAntigo ? "cnpj antigo" : "", brl(ps.reduce((s, p) => s + (p.valor || 0), 0)), ...ps.flatMap(campos)],
+      alvo: t => { const p = ps.find(x => campos(x).some(c => norm(c).includes(t))); return { boleto: b.id, n: p ? p.n : undefined }; }
+    };
+  }) });
+
+/* Demo: eventos, pagamentos e cartões ainda vêm dos dados de exemplo; pedidos e boletos têm o mesmo
+   formato do sistema real. */
 function indiceBusca() {
   const d = window.DLUH, ag = d.agenda;
   return [
@@ -16,8 +37,6 @@ function indiceBusca() {
       itens: ag.filter(e => e.tipo === "buffet" || e.tipo === "festa").map(e => ({ title: e.titulo, sub: [e.cliente, e.data ? dataBR(e.data) + (e.hora ? " " + e.hora : "") : null, e.local].filter(Boolean).join(" · "), value: e.valor, busca: [e.titulo, e.cliente, e.local] })) },
     { id: "pagamentos", label: "Pagamentos", icon: "wallet", view: "visao",
       itens: d.pagamentos.map(p => ({ title: p.title, sub: p.sub, value: p.value, tone: p.tone, busca: [p.title, p.sub] })) },
-    { id: "boletos", label: "Boletos", icon: "file-text", view: "agenda",
-      itens: ag.filter(e => e.tipo === "boleto").map(e => ({ title: e.cliente, sub: e.titulo + " · vence " + dataBR(e.data) + " · " + e.situacao, value: e.valor, busca: [e.cliente, e.titulo, e.situacao] })) },
     { id: "cartoes", label: "Cartões", icon: "credit-card", view: "agenda",
       itens: ag.filter(e => e.tipo === "cartao").map(e => ({ title: e.cliente, sub: e.titulo + " · " + dataBR(e.data) + " · " + e.situacao, value: e.valor, busca: [e.cliente, e.titulo, e.situacao] })) }
   ];
@@ -48,13 +67,15 @@ function GlobalSearch({ q, onQ, onView }) {
   /* Real: assina todos os pedidos (histórico inclusive) só enquanto há texto na busca. A tela de
      Pedidos com busca usa a mesma consulta, e o Firestore reaproveita a escuta. */
   const vivo = useAoVivo(REAL_B() && t ? "pedidosTodos" : "nada");
-  const indice = React.useMemo(() => REAL_B() ? [grupoPedidos(vivo.dados || [])] : indiceBusca(), [vivo.dados]);
-  const carregando = REAL_B() && !!t && !vivo.dados && vivo.estado === "carregando";
+  const fin = useAoVivo(t ? "financeiro" : "nada");
+  const hoje = window.DLUH_API.hoje();
+  const indice = React.useMemo(() => [...(REAL_B() ? [grupoPedidos(vivo.dados || [])] : indiceBusca()), grupoBoletos(fin.dados, hoje)], [vivo.dados, fin.dados]);
+  const carregando = !!t && ((REAL_B() && !vivo.dados && vivo.estado === "carregando") || (!fin.dados && fin.estado === "carregando"));
   const grupos = t ? indice.map(g => ({ ...g, achados: g.itens.filter(it => it.busca.some(s => norm(s).includes(t))) })).filter(g => g.achados.length) : [];
   const total = grupos.reduce((s, g) => s + g.achados.length, 0);
   /* Flat list of what is on screen (five per group), so arrows walk the results in order. */
   const visiveis = grupos.flatMap(g => g.achados.slice(0, 5).map(it => ({ g, it })));
-  const pick = (g, it) => { onView(g.view); onQ(it.q || ""); setOpen(false); setAtivo(-1); };
+  const pick = (g, it) => { onView(g.view, it.alvo ? it.alvo(t) : null); onQ(it.q || ""); setOpen(false); setAtivo(-1); };
   const aberto = open && !!t;
   /* Enter sem escolher um resultado, ou "Ver todos": abre Pedidos com o texto digitado, que lista
      tudo o que casou em todos os status. */
@@ -83,7 +104,7 @@ function GlobalSearch({ q, onQ, onView }) {
     <div style={{ position: "relative", width: "100%" }}>
       <BX.SearchInput value={q} onChange={e => { onQ(e.target.value); setOpen(true); }} onClear={() => onQ("")}
         onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} onKeyDown={onKey}
-        role="combobox" aria-label="Buscar pedidos, eventos e pagamentos" aria-expanded={aberto} aria-controls="busca-resultados"
+        role="combobox" aria-label="Buscar pedidos, boletos, eventos e pagamentos" aria-expanded={aberto} aria-controls="busca-resultados"
         aria-autocomplete="list" aria-activedescendant={aberto && ativo >= 0 ? "busca-op-" + ativo : undefined}
         placeholder="Pesquise aqui qualquer coisa" style={{ width: "100%", maxWidth: "none" }} />
       {aberto ? (
