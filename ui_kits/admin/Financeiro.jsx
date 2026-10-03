@@ -14,7 +14,8 @@ const FIN_FORM = {
     { id: "meio", rot: "Forma", opcoes: ["Pix", "Cartão", "Dinheiro", "Boleto", "Transferência"] },
     { id: "data", rot: "Data", tipo: "date", req: true }, { id: "valor", rot: "Valor", tipo: "dinheiro", req: true }] },
   boletos: { titulo: "Novo boleto", editar: "Editar boleto", campos: [
-    { id: "desc", rot: "Fornecedor / descrição", span: 2, req: true }, { id: "venc", rot: "Vencimento", tipo: "date", req: true },
+    { id: "desc", rot: "Fornecedor", req: true }, { id: "cnpj", rot: "CNPJ", opcoes: ["Atual", "Antigo"] },
+    { id: "venc", rot: "Vencimento", tipo: "date", req: true },
     { id: "valor", rot: "Valor", tipo: "dinheiro", req: true }, { id: "codigo", rot: "Linha digitável", span: 2 }] },
   cartoes: { titulo: "Novo cartão", editar: "Editar cartão", campos: [
     { id: "nome", rot: "Nome do cartão", span: 2, req: true }, { id: "final", rot: "Final", ph: "0000", req: true },
@@ -51,10 +52,10 @@ const finErros = (f, v) => {
 
 /* A stored entry as form values, and form values as what the Worker stores (centavos, ISO dates). */
 const formDe = x => x.tipo === "transacao" ? { desc: x.desc, tipo: x.entrada ? "Entrada" : "Saída", meio: x.meio, data: x.data, valor: reaisTexto(x.valor) }
-  : x.tipo === "boleto" ? { desc: x.desc, venc: x.venc, valor: reaisTexto(x.valor), codigo: x.codigo || "" }
+  : x.tipo === "boleto" ? { desc: x.desc, cnpj: x.cnpjAntigo ? "Antigo" : "Atual", venc: x.venc, valor: reaisTexto(x.valor), codigo: x.codigo || "" }
   : { nome: x.nome, final: x.final, bandeira: x.bandeira, limite: reaisTexto(x.limite), fatura: reaisTexto(x.fatura), venc: x.venc ? String(x.venc) : "" };
 const finParaApi = (tab, v) => tab === "transacoes" ? { desc: v.desc.trim(), entrada: v.tipo === "Entrada", meio: v.meio, data: v.data, valor: paraCentavos(v.valor) }
-  : tab === "boletos" ? { desc: v.desc.trim(), venc: v.venc, valor: paraCentavos(v.valor), codigo: String(v.codigo || "").trim() }
+  : tab === "boletos" ? { desc: v.desc.trim(), venc: v.venc, valor: paraCentavos(v.valor), codigo: String(v.codigo || "").trim(), cnpjAntigo: v.cnpj === "Antigo" }
   : { nome: v.nome.trim(), final: v.final, bandeira: v.bandeira, limite: paraCentavos(v.limite), fatura: paraCentavos(v.fatura), venc: v.venc ? Number(v.venc) : null };
 
 function FinRegistro({ tab, item, hoje, onClose, onSave, salvando }) {
@@ -185,7 +186,7 @@ function Financeiro({ compact, onQ, onView }) {
           )) : tab === "boletos" ? lista.map(x => {
             const vencido = !x.pago && x.venc && x.venc < hoje;
             return <FN.ListRow key={x.id} icon="receipt" title={x.desc || "Sem descrição"} onClick={editar(x)}
-              subtitle={x.pago ? "Pago " + dataCurta(x.pagoEm) : (vencido ? "Venceu " : "Vence ") + dataCurta(x.venc)} value={x.valor == null ? "—" : reaisC(x.valor)}
+              subtitle={(x.pago ? "Pago " + dataCurta(x.pagoEm) : (vencido ? "Venceu " : "Vence ") + dataCurta(x.venc)) + (x.cnpjAntigo ? " · CNPJ antigo" : "")} value={x.valor == null ? "—" : reaisC(x.valor)}
               trailing={<div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 10 }}>
                 {x.pago ? <FN.Badge tone="success">Pago</FN.Badge> : <>
                   {vencido ? <FN.Badge tone="warn">Vencido</FN.Badge> : null}

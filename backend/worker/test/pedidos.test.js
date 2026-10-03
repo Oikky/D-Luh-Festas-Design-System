@@ -206,9 +206,10 @@ test("financeiro: lança, edita, paga boleto e apaga", async () => {
   assert.equal(doc.pago, false);
   assert.equal(doc.valor, 48690);
 
-  await salvarFinanceiro(db, { id, desc: "Cemig energia", venc: "2026-10-06", valor: 50000 }, "ana");
+  await salvarFinanceiro(db, { id, desc: "Cemig energia", venc: "2026-10-06", valor: 50000, cnpjAntigo: true }, "ana");
   doc = (await db.collection("sis_financeiro").doc(id).get()).data();
   assert.equal(doc.desc, "Cemig energia");
+  assert.equal(doc.cnpjAntigo, true);
   assert.equal(doc.pago, false);
 
   assert.deepEqual(await pagarBoleto(db, { id, data: "2026-10-04" }, "ana"), { mudou: true });

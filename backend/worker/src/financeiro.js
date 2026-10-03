@@ -40,7 +40,8 @@ function validar(tipo, d) {
     desc: texto(d.desc, 120, "o fornecedor", true),
     venc: data(d.venc, "Vencimento", true),
     valor: positivo(d.valor, "Valor"),
-    codigo: texto(d.codigo, 80, "Linha digitável")
+    codigo: texto(d.codigo, 80, "Linha digitável"),
+    cnpjAntigo: d.cnpjAntigo === true // a loja trocou de CNPJ; os boletos de antes ficam marcados
   };
   if (tipo === "cartao") {
     const final = String(d.final ?? "");
