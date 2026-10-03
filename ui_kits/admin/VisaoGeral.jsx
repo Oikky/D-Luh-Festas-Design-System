@@ -120,6 +120,7 @@ const ddmm = iso => iso ? iso.slice(8, 10) + "/" + iso.slice(5, 7) : "";
 function VisaoGeral({ compact, onView, onQ }) {
   const ped = useAoVivo("pedidos");
   const pag = useAoVivo("pagamentosRecentes");
+  const bol = useAoVivo("boletosAbertos");
   const [verReceber, setVerReceber] = React.useState(false);
   const erro = ped.estado === "erro" && !ped.dados ? ped : pag.estado === "erro" && !pag.dados ? pag : null;
   const r = React.useMemo(() => ped.dados && pag.dados ? resumoDe(ped.dados, pag.dados, window.DLUH_API.hoje()) : null, [ped.dados, pag.dados]);
@@ -147,6 +148,10 @@ function VisaoGeral({ compact, onView, onQ }) {
 
       <div style={{ display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "1.6fr 1fr", gap: 12, alignItems: "start" }}>
         <ChartCard compact={compact} r={r} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+        {/* Se os boletos não carregarem, o resto da visão geral segue sem o card. */}
+        {bol.dados ? <window.BoletosAPagar docs={bol.dados} hoje={window.DLUH_API.hoje()}
+          onAbrir={(boleto, n) => onView("financeiro", { boleto, n })} onVerTodos={() => onView("financeiro", { aba: "boletos" })} /> : null}
         <Card header={<>
           <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Pagamentos recentes</div>
           <IconButton icon="arrow-up-right" label="Abrir financeiro" size={32} onClick={() => onView("financeiro")} />
@@ -154,6 +159,7 @@ function VisaoGeral({ compact, onView, onQ }) {
           {d.pagamentos.length ? d.pagamentos.map((p, i) => <ListRow key={i} icon={p.icon} title={p.title} subtitle={p.sub} value={p.value} tone={p.tone} onClick={() => abrirPedido(p.id)} />)
             : <EmptyState icon="wallet" title="Nenhum pagamento recente" />}
         </Card>
+        </div>
       </div>
 
       <Card padded={false} header={<>

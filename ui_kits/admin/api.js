@@ -100,6 +100,7 @@ window.DLUH_API = (() => {
       .sort((a, b) => `${b.data} ${b.hora}`.localeCompare(`${a.data} ${a.hora}`)),
     /* Transações avulsas, boletos e cartões, as stored; Financeiro.jsx shapes them. */
     financeiro: docs => docs,
+    boletosAbertos: docs => docs,
     /* Every live order on the calendar, as an "encomenda" on its delivery day. */
     agenda: pedidos => pedidos
       .filter(x => x.status !== "Cancelado" && x.entrega && x.entrega.data)
@@ -159,7 +160,7 @@ window.DLUH_API = (() => {
     }
   };
 
-  const DEMO = { pedidosTodos: "pedidos", pagamentosRecentes: "todosPagamentos" };
+  const DEMO = { pedidosTodos: "pedidos", pagamentosRecentes: "todosPagamentos", boletosAbertos: "financeiro" };
   const carregar = colecao => chamar("carregar", () => copia(colecao ? window.DLUH[DEMO[colecao] || colecao] : window.DLUH));
   return {
     ErroApi, modo, hoje: () => window.DLUH.hoje,

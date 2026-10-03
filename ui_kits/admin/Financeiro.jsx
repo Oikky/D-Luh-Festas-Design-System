@@ -97,11 +97,12 @@ const boletoLocal = (antigo, dados) => ({ ...antigo, ...dados,
   parcelas: dados.parcelas.map((p, i) => { const a = antigo && window.parcelasDoBoleto(antigo)[i]; return { ...p, n: i + 1, pago: !!(a && a.pago), pagoEm: a && a.pago ? a.pagoEm : null }; }) });
 const pagarLocal = (b, n, pago, dia) => ({ ...b, parcelas: window.parcelasDoBoleto(b).map(p => p.n === n ? { ...p, pago, pagoEm: pago ? dia : null } : p) });
 
-/* `alvo` = { boleto, n }: alguém clicou numa parcela fora daqui (Agenda); abre o pai com ela marcada. */
+/* `alvo` = { boleto, n }: alguém clicou numa parcela fora daqui (Agenda, Visão geral); abre o pai com
+   ela marcada. { aba: "boletos" } só abre a aba. */
 function Financeiro({ compact, onQ, onView, alvo }) {
   const REAL = window.DLUH_API.modo === "firebase";
   const hoje = window.DLUH_API.hoje();
-  const [tab, setTab] = React.useState(alvo && alvo.boleto ? "boletos" : "transacoes");
+  const [tab, setTab] = React.useState(alvo && (alvo.boleto || alvo.aba === "boletos") ? "boletos" : "transacoes");
   const [mes, setMes] = React.useState(hoje.slice(0, 7));
   const [form, setForm] = React.useState(null); // { item, deDetalhe } — item null = novo
   const [aberto, setAberto] = React.useState(() => alvo && alvo.boleto ? { id: alvo.boleto, n: alvo.n } : null); // boleto aberto
@@ -111,7 +112,10 @@ function Financeiro({ compact, onQ, onView, alvo }) {
   const fin = useAoVivo("financeiro");
   const pag = useAoVivo("todosPagamentos");
   const ped = useAoVivo("pedidosTodos");
-  React.useEffect(() => { if (alvo && alvo.boleto) { setTab("boletos"); setAberto({ id: alvo.boleto, n: alvo.n }); } }, [alvo]);
+  React.useEffect(() => {
+    if (alvo && (alvo.boleto || alvo.aba === "boletos")) setTab("boletos");
+    if (alvo && alvo.boleto) setAberto({ id: alvo.boleto, n: alvo.n });
+  }, [alvo]);
   /* The demo has no server to echo a write back, so it edits its own copy; the real system
      waits for Firestore to send the change. */
   const local = fn => REAL ? null : () => fin.setDados(fn);
@@ -174,13 +178,12 @@ function Financeiro({ compact, onQ, onView, alvo }) {
   const entradas = listas.transacoes.filter(x => x.entrada).reduce((s, x) => s + (x.valor || 0), 0);
   const saidas = listas.transacoes.filter(x => !x.entrada).reduce((s, x) => s + (x.valor || 0), 0);
   const abertas = listas.boletos.flatMap(b => window.parcelasDoBoleto(b).filter(p => !p.pago));
-  const comAberto = listas.boletos.filter(b => window.parcelasDoBoleto(b).some(p => !p.pago)).length;
   const nomeMes = `${MESES_FIN[Number(mes.slice(5, 7)) - 1]} ${mes.slice(0, 4)}`;
 
   return (
     <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: "var(--space-8)", minHeight: "100%" }}>
       <FN.Tabs value={tab} onChange={setTab} items={FIN_TABS.map(x => ({ id: x.id, label: x.label,
-        count: x.id === "contratos" ? undefined : x.id === "boletos" ? comAberto : (listas[x.id] || []).length }))} />
+        count: x.id === "contratos" ? undefined : x.id === "boletos" ? listas.boletos.length : (listas[x.id] || []).length }))} />
 
       {tab === "contratos" ? <window.Contratos compact={compact} /> : <>
         <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>

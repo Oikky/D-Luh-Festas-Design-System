@@ -307,4 +307,30 @@ function ListaBoletos({ boletos, hoje, onAbrir, compact }) {
   });
 }
 
-Object.assign(window, { BoletoForm, BoletoDetalhe, ListaBoletos, boletosNaAgenda, parcelasPagasNoMes, parcelasDoBoleto, gerarParcelas, situacaoParcela });
+/* Visão geral: as próximas parcelas em aberto (vencidas primeiro); cada uma abre o pai. */
+function BoletosAPagar({ docs, hoje, onAbrir, onVerTodos, max = 5 }) {
+  const abertas = (docs || []).filter(b => b.tipo === "boleto").flatMap(b => {
+    const ps = parcelasDoBoleto(b);
+    return ps.filter(p => !p.pago).map(p => ({ b, p, total: ps.length }));
+  }).sort((x, y) => x.p.venc.localeCompare(y.p.venc));
+  const soma = abertas.reduce((s, x) => s + (x.p.valor || 0), 0);
+  return <BL.Card header={<>
+    <div>
+      <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)" }}>Boletos a pagar</div>
+      <div style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)", marginTop: 2 }}>
+        {abertas.length ? `${abertas.length} ${abertas.length === 1 ? "parcela" : "parcelas"} · ${brlC(soma)} em aberto` : "Tudo pago"}
+      </div>
+    </div>
+    <BL.IconButton icon="arrow-up-right" label="Abrir boletos" size={32} onClick={onVerTodos} />
+  </>} bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    {abertas.length ? abertas.slice(0, max).map(({ b, p, total }) => {
+      const sit = situacaoParcela(p, hoje);
+      return <BL.ListRow key={b.id + p.n} icon="receipt" title={b.desc || "Boleto"} onClick={() => onAbrir(b.id, p.n)}
+        subtitle={`${total > 1 ? `Parcela ${p.n}/${total}` : "Parcela única"} · ${sit === "Vencido" ? "venceu" : "vence"} ${diaMes(p.venc)}`}
+        value={"− " + brlC(p.valor)} tone="out" valueSub={sit === "A vencer" ? null : sit} />;
+    }) : <BL.EmptyState icon="receipt" title="Nenhum boleto em aberto" description="As parcelas a pagar aparecem aqui, a mais próxima primeiro." />}
+    {abertas.length > max ? <BL.Button size="sm" variant="ghost" iconRight="arrow-right" onClick={onVerTodos}>Ver as {abertas.length}</BL.Button> : null}
+  </BL.Card>;
+}
+
+Object.assign(window, { BoletosAPagar, BoletoForm, BoletoDetalhe, ListaBoletos, boletosNaAgenda, parcelasPagasNoMes, parcelasDoBoleto, gerarParcelas, situacaoParcela });
