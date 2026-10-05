@@ -1,12 +1,15 @@
 /* Assistente da equipe no WhatsApp, com o Claude Sonnet 5. Funciona por dois canais: o número da
    Meta (com botões) ou o número da loja pela Evolution (confirma respondendo "sim"/"não").
-   Só números de IA_NUMEROS falam com ela. Consulta pedidos e vendas; pedido novo, status e
-   pagamento viram PROPOSTA — só gravam quando a pessoa confirma (botão ou "sim", tratados aqui no
+   Também no tópico IA do grupo da equipe no Telegram (só os IDs de TELEGRAM_IA_IDS).
+   Só números de IA_NUMEROS falam com ela. Consulta tudo (pedidos, vendas, pagamentos, financeiro,
+   catálogo); qualquer mudança vira PROPOSTA — só gravam quando a pessoa confirma (botão ou "sim", tratados aqui no
    código, nunca pelo modelo), e aí passam pelo mesmo caminho das telas (evento, Agenda, avisos).
    A conversa fica em sis_ia/{número}. */
 import Anthropic from "@anthropic-ai/sdk";
 import { ErroDominio } from "../dominio.js";
 import { DEFINICOES, executarFerramenta, hojeSP } from "./ferramentas.js";
+import { RESULTADO_LOJA } from "./ferramentas-loja.js";
+import { brl } from "../efeitos.js";
 import { audioLigado, transcrever } from "./audio.js";
 
 const MODELO = "claude-sonnet-5";
@@ -30,7 +33,7 @@ const ultimos8 = s => String(s || "").replace(/\D/g, "").slice(-8);
 const autorizado = (env, numero) =>
   String(env.IA_NUMEROS || "").split(",").map(ultimos8).filter(Boolean).includes(ultimos8(numero));
 
-const SISTEMA = `Você é a assistente interna da D'Luh Festas, confeitaria de festas (bolos, docinhos, salgados), no WhatsApp. Você conversa só com a dona e a equipe, nunca com clientes.
+const SISTEMA = `Você é a assistente interna da D'Luh Festas, confeitaria de festas (bolos, docinhos, salgados), no WhatsApp e no Telegram. Você conversa só com a dona e o filho dela, nunca com clientes, e tem acesso a todo o sistema: pedidos, pagamentos, financeiro (caixa, boletos, cartões da loja) e catálogo.
 
 Como responder:
 - Português do Brasil, curto e direto, no formato do WhatsApp: *negrito*, listas com "•", sem títulos, sem tabelas, sem markdown de links.
@@ -39,8 +42,10 @@ Como responder:
 - Os valores das ferramentas já vêm em reais formatados; use como vieram.
 - Mensagem que começa com "(áudio transcrito)" veio de um áudio e pode ter erro de transcrição. Nome, telefone, número de pedido ou valor que pareça estranho: confirme antes de usar.
 
-Mudanças (pedido novo, status, pagamento):
-- Use propor_pedido, propor_status ou propor_pagamento. O sistema manda ao usuário o resumo e pede a confirmação; nada é gravado sem ela.
+Mudanças (qualquer coisa que grave ou mande mensagem: pedido novo ou alterado, status, pagamento, cobrança, aviso ao cliente, nota, boleto, caixa, cartão, produto, recheio):
+- Use as ferramentas propor_*. O sistema manda ao usuário o resumo e pede a confirmação; nada é gravado sem ela. Pode propor várias de uma vez.
+- Antes de propor sobre algo que já existe, consulte para pegar o id certo (ver_pedido, buscar_pagamentos, buscar_financeiro, catalogo). Se houver mais de um candidato, pergunte qual.
+- "Pagamento" pode ser de um pedido (propor_pagamento: Pix, dinheiro ou cartão do cliente), de um boleto da loja (propor_pagar_boleto) ou uma saída do caixa, como a fatura de um cartão da loja (propor_transacao; se quiser, também propor_cartao para zerar a fatura). Se não ficar claro qual, pergunte.
 - Depois de propor, responda no máximo uma frase curta, sem repetir o resumo.
 - A confirmação (botão ou "sim"/"não" logo depois do resumo) é tratada pelo sistema, não por você. Se o usuário disser "sim" e você não vir uma proposta recente, proponha de novo.
 - Pedido novo: consulte o catálogo primeiro. Antes de propor, garanta nome e telefone do cliente, data (e hora, se houver), retirada ou entrega (com endereço e taxa), itens com quantidades e, quando fizer sentido, recheios. Pergunte só o que falta, tudo numa mensagem.
@@ -133,8 +138,17 @@ async function conversar({ env, db, numero, texto, agora = Date.now(), claude, e
 
 const RESULTADO = {
   criarPedido: (d, r) => `✅ Pedido *${r.id}* criado, em "Aguardando confirmação".`,
+  editarPedido: (d, r) => r.mudou ? `✅ ${d.pedidoId} alterado. Total ${brl(r.total)} · ${r.pagamento}.` : `${d.pedidoId} já estava assim.`,
   mudarStatus: (d, r) => r.mudou ? `✅ ${d.pedidoId} agora está em *${d.status}*.` : `${d.pedidoId} já estava em "${d.status}".`,
-  registrarPagamentoManual: (d, r) => r.duplicado ? "Esse pagamento já estava registrado." : `✅ Pagamento registrado. ${d.pedidoId}: ${r.pagamento}.`
+  marcarFeito: (d, r) => r.mudou ? `✅ ${d.pedidoId} marcado como feito.` : `${d.pedidoId} já estava feito.`,
+  registrarPagamentoManual: (d, r) => r.duplicado ? "Esse pagamento já estava registrado." : `✅ Pagamento registrado. ${d.pedidoId}: ${r.pagamento}.`,
+  apagarPagamento: (d, r) => `✅ Pagamento apagado.${r.pagamento ? ` ${r.pedidoId}: ${r.pagamento}.` : ""}`,
+  gerarCobranca: (d, r) => `✅ Link de ${brl(r.valor)} para ${d.pedidoId}:
+${r.url}`,
+  avisarCliente: d => `✅ Resumo do ${d.pedidoId} enviado ao cliente.`,
+  lembrarEntrada: (d, r) => `✅ Mandando o lembrete para ${r.total} cliente${r.total === 1 ? "" : "s"}, um de cada vez.`,
+  registrarNota: (d, r) => `✅ Nota ${r.nota.tipo} nº ${r.nota.numero} registrada no ${d.pedidoId}.`,
+  ...RESULTADO_LOJA
 };
 
 /* Toque em Confirmar/Cancelar. A proposta sai da lista na mesma transação que a lê: dois toques
@@ -158,7 +172,7 @@ async function responderBotao({ env, db, numero, botao, agora = Date.now(), exec
     const dados = proposta.acao === "registrarPagamentoManual" ? { ...proposta.dados, chave: `ia-${id}` } : proposta.dados;
     try {
       const r = await executar(proposta.acao, dados, `ia:${numero}`);
-      texto = RESULTADO[proposta.acao](dados, r);
+      texto = RESULTADO[proposta.acao]?.(dados, r) || "✅ Feito.";
     } catch (e) {
       if (!(e instanceof ErroDominio)) console.error(JSON.stringify({ msg: "confirmação da IA falhou", acao: proposta.acao, erro: String(e) }));
       texto = `❌ Não gravei: ${e instanceof ErroDominio ? e.message : "deu um erro no sistema. Tente de novo."}`;
@@ -178,9 +192,9 @@ async function responderBotao({ env, db, numero, botao, agora = Date.now(), exec
 /* Uma mensagem recebida (Meta ou Evolution): filtra, tira duplicata e responde. Roda depois do
    200 ao webhook. `canal` = { texto(numero, t), botoes(numero, t, botoes), lida(msg) }. */
 async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
-  // Canal confiável (tópico IA do grupo da equipe no Telegram) não passa pela lista de números.
-  if (!canal.confiavel && !autorizado(env, msg.de)) {
-    console.log(JSON.stringify({ msg: "IA: número não autorizado", final: ultimos8(msg.de) }));
+  // O Telegram tem a lista dele (IDs de usuário); WhatsApp usa IA_NUMEROS.
+  if (canal.autoriza ? !canal.autoriza(msg) : !autorizado(env, msg.de)) {
+    console.log(JSON.stringify({ msg: "IA: não autorizado", quem: canal.autoriza ? `telegram:${msg.uid}` : ultimos8(msg.de) }));
     return;
   }
   const nova = await db.runTransaction(async tx => {

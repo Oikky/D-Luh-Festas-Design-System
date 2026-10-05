@@ -305,10 +305,16 @@ async function webhookInfinitepay(request, env, ctx) {
   }
 }
 
-/* Ações confirmadas na assistente passam pelas mesmas ACOES e DEPOIS das telas. */
+/* Ações confirmadas na assistente passam pelas mesmas ACOES e DEPOIS das telas. Apagar um
+   pagamento não pede a senha da conta sistema: ali quem garante é o "sim" de um número autorizado. */
+const ACOES_DA_IA = {
+  ...ACOES,
+  apagarPagamento: (db, { pagamentoId }, por) => pedidos.apagarPagamento(db, { pagamentoId }, por)
+};
 function executorDaIA(env, ctx, db) {
   return async (acao, dados, por) => {
-    const r = await ACOES[acao](db, dados, por, env);
+    if (!Object.hasOwn(ACOES_DA_IA, acao)) throw new ErroDominio("invalid-argument", `Ação desconhecida: ${acao}`);
+    const r = await ACOES_DA_IA[acao](db, dados, por, env, ORIGEM_API);
     depois(ctx, DEPOIS[acao]?.(env, db, dados, r, por) || [], acao, dados.pedidoId || r?.id);
     return r;
   };
@@ -399,7 +405,7 @@ async function webhookTelegram(request, env, ctx, url) {
         .catch(e => { falhou(e); return telegram.responderToque(env, u.id, e instanceof ErroDominio ? e.message : "Deu erro. Tente pelo admin."); }));
     } else if (tipo === "ia" && iaNoTelegram(env)) {
       telegram.responderToque(env, u.id);
-      const msg = { id: `tgq-${u.id}`, de: "telegram", botao: resto.join(":") };
+      const msg = { id: `tgq-${u.id}`, de: "telegram", uid: u.de?.id, botao: resto.join(":") };
       ctx.waitUntil(conversaDaIA(env, ctx, db, msg, telegram.canalTelegram(env)));
     } else {
       ctx.waitUntil(telegram.responderToque(env, u.id));

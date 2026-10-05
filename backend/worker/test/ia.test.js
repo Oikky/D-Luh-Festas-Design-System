@@ -21,7 +21,7 @@ function bancoFalso(inicial = {}) {
       .map(([k, v]) => ({ id: k.split("/").pop(), ...structuredClone(v) })),
     consultar: async filtros => (await colRef(path).listar()).filter(d => filtros.every(([c, op, v]) => {
       const x = c.split(".").reduce((o, k) => o?.[k], d);
-      return op === ">=" ? x >= v : op === "<=" ? x <= v : x === v;
+      return op === ">=" ? x >= v : op === "<=" ? x <= v : op === "<" ? x < v : x === v;
     }))
   });
   return {
@@ -248,4 +248,150 @@ test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do c
   assert.equal(mensagemEvolution({ event: "connection.update", data: {} }), null);
   assert.equal(mensagemEvolution(evento({ id: "5", remoteJid: "553899540665@s.whatsapp.net" }, { extendedTextMessage: { text: "e aí" } })).texto, "e aí");
   assert.equal(mensagemEvolution(evento({ id: "6", remoteJid: "553899540665@s.whatsapp.net" }, { audioMessage: { seconds: 4 } })).tipo, "audio");
+});
+
+// ── Acesso total: pedidos ──
+const ctxPropor = () => { const p = []; return { lista: p, propor: (acao, dados, resumo) => (p.push({ acao, dados, resumo }), { ok: true }) }; };
+
+test("propor_editar_pedido junta com o que já está no pedido, mantém item atual com o preço dele e recusa quando nada muda", async () => {
+  const db = bancoFalso({ ...catalogoBase, "sis_pedidos/PED-3012": pedido("PED-3012", { itens: [{ nome: "Brigadeiro antigo", qtd: 50, valorUnit: 100 }], total: 5000 }) });
+  const c = ctxPropor();
+  await executarFerramenta("propor_editar_pedido", {
+    pedido_id: "3012", entrega: { data: "2026-10-10" },
+    itens: [{ item_atual: 1, qtd: 60 }, { produto_id: "bolo", qtd: 1, recheios: ["Ninho"] }]
+  }, { db, propor: c.propor });
+  const [{ acao, dados, resumo }] = c.lista;
+  assert.equal(acao, "editarPedido");
+  assert.equal(dados.pedidoId, "PED-3012");
+  assert.equal(dados.entrega.hora, "15:00");
+  assert.equal(dados.itens[0].valorUnit, 100);
+  assert.equal(dados.itens[0].qtd, 60);
+  assert.equal(dados.itens[1].valorUnit, 12000);
+  assert.match(resumo, /10\/10/);
+  assert.match(resumo, /Total: R\$ 50,00 → \*R\$ 180,00\*/);
+
+  await assert.rejects(executarFerramenta("propor_editar_pedido", { pedido_id: "3012", obs: "" }, { db, propor: c.propor }), /Nada mudou/);
+  await assert.rejects(executarFerramenta("propor_editar_pedido", { pedido_id: "3012", itens: [{ item_atual: 5 }] }, { db, propor: c.propor }), /não tem o item 5/);
+});
+
+test("propor_cobranca, propor_apagar_pagamento e propor_nota montam a ação certa", async () => {
+  const db = bancoFalso({
+    "sis_pedidos/PED-3012": pedido("PED-3012", { pago: 3750, pagamento: "Só entrada" }),
+    "sis_pagamentos/manual-x": { pedidoId: "PED-3012", valor: 3750, meio: "pix", por: "ia:5538" }
+  });
+  const c = ctxPropor();
+  await executarFerramenta("propor_cobranca", { pedido_id: "3012", tipo: "restante" }, { db, propor: c.propor });
+  await assert.rejects(executarFerramenta("propor_cobranca", { pedido_id: "3012", tipo: "entrada" }, { db, propor: c.propor }), /Não há entrada/);
+  await executarFerramenta("propor_apagar_pagamento", { pagamento_id: "manual-x" }, { db, propor: c.propor });
+  await executarFerramenta("propor_nota", { pedido_id: "3012", tipo: "NFS-e", numero: " 123 " }, { db, propor: c.propor });
+  assert.deepEqual(c.lista.map(p => [p.acao, p.dados]), [
+    ["gerarCobranca", { pedidoId: "PED-3012", tipo: "restante" }],
+    ["apagarPagamento", { pagamentoId: "manual-x", pedidoId: "PED-3012" }],
+    ["registrarNota", { pedidoId: "PED-3012", tipo: "NFS-e", numero: "123" }]
+  ]);
+  assert.match(c.lista[0].resumo, /Restante: R\$ 37,50/);
+  assert.match(c.lista[1].resumo, /Pago: R\$ 37,50 → R\$ 0,00/);
+});
+
+// ── Acesso total: financeiro e catálogo ──
+const boleto = (extra = {}) => ({
+  tipo: "boleto", desc: "Delly's", periodo: "semanal", arquivos: [], valor: 30000, venc: "2026-10-01", pago: false,
+  parcelas: [
+    { n: 1, venc: "2026-10-01", valor: 10000, codigo: "111", arquivos: [], pago: true, pagoEm: "2026-10-01" },
+    { n: 2, venc: "2026-10-03", valor: 10000, codigo: "222", arquivos: [], pago: false, pagoEm: null },
+    { n: 3, venc: "2026-10-20", valor: 10000, codigo: "333", arquivos: [], pago: false, pagoEm: null }
+  ], ...extra
+});
+
+test("propor_pagar_boleto: parcela em aberto vira pagarBoleto com a data; paga de novo é recusada", async () => {
+  const db = bancoFalso({ "sis_financeiro/b1": boleto() });
+  const c = ctxPropor();
+  await executarFerramenta("propor_pagar_boleto", { id: "b1", parcela: 2, data: "2026-10-04" }, { db, propor: c.propor });
+  assert.deepEqual(c.lista[0].dados, { id: "b1", n: 2, pago: true, data: "2026-10-04" });
+  assert.match(c.lista[0].resumo, /Delly's · 2ª parcela/);
+  await assert.rejects(executarFerramenta("propor_pagar_boleto", { id: "b1", parcela: 1 }, { db, propor: c.propor }), /já está paga/);
+  await executarFerramenta("propor_pagar_boleto", { id: "b1", parcela: 1, desfazer: true }, { db, propor: c.propor });
+  assert.deepEqual(c.lista[1].dados, { id: "b1", n: 1, pago: false });
+});
+
+test("propor_boleto, propor_transacao e propor_cartao: novo valida; com id, junta com o que já existe", async () => {
+  const db = bancoFalso({
+    "sis_financeiro/b1": boleto(),
+    "sis_financeiro/c1": { tipo: "cartao", nome: "Nubank", final: "1234", bandeira: "Mastercard", limite: 500000, fatura: 120000, venc: 10 }
+  });
+  const c = ctxPropor();
+  await executarFerramenta("propor_boleto", { fornecedor: "Atacadão", parcelas: [{ venc: "2026-11-01", valor_reais: 99.9, codigo: "abc" }] }, { db, propor: c.propor });
+  assert.equal(c.lista[0].acao, "salvarFinanceiro");
+  assert.equal(c.lista[0].dados.tipo, "boleto");
+  assert.equal(c.lista[0].dados.parcelas[0].valor, 9990);
+
+  await executarFerramenta("propor_boleto", { id: "b1", cnpj_antigo: true }, { db, propor: c.propor });
+  assert.equal(c.lista[1].dados.id, "b1");
+  assert.equal(c.lista[1].dados.tipo, undefined);
+  assert.equal(c.lista[1].dados.parcelas.length, 3);
+  assert.equal(c.lista[1].dados.cnpjAntigo, true);
+  assert.match(c.lista[1].resumo, /1ª .* \(já paga\)/);
+
+  await executarFerramenta("propor_transacao", { descricao: "Gás", valor_reais: 120, meio: "Dinheiro", data: "2026-10-05" }, { db, propor: c.propor });
+  assert.deepEqual(c.lista[2].dados, { tipo: "transacao", desc: "Gás", entrada: false, meio: "Dinheiro", data: "2026-10-05", valor: 12000 });
+
+  await executarFerramenta("propor_cartao", { id: "c1", fatura_reais: 0 }, { db, propor: c.propor });
+  assert.deepEqual(c.lista[3].dados, { id: "c1", nome: "Nubank", final: "1234", bandeira: "Mastercard", limite: 500000, fatura: 0, venc: 10 });
+
+  await assert.rejects(executarFerramenta("propor_transacao", { id: "b1", valor_reais: 1 }, { db, propor: c.propor }), /não é uma transação/);
+  await assert.rejects(executarFerramenta("propor_transacao", { valor_reais: 1 }, { db, propor: c.propor }), /descrição/);
+});
+
+test("buscar_financeiro acha parcela vencida; resumo_caixa junta pedidos, avulsos e boletos", async () => {
+  const db = bancoFalso({
+    "sis_financeiro/b1": boleto(),
+    "sis_financeiro/t1": { tipo: "transacao", desc: "Gás", entrada: false, meio: "Pix", data: "2026-10-02", valor: 12000 },
+    "sis_pagamentos/p1": { pedidoId: "PED-3012", valor: 5000, meio: "pix", por: "x", em: new Date("2026-10-02T15:00:00Z") },
+    "sis_pagamentos/p2": { pedidoId: "PED-3013", valor: 7000, meio: "cartao", por: "x", em: new Date("2026-09-20T15:00:00Z") }
+  });
+  const venc = await executarFerramenta("buscar_financeiro", { tipo: "boleto", situacao: "vencido" }, { db });
+  assert.equal(venc.quantidade, 1);
+  assert.match(venc.lancamentos[0], /2ª 03\/10/);
+  assert.doesNotMatch(venc.lancamentos[0], /3ª/);
+
+  const r = await executarFerramenta("resumo_caixa", { de: "2026-10-01", ate: "2026-10-05" }, { db });
+  assert.equal(r.entrou_de_pedidos, "R$ 50,00");
+  assert.equal(r.saidas_avulsas, "R$ 120,00");
+  assert.equal(r.boletos_pagos, "R$ 100,00");
+  assert.equal(r.boletos_a_vencer_sem_pagar.total, "R$ 100,00");
+});
+
+test("propor_produto mostra só o que muda; propor_recheios acrescenta e tira", async () => {
+  const db = bancoFalso(catalogoBase);
+  const c = ctxPropor();
+  await executarFerramenta("propor_produto", { id: "brig", preco_reais: 1.8 }, { db, propor: c.propor });
+  assert.equal(c.lista[0].dados.valorUnit, 180);
+  assert.equal(c.lista[0].dados.nome, "Brigadeiro");
+  assert.deepEqual(c.lista[0].resumo.split("\n").slice(1), ["Preço: R$ 1,50 → *R$ 1,80*"]);
+  await assert.rejects(executarFerramenta("propor_produto", { id: "brig", nome: "Brigadeiro" }, { db, propor: c.propor }), /Nada mudou/);
+
+  await executarFerramenta("propor_recheios", { adicionar: ["Morango", "ninho"], remover: ["Brigadeiro"] }, { db, propor: c.propor });
+  assert.deepEqual(c.lista[1].dados, { lista: ["Ninho", "Morango"] });
+});
+
+test("Telegram: só os IDs de TELEGRAM_IA_IDS falam com a assistente", async () => {
+  const { iaPermitida } = await import("../src/telegram.js");
+  assert.equal(iaPermitida({}, 7), true);
+  assert.equal(iaPermitida({ TELEGRAM_IA_IDS: "7, 8" }, 8), true);
+  assert.equal(iaPermitida({ TELEGRAM_IA_IDS: "7, 8" }, 9), false);
+
+  const db = bancoFalso();
+  const canal = { ...canalFalso(), autoriza: msg => iaPermitida({ TELEGRAM_IA_IDS: "7" }, msg.uid) };
+  const claude = claudeFalso([{ stop_reason: "end_turn", content: [{ type: "text", text: "Oi!" }] }]);
+  await tratarMensagem({ env: {}, db, msg: { id: "t1", de: "telegram", uid: 9, tipo: "text", texto: "oi" }, executar: null, claude, canal });
+  assert.equal(canal.envios.length, 0);
+  await tratarMensagem({ env: {}, db, msg: { id: "t2", de: "telegram", uid: 7, tipo: "text", texto: "oi" }, executar: null, claude, canal });
+  assert.equal(canal.envios.at(-1)[1], "Oi!");
+});
+
+test("confirmação de ação do financeiro responde com o texto dela", async () => {
+  const db = bancoFalso({ "sis_ia/5538": { pendentes: { abc: { acao: "pagarBoleto", dados: { id: "b1", n: 2, pago: true }, resumo: "x", criadoEm: new Date() } } } });
+  let resposta;
+  await responderBotao({ env: {}, db, numero: "5538", botao: "ok:abc", executar: async () => ({ mudou: true }), enviar: { texto: async t => { resposta = t; } } });
+  assert.match(resposta, /2ª parcela marcada como paga/);
 });

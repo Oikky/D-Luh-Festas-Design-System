@@ -80,6 +80,7 @@ function lerUpdate(env, u) {
       // Uma conversa só para o tópico: qualquer um da equipe pode confirmar o que a IA propôs.
       de: "telegram",
       nome: quemE(m.from),
+      uid: m.from?.id,
       tipo: m.text ? "text" : voz ? "audio" : "outro",
       texto: m.text || "",
       ...(voz ? { midia: voz.file_id } : {})
@@ -87,12 +88,23 @@ function lerUpdate(env, u) {
   };
 }
 
-/* A assistente no tópico IA. Quem está no grupo é da equipe, então não passa pela lista de números. */
+/* Quem fala com a assistente no tópico IA: os IDs de usuário do Telegram em TELEGRAM_IA_IDS
+   (separados por vírgula). Vazio = qualquer um do grupo, como era antes. */
+const iaPermitida = (env, uid) => {
+  const ids = String(env.TELEGRAM_IA_IDS || "").split(",").map(s => s.trim()).filter(Boolean);
+  return !ids.length || ids.includes(String(uid));
+};
+
+/* A assistente no tópico IA. No lugar da lista de números do WhatsApp vale TELEGRAM_IA_IDS. */
 const canalTelegram = (env, fetchFn) => ({
-  confiavel: true,
+  autoriza: msg => {
+    const ok = iaPermitida(env, msg.uid);
+    if (!msg.botao) console.log(JSON.stringify({ msg: "IA no Telegram", uid: msg.uid, nome: msg.nome, ok }));
+    return ok;
+  },
   baixarAudio: msg => baixarArquivo(env, msg.midia, fetchFn),
   texto: (_, t) => enviar(env, "ia", t, null, fetchFn),
   botoes: (_, t, b) => enviar(env, "ia", t, b.map(x => ({ ...x, id: `ia:${x.id}` })), fetchFn)
 });
 
-export { telegramLigado, topicos, enviar, fecharMensagem, responderToque, quemE, lerUpdate, canalTelegram, chamar };
+export { telegramLigado, topicos, enviar, fecharMensagem, responderToque, quemE, lerUpdate, canalTelegram, iaPermitida, chamar };
