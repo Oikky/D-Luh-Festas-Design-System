@@ -13,6 +13,10 @@ const TABS = [
   { id: "cancelado", label: "Cancelados", filtro: ["Cancelado"] }
 ];
 
+/* Pedido só vai para a impressora a partir de "Em produção": antes disso ainda pode mudar ou não sair. */
+const ANTES_DA_PRODUCAO = ["Aguardando confirmação", "Verificando Estoque", "Confirmado — Esperando pagamento"];
+const podeImprimir = p => !ANTES_DA_PRODUCAO.includes(p.status);
+
 const valor = s => Number(String(s || "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
 const REAL = () => window.DLUH_API.modo === "firebase";
 const reais = c => window.brl((c || 0) / 100);
@@ -189,7 +193,7 @@ function DetalhesModal({ pedido, onClose, onToast, acao, pendente, compact, prod
       subtitle={cancelado ? "Pedido cancelado: dá pra ver e imprimir, mas não editar." : "Edite cliente, entrega e itens. O total e o que falta pagar se ajustam sozinhos."}
       footer={<>
         <Button variant="ghost" block onClick={fechar}>{mudou ? "Descartar" : "Fechar"}</Button>
-        <Button variant="ghost" block icon="printer" onClick={() => window.imprimirPedido(pedido, produtos) || onToast("O navegador bloqueou a janela de impressão", "danger")}>Imprimir</Button>
+        {podeImprimir(pedido) ? <Button variant="ghost" block icon="printer" onClick={() => window.imprimirPedido(pedido, produtos) || onToast("O navegador bloqueou a janela de impressão", "danger")}>Imprimir</Button> : null}
         {cancelado ? null : <Button block icon="save" loading={pendente === "salvar"} onClick={salvar}>{mudou ? "Salvar alterações" : "Salvar"}</Button>}
       </>}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
@@ -314,7 +318,7 @@ function Pedidos({ compact, q }) {
               { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
               { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
               { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
-              { label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) },
+              ...(podeImprimir(p) ? [{ label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) }] : []),
               ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
               { divider: true },
               { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) },
