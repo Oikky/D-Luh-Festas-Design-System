@@ -22,7 +22,6 @@ const REAL = () => window.DLUH_API.modo === "firebase";
 const reais = c => window.brl((c || 0) / 100);
 /* What "Cobrar entrada" will ask for: the order's entry share (50% or 100%) minus what came in. */
 const entradaDe = p => p._c ? reais(Math.max(0, Math.round(p._c.total * p._c.entradaPct / 100) - p._c.pago)) : p.falta;
-const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 const para = p => p.cliente || "o cliente";
 const semAcento = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 /* Nome, número do pedido ou telefone; sem diferença de maiúscula e acento, e o telefone casa só pelos dígitos. */
@@ -54,10 +53,6 @@ const CONFIRMA = {
     message: `Gera o link de pagamento do restante para enviar a ${para(p)}.` + (p.falta ? "" : " O valor do restante não está preenchido neste pedido."),
     confirmLabel: "Sim, gerar link", ok: "Link do restante gerado", falhou: "Não deu pra gerar a cobrança do restante",
     pedido: async chamar => ({ ...(await chamar("gerarCobranca", { pedidoId: p.id, tipo: "restante" })), rotulo: "Restante" }) }),
-  pago: p => ({ tone: "success", icon: "badge-check", title: p.falta ? `Marcar como pago (${p.falta})?` : "Marcar como pago?",
-    message: `Registra que ${para(p)} pagou o que faltava, fora do link. Nenhuma cobrança é enviada.`,
-    confirmLabel: "Sim, marcar pago", ok: "Pagamento registrado", falhou: "Não deu pra registrar o pagamento",
-    pedido: p._c ? { acao: "registrarPagamentoManual", dados: { pedidoId: p.id, valor: p._c.falta, meio: p._c.formaPagamento || "outro", chave: uuid() } } : undefined }),
   /* Libera a cozinha sem esperar a entrada: o que falta pagar continua em aberto no pedido. */
   producao: p => ({ tone: "accent", icon: "chef-hat", title: "Mandar para produção?",
     message: `O pedido vai para Em produção e entra na fila da cozinha, mesmo sem a entrada paga.` + (p.falta ? ` Continua faltando ${p.falta} de ${para(p)}.` : ""),
@@ -322,7 +317,6 @@ function Pedidos({ compact, q }) {
           {lista.map(p => {
             const menu = <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
               { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
-              { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
               { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
               ...(podeImprimir(p) ? [{ label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) }]
                 : [{ label: "Mandar para produção", icon: "chef-hat", onClick: () => pede("producao", p) }]),
