@@ -58,6 +58,12 @@ const CONFIRMA = {
     message: `Registra que ${para(p)} pagou o que faltava, fora do link. Nenhuma cobrança é enviada.`,
     confirmLabel: "Sim, marcar pago", ok: "Pagamento registrado", falhou: "Não deu pra registrar o pagamento",
     pedido: p._c ? { acao: "registrarPagamentoManual", dados: { pedidoId: p.id, valor: p._c.falta, meio: p._c.formaPagamento || "outro", chave: uuid() } } : undefined }),
+  /* Libera a cozinha sem esperar a entrada: o que falta pagar continua em aberto no pedido. */
+  producao: p => ({ tone: "accent", icon: "chef-hat", title: "Mandar para produção?",
+    message: `O pedido vai para Em produção e entra na fila da cozinha, mesmo sem a entrada paga.` + (p.falta ? ` Continua faltando ${p.falta} de ${para(p)}.` : ""),
+    confirmLabel: "Sim, mandar", ok: "Pedido em produção", falhou: "Não deu pra mandar para produção",
+    aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Em produção" } : x),
+    pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Em produção", motivo: "liberado sem pagamento" } } }),
   cancelar: p => ({ tone: "danger", icon: "circle-x", title: "Cancelar pedido?",
     message: "O pedido vai para Cancelados e sai da fila da cozinha. O histórico continua guardado.", confirmLabel: "Sim, cancelar",
     ok: "Pedido cancelado", falhou: "Não deu pra cancelar o pedido",
@@ -318,7 +324,8 @@ function Pedidos({ compact, q }) {
               { label: "Copiar dados do pedido", icon: "copy", onClick: () => copiarPedido(p, showToast) },
               { label: "Marcar como pago", icon: "badge-check", onClick: () => pede("pago", p) },
               { label: "Notificar alterações", icon: "bell-ring", onClick: () => acao("notificar-" + p.id, { ok: "Cliente avisado no WhatsApp", falhou: "Não deu pra avisar o cliente" }, null, { acao: "avisarCliente", dados: { pedidoId: p.id } }) },
-              ...(podeImprimir(p) ? [{ label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) }] : []),
+              ...(podeImprimir(p) ? [{ label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) }]
+                : [{ label: "Mandar para produção", icon: "chef-hat", onClick: () => pede("producao", p) }]),
               ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
               { divider: true },
               { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) },
