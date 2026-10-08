@@ -21,6 +21,8 @@ const MAX_HISTORICO = 24;
 const MAX_VOLTAS = 8;
 const PRAZO_TOTAL = 24e3;              // o Worker tem ~30s depois de responder à Meta
 
+const MIDIAS = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+
 const iaPronta = env => !!env.ANTHROPIC_API_KEY && !!env.IA_NUMEROS;
 const iaNoTelegram = env => !!env.ANTHROPIC_API_KEY;
 
@@ -41,6 +43,13 @@ Como responder:
 - Cada mensagem do usuário começa com a data e hora atuais entre colchetes. Calcule "hoje", "amanhã", "sábado", "essa semana" (segunda a domingo) e "esse mês" a partir dela. Pedidos são sempre filtrados pela data de entrega/retirada.
 - Os valores das ferramentas já vêm em reais formatados; use como vieram.
 - Mensagem que começa com "(áudio transcrito)" veio de um áudio e pode ter erro de transcrição. Nome, telefone, número de pedido ou valor que pareça estranho: confirme antes de usar.
+
+Foto ou PDF (a mensagem começa com "(mandou uma foto)" ou "(mandou um PDF)"):
+- Quase sempre é nota fiscal, cupom ou boleto de uma compra da loja. Leia e mostre o que entendeu, curto: fornecedor, data da compra, os itens principais resumidos (ex.: "farinha 25 kg, açúcar 10 kg e mais 6 itens") e o total; se for boleto, cada vencimento e valor.
+- Se a nota não disser como foi pago, pergunte só isso, dando as opções: Pix, dinheiro, cartão da loja (cite os cartões cadastrados, de buscar_financeiro tipo cartao) ou boleto. Se disser (ex.: "cartão de crédito final 4821"), já proponha.
+- Com a forma: Pix, dinheiro ou transferência → propor_transacao (saída, data da nota); cartão da loja → propor_compra_cartao (data da nota; parcelas se a nota mostrar); boleto → propor_boleto. Descrição: "Fornecedor · itens principais".
+- A imagem não fica salva na conversa: deixe na sua resposta tudo que vai precisar depois (fornecedor, data, total, itens, parcelas).
+- Se não for nota (ex.: comprovante de Pix de cliente, foto de bolo), diga o que viu e pergunte o que fazer. Se não der para ler algum valor, diga qual e peça outra foto ou o número.
 
 Mudanças (qualquer coisa que grave ou mande mensagem: pedido novo ou alterado, status, pagamento, cobrança, aviso ao cliente, nota, boleto, caixa, cartão, produto, recheio):
 - Use as ferramentas propor_*. O sistema manda ao usuário o resumo e pede a confirmação; nada é gravado sem ela. Pode propor várias de uma vez.
@@ -78,10 +87,14 @@ async function carregar(db, numero, agora) {
 
 const textoDe = resp => resp.content.filter(b => b.type === "text").map(b => b.text).join("\n").trim();
 
-async function conversar({ env, db, numero, texto, agora = Date.now(), claude, enviar }) {
+/* `anexo` = { base64, mime } de uma foto ou PDF: vai só nesta chamada; no histórico fica o texto. */
+async function conversar({ env, db, numero, texto, anexo, agora = Date.now(), claude, enviar }) {
   const conv = await carregar(db, numero, agora);
   const entrada = `[${agoraTexto(agora)}]\n${texto}`;
-  const messages = [...conv.historico, { role: "user", content: entrada }];
+  const bloco = !anexo ? null : anexo.mime === "application/pdf"
+    ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: anexo.base64 } }
+    : { type: "image", source: { type: "base64", media_type: anexo.mime, data: anexo.base64 } };
+  const messages = [...conv.historico, { role: "user", content: bloco ? [bloco, { type: "text", text: entrada }] : entrada }];
   const propostas = [];
   const propor = (acao, dados, resumo) => {
     propostas.push({ id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), acao, dados, resumo, criadoEm: new Date(agora) });
@@ -218,7 +231,16 @@ async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
       if (!texto) return await enviar.texto("Não consegui entender o áudio. Pode mandar de novo ou escrever?");
       deAudio = true;
     }
-    if (!texto) return await enviar.texto("Por enquanto eu entendo texto e áudio 🙂");
+    let anexo = null;
+    if (msg.tipo === "imagem" && canal.baixarMidia) {
+      const mime = MIDIAS.includes(msg.mime) ? msg.mime : "image/jpeg";
+      const base64 = await canal.baixarMidia(msg);
+      if (!base64) return await enviar.texto("Não consegui abrir esse arquivo. Pode mandar de novo?");
+      if (base64.length > (mime === "application/pdf" ? 30e6 : 6.5e6)) return await enviar.texto("Esse arquivo é grande demais pra mim. Manda uma foto normal (não como documento) ou um PDF menor?");
+      anexo = { base64, mime };
+      texto = `(mandou ${mime === "application/pdf" ? "um PDF" : "uma foto"})${String(msg.texto || "").trim() ? ` ${String(msg.texto).trim()}` : ""}`;
+    }
+    if (!texto) return await enviar.texto("Por enquanto eu entendo texto, áudio, foto e PDF 🙂");
 
     const curta = texto.trim();
     if (SIM.test(curta) || NAO.test(curta)) {
@@ -228,8 +250,8 @@ async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
         return;
       }
     }
-    claude ||= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 20000, maxRetries: 1 });
-    await conversar({ env, db, numero, texto: deAudio ? `(áudio transcrito) ${texto}` : texto, claude, enviar });
+    claude ||= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: anexo ? 25000 : 20000, maxRetries: 1 });
+    await conversar({ env, db, numero, texto: deAudio ? `(áudio transcrito) ${texto}` : texto, anexo, claude, enviar });
   } catch (e) {
     console.error(JSON.stringify({ msg: "IA falhou", erro: String(e) }));
     await enviar.texto("Deu um erro aqui do meu lado. Tenta de novo daqui a pouco?").catch(() => {});

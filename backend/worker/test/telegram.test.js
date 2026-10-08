@@ -33,6 +33,15 @@ test("lerUpdate: voz no tópico IA vira áudio com o file_id", () => {
   assert.equal(u.msg.midia, "F1");
 });
 
+test("lerUpdate: foto ou PDF no tópico IA viram imagem com a legenda; outro arquivo não", () => {
+  const base = { message_id: 7, chat: grupo, from: { id: 7 }, message_thread_id: 174 };
+  const f = lerUpdate(env, { message: { ...base, caption: "nota do Atacadão", photo: [{ file_id: "P" }, { file_id: "G" }] } });
+  assert.deepEqual([f.msg.tipo, f.msg.midia, f.msg.mime, f.msg.texto], ["imagem", "G", "image/jpeg", "nota do Atacadão"]);
+  const d = lerUpdate(env, { message: { ...base, document: { file_id: "D", mime_type: "application/pdf" } } });
+  assert.deepEqual([d.msg.tipo, d.msg.mime], ["imagem", "application/pdf"]);
+  assert.equal(lerUpdate(env, { message: { ...base, document: { file_id: "Z", mime_type: "application/zip" } } }).msg.tipo, "outro");
+});
+
 test("enviar manda no tópico certo, com os botões em linhas", async () => {
   let corpo;
   const fetchFn = async (url, init) => { corpo = JSON.parse(init.body); return { status: 200, json: async () => ({ ok: true, result: {} }) }; };

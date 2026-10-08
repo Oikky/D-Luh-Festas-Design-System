@@ -51,7 +51,7 @@ const responderToque = (env, id, texto, fetchFn) =>
 
 const quemE = u => u?.username ? `@${u.username}` : [u?.first_name, u?.last_name].filter(Boolean).join(" ") || `id ${u?.id}`;
 
-/* Áudio (voz) do Telegram em base64, para o Whisper. */
+/* Arquivo do Telegram (voz, foto, PDF) em base64. */
 async function baixarArquivo(env, fileId, fetchFn = fetch) {
   const { file_path } = await chamar(env, "getFile", { file_id: fileId }, fetchFn);
   const res = await fetchFn(`https://api.telegram.org/file/bot${env.TELEGRAM_TOKEN}/${file_path}`, { signal: AbortSignal.timeout(15000) });
@@ -73,6 +73,9 @@ function lerUpdate(env, u) {
   const ia = topicos(env).ia;
   if (!ia || m.message_thread_id !== ia) return null;
   const voz = m.voice || m.audio;
+  // Foto vem em vários tamanhos (o último é o maior); imagem ou PDF mandado "como arquivo" vem em document.
+  const doc = /^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(m.document?.mime_type || "") ? m.document : null;
+  const foto = m.photo?.length ? m.photo[m.photo.length - 1] : null;
   return {
     tipo: "ia",
     msg: {
@@ -81,9 +84,10 @@ function lerUpdate(env, u) {
       de: "telegram",
       nome: quemE(m.from),
       uid: m.from?.id,
-      tipo: m.text ? "text" : voz ? "audio" : "outro",
-      texto: m.text || "",
-      ...(voz ? { midia: voz.file_id } : {})
+      tipo: m.text ? "text" : voz ? "audio" : foto || doc ? "imagem" : "outro",
+      texto: m.text || m.caption || "",
+      ...(voz ? { midia: voz.file_id } : {}),
+      ...(foto ? { midia: foto.file_id, mime: "image/jpeg" } : doc ? { midia: doc.file_id, mime: doc.mime_type } : {})
     }
   };
 }
@@ -103,6 +107,7 @@ const canalTelegram = (env, fetchFn) => ({
     return ok;
   },
   baixarAudio: msg => baixarArquivo(env, msg.midia, fetchFn),
+  baixarMidia: msg => baixarArquivo(env, msg.midia, fetchFn),
   texto: (_, t) => enviar(env, "ia", t, null, fetchFn),
   botoes: (_, t, b) => enviar(env, "ia", t, b.map(x => ({ ...x, id: `ia:${x.id}` })), fetchFn)
 });

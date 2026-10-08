@@ -33,12 +33,14 @@ function mensagensDe(corpo) {
   for (const entry of corpo?.entry || []) {
     for (const change of entry.changes || []) {
       for (const m of change.value?.messages || []) {
+        const arquivo = m.type === "image" || (m.type === "document" && /^(image\/|application\/pdf)/.test(m.document?.mime_type || "")) ? m[m.type] : null;
         saida.push({
           id: m.id,
           de: m.from,
-          tipo: m.type,
-          texto: m.type === "text" ? String(m.text?.body || "") : undefined,
-          midia: m.type === "audio" ? m.audio?.id : undefined,
+          tipo: arquivo ? "imagem" : m.type,
+          texto: m.type === "text" ? String(m.text?.body || "") : arquivo ? String(arquivo.caption || "") : undefined,
+          midia: m.type === "audio" ? m.audio?.id : arquivo ? arquivo.id : undefined,
+          mime: arquivo ? arquivo.mime_type : undefined,
           botao: m.type === "interactive" ? m.interactive?.button_reply?.id : m.type === "button" ? m.button?.payload : undefined
         });
       }
@@ -94,6 +96,7 @@ async function baixarMidia(env, mediaId, fetchFn = fetch) {
 
 const canalMeta = (env, fetchFn) => ({
   baixarAudio: msg => baixarMidia(env, msg.midia, fetchFn),
+  baixarMidia: msg => baixarMidia(env, msg.midia, fetchFn),
   texto: (numero, t) => enviarTexto(env, numero, t, fetchFn),
   botoes: (numero, t, b) => enviarBotoes(env, numero, t, b, fetchFn),
   lida: msg => marcarLida(env, msg.id, fetchFn)

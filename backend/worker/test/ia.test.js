@@ -248,6 +248,28 @@ test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do c
   assert.equal(mensagemEvolution({ event: "connection.update", data: {} }), null);
   assert.equal(mensagemEvolution(evento({ id: "5", remoteJid: "553899540665@s.whatsapp.net" }, { extendedTextMessage: { text: "e aí" } })).texto, "e aí");
   assert.equal(mensagemEvolution(evento({ id: "6", remoteJid: "553899540665@s.whatsapp.net" }, { audioMessage: { seconds: 4 } })).tipo, "audio");
+
+  const img = mensagemEvolution(evento({ id: "7", remoteJid: "553899540665@s.whatsapp.net" }, { imageMessage: { mimetype: "image/jpeg", caption: "nota" } }));
+  assert.deepEqual([img.tipo, img.mime, img.texto, !!img.bruta], ["imagem", "image/jpeg", "nota", true]);
+  const pdf = mensagemEvolution(evento({ id: "8", remoteJid: "553899540665@s.whatsapp.net" }, { documentMessage: { mimetype: "application/pdf" } }));
+  assert.deepEqual([pdf.tipo, pdf.mime], ["imagem", "application/pdf"]);
+});
+
+test("foto vai para o Claude como imagem; no histórico fica só o texto", async () => {
+  const db = bancoFalso();
+  const env = { IA_NUMEROS: "5538999540665" };
+  const canal = { ...canalFalso(), baixarMidia: async () => "SU1H" };
+  const pedidos = [];
+  const claude = { messages: { create: async req => (pedidos.push(structuredClone(req)), { stop_reason: "end_turn", content: [{ type: "text", text: "Atacadão, 05/10, R$ 212,40. Como pagou?" }] }) } };
+  const de = "553899540665";
+  await tratarMensagem({ env, db, msg: { id: "i1", de, tipo: "imagem", mime: "image/png", texto: "compra de hoje" }, executar: null, claude, canal });
+  const [bloco, texto] = pedidos[0].messages.at(-1).content;
+  assert.deepEqual(bloco, { type: "image", source: { type: "base64", media_type: "image/png", data: "SU1H" } });
+  assert.match(texto.text, /\(mandou uma foto\) compra de hoje/);
+  const h = db.docs.get(`sis_ia/${de}`).historico;
+  assert.equal(typeof h[0].content, "string");
+  assert.doesNotMatch(h[0].content, /SU1H/);
+  assert.equal(canal.envios.at(-1)[1], "Atacadão, 05/10, R$ 212,40. Como pagou?");
 });
 
 // ── Acesso total: pedidos ──

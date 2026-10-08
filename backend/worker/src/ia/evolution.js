@@ -1,6 +1,6 @@
 /* Canal da assistente pelo número da loja (Evolution). A Evolution manda TODOS os eventos da
    instância para /webhook/evolution/<EVOLUTION_WEBHOOK_TOKEN>; a assistente só fica com as
-   mensagens de texto dos números de IA_NUMEROS, e o resto segue para EVOLUTION_REPASSE (o destino
+   mensagens (texto, áudio, foto, PDF) dos números de IA_NUMEROS, e o resto segue para EVOLUTION_REPASSE (o destino
    que a Evolution usava antes), se houver. Sem botões aqui: confirma respondendo "sim"/"não". */
 import { enviarTexto } from "../whatsapp.js";
 
@@ -18,7 +18,7 @@ async function baixarAudio(env, msg, { fetchFn = fetch, esperas = [1000, 1500, 2
     });
     if (res.ok) {
       const { base64 } = await res.json();
-      if (!base64) throw new Error("Evolution não devolveu o áudio");
+      if (!base64) throw new Error("Evolution não devolveu a mídia");
       return base64;
     }
     const corpo = await res.text().catch(() => "");
@@ -38,13 +38,20 @@ function mensagemEvolution(corpo) {
   // Contas novas do WhatsApp chegam como "…@lid"; o número de verdade vem num campo ao lado.
   const comNumero = [k.senderPn, k.remoteJidAlt, jid].find(j => /@s\.whatsapp\.net$/.test(String(j || ""))) || jid;
   const m = d.message || {};
+  const doc = m.documentMessage || m.documentWithCaptionMessage?.message?.documentMessage;
+  const arquivo = m.imageMessage || (/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(doc?.mimetype || "") ? doc : null);
   const texto = m.conversation || m.extendedTextMessage?.text || "";
-  const tipo = texto ? "text" : m.audioMessage ? "audio" : d.messageType || "outro";
-  return { id: k.id, de: comNumero.split("@")[0], tipo, texto, ...(tipo === "audio" ? { bruta: { key: k, message: m } } : {}) };
+  const tipo = texto ? "text" : m.audioMessage ? "audio" : arquivo ? "imagem" : d.messageType || "outro";
+  return {
+    id: k.id, de: comNumero.split("@")[0], tipo, texto: texto || arquivo?.caption || "",
+    ...(tipo === "audio" || tipo === "imagem" ? { bruta: { key: k, message: m } } : {}),
+    ...(tipo === "imagem" ? { mime: String(arquivo.mimetype || "image/jpeg").split(";")[0] } : {})
+  };
 }
 
 const canalEvolution = env => ({
   baixarAudio: msg => baixarAudio(env, msg),
+  baixarMidia: msg => baixarAudio(env, msg),
   texto: (numero, t) => enviarTexto(env, numero, t),
   botoes: (numero, t) => enviarTexto(env, numero, `${t}\n\nResponda *sim* para confirmar ou *não* para cancelar.`)
 });
