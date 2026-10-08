@@ -322,10 +322,14 @@ const EXECUTAR_LOJA = {
       desc: e.fornecedor ?? antes?.desc, periodo: e.periodo ?? antes?.periodo,
       cnpjAntigo: e.cnpj_antigo ?? antes?.cnpjAntigo ?? false, arquivos: antes?.arquivos || [], parcelas
     };
+    const soAnexar = antes && e.arquivos?.length && e.fornecedor == null && e.parcelas == null && e.periodo == null && e.cnpj_antigo == null;
+    const anexo = { arquivos: [], parcelas: {} };
     for (const a of e.arquivos || []) {
       const url = String(a.url || "");
       if (!DO_DRIVE.test(url)) throw new ErroDominio("invalid-argument", "Só dá para anexar arquivo que veio pela conversa");
       const novo = { url, nome: "WhatsApp", pdf: url.startsWith("https://drive.google.com/file/") };
+      if (a.parcela == null) anexo.arquivos.push(novo);
+      else (anexo.parcelas[a.parcela] ||= []).push(novo);
       if (a.parcela == null) { dados.arquivos = [...dados.arquivos, novo]; continue; }
       const p = parcelas[a.parcela - 1];
       if (!p) throw new ErroDominio("invalid-argument", `O boleto não tem a parcela ${a.parcela}`);
@@ -333,6 +337,15 @@ const EXECUTAR_LOJA = {
     }
     const v = validarFinanceiro("boleto", dados);
     const total = v.parcelas.reduce((s, p) => s + p.valor, 0);
+    if (soAnexar) {
+      const n = e.arquivos.length;
+      const onde = Object.keys(anexo.parcelas).map(p => `${p}ª parcela`);
+      return propor("anexarArquivosBoleto", { id: antes.id, ...anexo }, [
+        `*Anexar ${n === 1 ? "arquivo" : `${n} arquivos`} ao boleto — confirma?*`,
+        `${v.desc} · ${brl(total)} em ${v.parcelas.length}x`,
+        `📎 ${[anexo.arquivos.length ? "no boleto" : null, ...onde].filter(Boolean).join(", ")}`
+      ].join("\n"));
+    }
     const anexos = v.arquivos.length + v.parcelas.reduce((s, p) => s + p.arquivos.length, 0);
     const resumo = [
       `*${antes ? "Corrigir boleto" : "Novo boleto"} — confirma?*`,
@@ -467,6 +480,7 @@ const EXECUTAR_LOJA = {
 
 const RESULTADO_LOJA = {
   salvarFinanceiro: (d, r) => `✅ ${r.criado ? "Lançado" : "Atualizado"} no financeiro.`,
+  anexarArquivosBoleto: (d, r) => `✅ Anexado. O boleto está com ${r.total} ${r.total === 1 ? "arquivo" : "arquivos"}.`,
   apagarFinanceiro: (d, r) => r.apagado ? "✅ Apagado do financeiro." : "Esse lançamento já não existia.",
   pagarBoleto: (d, r) => !r.mudou ? "Essa parcela já estava assim." : d.pago ? `✅ ${d.n}ª parcela marcada como paga.` : `✅ ${d.n}ª parcela voltou a ficar em aberto.`,
   pagarFatura: (d, r) => !r.mudou ? "Essa fatura já estava assim." : d.pago ? `✅ Fatura paga: ${brl(r.valor)} saiu do caixa.` : "✅ A fatura voltou a ficar em aberto.",

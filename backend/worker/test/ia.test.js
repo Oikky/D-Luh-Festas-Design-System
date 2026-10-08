@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { assinaturaValida, mensagensDe } from "../src/ia/meta.js";
 import { autorizado, conversar, responderBotao, tratarMensagem } from "../src/ia/assistente.js";
 import { executarFerramenta } from "../src/ia/ferramentas.js";
+import { anexarArquivosBoleto } from "../src/financeiro.js";
 import { mensagemEvolution, canalEvolution, baixarAudio } from "../src/ia/evolution.js";
 
 /* Firestore de mentira, em memória, com a mesma forma que o código usa. */
@@ -477,4 +478,21 @@ test("confirmação de ação do financeiro responde com o texto dela", async ()
   let resposta;
   await responderBotao({ env: {}, db, numero: "5538", botao: "ok:abc", executar: async () => ({ mudou: true }), enviar: { texto: async t => { resposta = t; } } });
   assert.match(resposta, /2ª parcela marcada como paga/);
+});
+
+test("anexar foto a boleto já lançado: duas propostas confirmadas em seguida somam as duas fotos", async () => {
+  const db = bancoFalso({ "sis_financeiro/b1": boleto() });
+  const c = ctxPropor();
+  const foto = id => `https://lh3.googleusercontent.com/d/${id}`;
+  await executarFerramenta("propor_boleto", { id: "b1", arquivos: [{ url: foto("nota") }] }, { db, propor: c.propor });
+  await executarFerramenta("propor_boleto", { id: "b1", arquivos: [{ url: foto("bol2"), parcela: 2 }] }, { db, propor: c.propor });
+  assert.deepEqual(c.lista.map(p => p.acao), ["anexarArquivosBoleto", "anexarArquivosBoleto"]);
+  assert.match(c.lista[1].resumo, /📎 2ª parcela/);
+
+  for (const p of c.lista) await anexarArquivosBoleto(db, p.dados, "ia:5538");
+  await anexarArquivosBoleto(db, c.lista[0].dados, "ia:5538"); // repetida não duplica
+  const b = db.docs.get("sis_financeiro/b1");
+  assert.deepEqual(b.arquivos.map(a => a.url), [foto("nota")]);
+  assert.deepEqual(b.parcelas[1].arquivos.map(a => a.url), [foto("bol2")]);
+  assert.equal(b.parcelas[0].pago, true);
 });

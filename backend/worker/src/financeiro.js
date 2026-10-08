@@ -121,6 +121,23 @@ async function salvarFinanceiro(db, { id, tipo, ...dados }, por) {
   });
 }
 
+/* Soma fotos/PDFs a um boleto sem mexer no resto, lendo o boleto na hora de gravar: duas propostas
+   de anexo confirmadas em seguida (uma por foto) ficam as duas. `parcelas` = { "<n>": [arquivo] }. */
+async function anexarArquivosBoleto(db, { id, arquivos: doBoleto = [], parcelas: porParcela = {} }, por) {
+  const ref = db.collection(FINANCEIRO).doc(String(id || ""));
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists || snap.get("tipo") !== "boleto") throw new ErroDominio("not-found", "Esse boleto não existe mais");
+    const somar = (atuais, novos) => [...atuais, ...arquivos(novos).filter(a => !atuais.some(b => b.url === a.url))];
+    const ps = parcelasDe(snap.data()).map(p => ({ ...p, arquivos: somar(p.arquivos || [], porParcela[p.n] || []) }));
+    for (const n of Object.keys(porParcela)) if (!ps.some(p => String(p.n) === n)) throw new ErroDominio("invalid-argument", `O boleto não tem a parcela ${n}`);
+    const lista = somar(snap.get("arquivos") || [], doBoleto);
+    if (lista.length > 10 || ps.some(p => p.arquivos.length > 10)) throw new ErroDominio("invalid-argument", "No máximo 10 arquivos por boleto ou parcela");
+    tx.update(ref, { arquivos: lista, parcelas: ps, atualizadoEm: new Date(), por });
+    return { id: ref.id, total: lista.length + ps.reduce((s, p) => s + p.arquivos.length, 0) };
+  });
+}
+
 /* Boleto lançado antes das parcelas existirem (um documento por parcela) vira um pai de uma parcela só. */
 function parcelasDe(d) {
   if (Array.isArray(d.parcelas)) return d.parcelas;
@@ -244,5 +261,5 @@ function hojeEmBrasilia() {
   return new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
 }
 
-export { salvarFinanceiro, apagarFinanceiro, pagarBoleto, pagarFatura, validar as validarFinanceiro, FINANCEIRO,
+export { salvarFinanceiro, anexarArquivosBoleto, apagarFinanceiro, pagarBoleto, pagarFatura, validar as validarFinanceiro, FINANCEIRO,
   faturaDaData, parcelasDaCompra, vencDaFatura, totalDaFatura, comprasDoCartao };

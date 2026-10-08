@@ -310,7 +310,8 @@ async function webhookInfinitepay(request, env, ctx) {
    pagamento não pede a senha da conta sistema: ali quem garante é o "sim" de um número autorizado. */
 const ACOES_DA_IA = {
   ...ACOES,
-  apagarPagamento: (db, { pagamentoId }, por) => pedidos.apagarPagamento(db, { pagamentoId }, por)
+  apagarPagamento: (db, { pagamentoId }, por) => pedidos.apagarPagamento(db, { pagamentoId }, por),
+  anexarArquivosBoleto: (db, dados, por) => financeiro.anexarArquivosBoleto(db, dados, por)
 };
 function executorDaIA(env, ctx, db) {
   return async (acao, dados, por) => {
