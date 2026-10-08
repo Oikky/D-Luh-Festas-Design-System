@@ -9,7 +9,8 @@ Uso:
   python tools/whats-historico.py --abrir                    (re)abre o backup depois de copiar um novo do celular
 
 Mídia: mostra o caminho da foto/PDF/áudio em C:\\WhatsAppBackup\\WhatsApp Business\\Media quando foi copiada;
-"(não copiada)" quando o celular não tinha mais ou a pasta não veio."""
+"não copiada" quando o arquivo não veio para o PC (as pastas Sent, do que a loja mandou, ficaram de fora);
+"não baixada no celular" quando o WhatsApp nunca baixou a mídia (só o celular, abrindo a conversa, pega)."""
 import argparse, datetime, os, re, sqlite3, subprocess, sys
 
 PASTA = r"C:\WhatsAppBackup"
@@ -63,7 +64,7 @@ def linhas(c, onde, params):
         partes = []
         if tipo in TIPOS:
             caminho = os.path.join(PASTA, "WhatsApp Business", arq.replace("/", os.sep)) if arq else None
-            onde_esta = caminho if caminho and os.path.exists(caminho) else "não copiada"
+            onde_esta = caminho if caminho and os.path.exists(caminho) else "não copiada" if arq else "não baixada no celular"
             partes.append(f"[{TIPOS[tipo]}{(' ' + nome) if nome else ''}: {onde_esta}]")
         t = texto or legenda
         if t:
