@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { assinaturaValida, mensagensDe } from "../src/ia/meta.js";
 import { autorizado, conversar, responderBotao, tratarMensagem } from "../src/ia/assistente.js";
 import { executarFerramenta } from "../src/ia/ferramentas.js";
-import { mensagemEvolution, baixarAudio } from "../src/ia/evolution.js";
+import { mensagemEvolution, canalEvolution, baixarAudio } from "../src/ia/evolution.js";
 
 /* Firestore de mentira, em memória, com a mesma forma que o código usa. */
 function bancoFalso(inicial = {}) {
@@ -239,7 +239,7 @@ test("áudio vazio ou sem transcrição pede para repetir", async () => {
   assert.match(canal.envios[0][1], /Não consegui entender o áudio/);
 });
 
-test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do campo ao lado do @lid", () => {
+test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do campo ao lado do @lid", async () => {
   const evento = (key, message = { conversation: "oi" }) => ({ event: "messages.upsert", data: { key, message, messageType: "conversation" } });
   assert.deepEqual(mensagemEvolution(evento({ id: "1", remoteJid: "553899540665@s.whatsapp.net" })), { id: "1", de: "553899540665", tipo: "text", texto: "oi" });
   assert.equal(mensagemEvolution(evento({ id: "2", remoteJid: "12345@lid", senderPn: "553899540665@s.whatsapp.net" })).de, "553899540665");
@@ -253,6 +253,9 @@ test("Evolution: só mensagem recebida de pessoa vira conversa; número vem do c
   assert.deepEqual([img.tipo, img.mime, img.texto, !!img.bruta], ["imagem", "image/jpeg", "nota", true]);
   const pdf = mensagemEvolution(evento({ id: "8", remoteJid: "553899540665@s.whatsapp.net" }, { documentMessage: { mimetype: "application/pdf" } }));
   assert.deepEqual([pdf.tipo, pdf.mime], ["imagem", "application/pdf"]);
+  const comMidia = mensagemEvolution(evento({ id: "9", remoteJid: "553899540665@s.whatsapp.net" }, { imageMessage: { mimetype: "image/jpeg" }, base64: "SU1H" }));
+  assert.equal(comMidia.base64, "SU1H");
+  assert.equal(await canalEvolution({}).baixarMidia(comMidia), "SU1H");
 });
 
 test("foto vai para o Claude como imagem; no histórico fica só o texto", async () => {

@@ -7,14 +7,14 @@ import { enviarTexto } from "../whatsapp.js";
 /* Baixa o áudio de uma mensagem recebida (o webhook vem sem a mídia). A Evolution procura a
    mensagem no banco dela, e o webhook costuma chegar antes de ela terminar de salvar — por isso
    tenta de novo algumas vezes ("Message not found") antes de desistir. */
-async function baixarAudio(env, msg, { fetchFn = fetch, esperas = [1000, 1500, 2000, 2500] } = {}) {
+async function baixarAudio(env, msg, { fetchFn = fetch, esperas = [1000, 1500, 2000, 2500], limite = 10000 } = {}) {
   const url = `${String(env.EVOLUTION_URL).replace(/\/$/, "")}/chat/getBase64FromMediaMessage/${encodeURIComponent(env.EVOLUTION_INSTANCE)}`;
   for (let tentativa = 0; ; tentativa++) {
     const res = await fetchFn(url, {
       method: "POST",
       headers: { apikey: env.EVOLUTION_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ message: msg.bruta || { key: { id: msg.id } }, convertToMp4: false }),
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(limite)
     });
     if (res.ok) {
       const { base64 } = await res.json();
@@ -45,13 +45,16 @@ function mensagemEvolution(corpo) {
   return {
     id: k.id, de: comNumero.split("@")[0], tipo, texto: texto || arquivo?.caption || "",
     ...(tipo === "audio" || tipo === "imagem" ? { bruta: { key: k, message: m } } : {}),
+    // Com "Webhook Base64" ligado na Evolution a mídia já vem aqui e não precisa ser buscada pelo túnel.
+    ...((tipo === "audio" || tipo === "imagem") && typeof m.base64 === "string" && m.base64 ? { base64: m.base64 } : {}),
     ...(tipo === "imagem" ? { mime: String(arquivo.mimetype || "image/jpeg").split(";")[0] } : {})
   };
 }
 
 const canalEvolution = env => ({
-  baixarAudio: msg => baixarAudio(env, msg),
-  baixarMidia: msg => baixarAudio(env, msg),
+  baixarAudio: async msg => msg.base64 || baixarAudio(env, msg),
+  // Foto pelo túnel até a Evolution demora mais que áudio.
+  baixarMidia: async msg => msg.base64 || baixarAudio(env, msg, { limite: 15000 }),
   texto: (numero, t) => enviarTexto(env, numero, t),
   botoes: (numero, t) => enviarTexto(env, numero, `${t}\n\nResponda *sim* para confirmar ou *não* para cancelar.`)
 });
