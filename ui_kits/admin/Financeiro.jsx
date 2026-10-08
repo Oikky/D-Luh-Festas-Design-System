@@ -17,15 +17,15 @@ const FIN_FORM = {
   cartoes: { titulo: "Novo cartão", editar: "Editar cartão", campos: [
     { id: "nome", rot: "Nome do cartão", span: 2, req: true }, { id: "final", rot: "Final", ph: "0000", req: true },
     { id: "bandeira", rot: "Bandeira", opcoes: ["Visa", "Mastercard", "Elo", "Outra"] },
-    { id: "limite", rot: "Limite", tipo: "dinheiro" }, { id: "fatura", rot: "Fatura atual", tipo: "dinheiro" },
-    { id: "venc", rot: "Dia do vencimento", tipo: "number" }] }
+    { id: "limite", rot: "Limite", tipo: "dinheiro" }, { id: "fatura", rot: "Já na fatura, sem compras lançadas", tipo: "dinheiro" },
+    { id: "fecha", rot: "Dia do fechamento", tipo: "number" }, { id: "venc", rot: "Dia do vencimento", tipo: "number" }] }
 };
 
 /* What each tab says when it has nothing yet, and the one action that fills it. */
 const FIN_VAZIO = {
   transacoes: { icone: "arrow-left-right", titulo: "Nenhuma transação neste mês", texto: "Pagamentos dos pedidos entram aqui sozinhos. Lance à mão as outras entradas e saídas do caixa." },
   boletos: { icone: "receipt", titulo: "Nenhum boleto registrado", texto: "Cada boleto guarda o fornecedor, a nota e as parcelas, com código e foto de cada uma." },
-  cartoes: { icone: "credit-card", titulo: "Nenhum cartão cadastrado", texto: "Cadastre os cartões da loja para acompanhar fatura, limite e vencimento." }
+  cartoes: { icone: "credit-card", titulo: "Nenhum cartão cadastrado", texto: "Cadastre os cartões da loja e lance cada compra: ela cai na fatura certa e só sai do caixa quando a fatura é paga." }
 };
 
 const MESES_FIN = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
@@ -44,14 +44,15 @@ const finErros = (f, v) => {
   });
   if (v.final && !/^\d{4}$/.test(v.final)) e.final = "Os 4 últimos números do cartão";
   if (v.venc && f === FIN_FORM.cartoes && !(Number(v.venc) >= 1 && Number(v.venc) <= 31)) e.venc = "Um dia entre 1 e 31";
+  if (v.fecha && f === FIN_FORM.cartoes && !(Number(v.fecha) >= 1 && Number(v.fecha) <= 31)) e.fecha = "Um dia entre 1 e 31";
   return e;
 };
 
 /* A stored entry as form values, and form values as what the Worker stores (centavos, ISO dates). */
 const formDe = x => x.tipo === "transacao" ? { desc: x.desc, tipo: x.entrada ? "Entrada" : "Saída", meio: x.meio, data: x.data, valor: reaisTexto(x.valor) }
-  : { nome: x.nome, final: x.final, bandeira: x.bandeira, limite: reaisTexto(x.limite), fatura: reaisTexto(x.fatura), venc: x.venc ? String(x.venc) : "" };
+  : { nome: x.nome, final: x.final, bandeira: x.bandeira, limite: reaisTexto(x.limite), fatura: reaisTexto(x.fatura), venc: x.venc ? String(x.venc) : "", fecha: x.fecha ? String(x.fecha) : "" };
 const finParaApi = (tab, v) => tab === "transacoes" ? { desc: v.desc.trim(), entrada: v.tipo === "Entrada", meio: v.meio, data: v.data, valor: paraCentavos(v.valor) }
-  : { nome: v.nome.trim(), final: v.final, bandeira: v.bandeira, limite: paraCentavos(v.limite), fatura: paraCentavos(v.fatura), venc: v.venc ? Number(v.venc) : null };
+  : { nome: v.nome.trim(), final: v.final, bandeira: v.bandeira, limite: paraCentavos(v.limite), fatura: paraCentavos(v.fatura), venc: v.venc ? Number(v.venc) : null, fecha: v.fecha ? Number(v.fecha) : null };
 
 function FinRegistro({ tab, item, hoje, onClose, onSave, salvando }) {
   const f = FIN_FORM[tab];
@@ -88,7 +89,8 @@ function transacoesDoMes(docs, pags, pedidos, mes) {
     ...docs.filter(x => x.tipo === "transacao" && (x.data || "").startsWith(mes)).map(x => ({ ...x, fonte: "manual" })),
     ...pags.filter(p => (p.data || "").startsWith(mes)).map(p => ({ id: p.id, fonte: "pedido", pedidoId: p.pedidoId, entrada: true, meio: p.meio,
       data: p.data, valor: p.valor, desc: [nome.get(p.pedidoId), p.pedidoId].filter(Boolean).join(" · ") })),
-    ...window.parcelasPagasNoMes(docs, mes)
+    ...window.parcelasPagasNoMes(docs, mes),
+    ...window.faturasPagasNoMes(docs, mes)
   ].sort((a, b) => (b.data || "").localeCompare(a.data || ""));
 }
 
@@ -96,17 +98,26 @@ function transacoesDoMes(docs, pags, pedidos, mes) {
 const boletoLocal = (antigo, dados) => ({ ...antigo, ...dados,
   parcelas: dados.parcelas.map((p, i) => { const a = antigo && window.parcelasDoBoleto(antigo)[i]; return { ...p, n: i + 1, pago: !!(a && a.pago), pagoEm: a && a.pago ? a.pagoEm : null }; }) });
 const pagarLocal = (b, n, pago, dia) => ({ ...b, parcelas: window.parcelasDoBoleto(b).map(p => p.n === n ? { ...p, pago, pagoEm: pago ? dia : null } : p) });
+const faturaLocal = (c, f, pago, v) => {
+  const faturas = { ...(c.faturas || {}) };
+  if (pago) { faturas[f.mes] = { pagoEm: v.data, valor: f.total, outros: f.outros, meio: v.meio }; return { ...c, faturas, fatura: 0 }; }
+  const outros = (faturas[f.mes] || {}).outros || 0; delete faturas[f.mes];
+  return { ...c, faturas, fatura: (c.fatura || 0) + outros };
+};
 
 /* `alvo` = { boleto, n }: alguém clicou numa parcela fora daqui (Agenda, Visão geral); abre o pai com
-   ela marcada. { aba: "boletos" } só abre a aba. */
+   ela marcada. { cartao, mes }: abre o cartão naquela fatura. { aba: "boletos" } só abre a aba. */
 function Financeiro({ compact, onQ, onView, alvo }) {
   const REAL = window.DLUH_API.modo === "firebase";
   const hoje = window.DLUH_API.hoje();
-  const [tab, setTab] = React.useState(alvo && (alvo.boleto || alvo.aba === "boletos") ? "boletos" : "transacoes");
+  const [tab, setTab] = React.useState(alvo && (alvo.boleto || alvo.aba === "boletos") ? "boletos" : alvo && alvo.cartao ? "cartoes" : "transacoes");
   const [mes, setMes] = React.useState(hoje.slice(0, 7));
   const [form, setForm] = React.useState(null); // { item, deDetalhe } — item null = novo
   const [aberto, setAberto] = React.useState(() => alvo && alvo.boleto ? { id: alvo.boleto, n: alvo.n } : null); // boleto aberto
   const [apagar, setApagar] = React.useState(null);
+  const [cartaoAberto, setCartaoAberto] = React.useState(() => alvo && alvo.cartao ? { id: alvo.cartao, mes: alvo.mes } : null);
+  const [compra, setCompra] = React.useState(null); // { item, cartaoId } — item null = nova
+  const [pagando, setPagando] = React.useState(null); // fatura sendo paga
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   const fin = useAoVivo("financeiro");
@@ -115,6 +126,7 @@ function Financeiro({ compact, onQ, onView, alvo }) {
   React.useEffect(() => {
     if (alvo && (alvo.boleto || alvo.aba === "boletos")) setTab("boletos");
     if (alvo && alvo.boleto) setAberto({ id: alvo.boleto, n: alvo.n });
+    if (alvo && alvo.cartao) { setTab("cartoes"); setCartaoAberto({ id: alvo.cartao, mes: alvo.mes }); }
   }, [alvo]);
   /* The demo has no server to echo a write back, so it edits its own copy; the real system
      waits for Firestore to send the change. */
@@ -134,6 +146,7 @@ function Financeiro({ compact, onQ, onView, alvo }) {
   const lista = listas[tab] || [];
   const nomeDe = x => x.desc || (x.nome ? x.nome + " · final " + x.final : "este registro");
   const boletoAberto = aberto && listas.boletos.find(x => x.id === aberto.id);
+  const cartaoDetalhe = cartaoAberto && listas.cartoes.find(x => x.id === cartaoAberto.id);
   const fornecedores = [...new Set(listas.boletos.map(x => x.desc).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   const salvar = async v => {
@@ -152,12 +165,27 @@ function Financeiro({ compact, onQ, onView, alvo }) {
     setForm(null);
     setAberto({ id: item ? item.id : REAL ? r.id : idLocal });
   };
-  const fecharForm = () => { if (form.deDetalhe) setAberto({ id: form.item.id }); setForm(null); };
+  const fecharForm = () => { if (form.deDetalhe) form.item.tipo === "cartao" ? setCartaoAberto({ id: form.item.id }) : setAberto({ id: form.item.id }); setForm(null); };
+  const salvarCompra = async dados => {
+    const item = compra.item;
+    const ok = await acao("compra", { ok: item ? "Compra corrigida" : "Compra lançada", falhou: "Não deu pra salvar a compra" },
+      local(l => item ? l.map(x => x.id === item.id ? { ...x, ...dados } : x) : [{ id: "d" + Date.now(), tipo: "compra", ...dados }, ...l]),
+      { acao: "salvarFinanceiro", dados: item ? { id: item.id, ...dados } : { tipo: "compra", ...dados } });
+    if (!ok) return;
+    setCompra(null);
+    setCartaoAberto({ id: dados.cartaoId, mes: window.parcelasDaCompraCartao(dados, (listas.cartoes.find(c => c.id === dados.cartaoId) || {}).fecha)[0].fatura });
+  };
+  const pagarFatura = (c, f, pago, v) => acao(`fatura-${c.id}-${f.mes}`,
+    { ok: pago ? "Fatura paga" : "Pagamento desfeito", falhou: pago ? "Não deu pra pagar a fatura" : "Não deu pra desfazer o pagamento" },
+    local(l => l.map(y => y.id === c.id ? faturaLocal(y, f, pago, v) : y)),
+    { acao: "pagarFatura", dados: pago ? { id: c.id, mes: f.mes, pago: true, data: v.data, meio: v.meio } : { id: c.id, mes: f.mes, pago: false } });
   const remover = async x => {
     const ok = await acao("remover", { ok: "Registro removido", falhou: "Não deu pra remover o registro" },
       local(l => l.filter(y => y.id !== x.id)), { acao: "apagarFinanceiro", dados: { id: x.id } });
     setApagar(null);
     if (ok && aberto && aberto.id === x.id) setAberto(null);
+    if (ok && cartaoAberto && cartaoAberto.id === x.id) setCartaoAberto(null);
+    if (ok && x.tipo === "compra") setCartaoAberto({ id: x.cartaoId });
   };
   const pagarParcela = (b, n, pago) => acao(`pagar-${b.id}-${n}`,
     { ok: pago ? "Parcela marcada como paga" : "Pagamento desfeito", falhou: pago ? "Não deu pra marcar a parcela como paga" : "Não deu pra desfazer o pagamento" },
@@ -198,22 +226,21 @@ function Financeiro({ compact, onQ, onView, alvo }) {
             <FN.Badge tone={entradas - saidas < 0 ? "warn" : "accent"} icon="scale">Saldo {entradas - saidas < 0 ? "− " : ""}{reaisC(Math.abs(entradas - saidas))}</FN.Badge>
           </> : tab === "boletos" && abertas.length ? <FN.Badge tone="warn" icon="clock">Em aberto {reaisC(abertas.reduce((s, p) => s + (p.valor || 0), 0))}</FN.Badge> : null}
           <div style={{ flex: 1 }} />
+          {tab === "cartoes" && lista.length ? <FN.Button size="sm" variant="outline" icon="shopping-bag" onClick={() => setCompra({ item: null })}>Nova compra</FN.Button> : null}
           {lista.length || tab === "transacoes" ? <FN.Button size="sm" icon="plus" onClick={() => setForm({ item: null })}>{t.acao}</FN.Button> : null}
         </div>
         <FN.Card padded={!!lista.length} bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {!lista.length ? vazio : tab === "transacoes" ? lista.map(x => (
-            <FN.ListRow key={x.fonte + x.id} icon={x.fonte === "pedido" ? "receipt-text" : x.fonte === "boleto" ? "receipt" : x.entrada ? "arrow-down-left" : "arrow-up-right"}
+            <FN.ListRow key={x.fonte + x.id} icon={x.fonte === "pedido" ? "receipt-text" : x.fonte === "boleto" ? "receipt" : x.fonte === "fatura" ? "credit-card" : x.entrada ? "arrow-down-left" : "arrow-up-right"}
               title={x.desc || "Sem descrição"}
-              subtitle={[dataCurta(x.data), x.meio, x.fonte === "pedido" ? "pagamento de pedido" : x.fonte === "boleto" ? "parcela paga" : null].filter(Boolean).join(" · ")}
+              subtitle={[dataCurta(x.data), x.meio, x.fonte === "pedido" ? "pagamento de pedido" : x.fonte === "boleto" ? "parcela paga" : x.fonte === "fatura" ? "fatura do cartão" : null].filter(Boolean).join(" · ")}
               value={x.valor == null ? "—" : (x.entrada ? "+ " : "− ") + reaisC(x.valor)} tone={x.entrada ? "in" : "out"}
-              onClick={x.fonte === "manual" ? editar(x) : x.fonte === "pedido" ? () => abrirPedido(x.pedidoId) : () => { setTab("boletos"); setAberto({ id: x.boletoId, n: x.n }); }}
+              onClick={x.fonte === "manual" ? editar(x) : x.fonte === "pedido" ? () => abrirPedido(x.pedidoId)
+                : x.fonte === "fatura" ? () => { setTab("cartoes"); setCartaoAberto({ id: x.cartaoId, mes: x.mesFatura }); }
+                : () => { setTab("boletos"); setAberto({ id: x.boletoId, n: x.n }); }}
               trailing={x.fonte === "manual" ? lixo(x) : null} />
           )) : tab === "boletos" ? <window.ListaBoletos boletos={lista} hoje={hoje} compact={compact} onAbrir={id => setAberto({ id })} />
-          : lista.map(x => (
-            <FN.ListRow key={x.id} icon="credit-card" title={(x.nome || "Cartão") + " · final " + (x.final || "—")} onClick={editar(x)}
-              subtitle={[x.bandeira, x.venc ? "vence dia " + x.venc : null, x.limite ? "limite " + reaisC(x.limite) : null].filter(Boolean).join(" · ")}
-              value={x.fatura == null ? "—" : reaisC(x.fatura)} trailing={lixo(x)} />
-          ))}
+          : <window.ListaCartoes cartoes={lista} docs={docs} hoje={hoje} compact={compact} onAbrir={id => setCartaoAberto({ id })} />}
         </FN.Card>
       </>}
 
@@ -222,9 +249,21 @@ function Financeiro({ compact, onQ, onView, alvo }) {
         onPagar={(n, pago) => pagarParcela(boletoAberto, n, pago)}
         onEditar={() => { setForm({ item: boletoAberto, deDetalhe: true }); setAberto(null); }}
         onApagar={() => setApagar(boletoAberto)} /> : null}
+      {cartaoDetalhe && !form && !apagar && !compra && !pagando ? <window.CartaoDetalhe key={cartaoDetalhe.id + ":" + (cartaoAberto.mes || "")} cartao={cartaoDetalhe} docs={docs} hoje={hoje}
+        mesInicial={cartaoAberto.mes} pendente={pendente} onClose={() => setCartaoAberto(null)}
+        onEditar={() => setForm({ item: cartaoDetalhe, deDetalhe: true })}
+        onApagar={() => setApagar(cartaoDetalhe)}
+        onNovaCompra={() => setCompra({ item: null, cartaoId: cartaoDetalhe.id })}
+        onAbrirCompra={c => setCompra({ item: c })}
+        onPagar={f => setPagando(f)}
+        onDesfazer={m => pagarFatura(cartaoDetalhe, { mes: m }, false)} /> : null}
+      {pagando && cartaoDetalhe ? <window.PagarFatura cartao={cartaoDetalhe} fatura={pagando} hoje={hoje} salvando={pendente === `fatura-${cartaoDetalhe.id}-${pagando.mes}`}
+        onClose={() => setPagando(null)} onSave={async v => { if (await pagarFatura(cartaoDetalhe, pagando, true, v)) { setCartaoAberto({ id: cartaoDetalhe.id, mes: pagando.mes }); setPagando(null); } }} /> : null}
+      {compra && !apagar ? <window.CompraForm item={compra.item} cartaoId={compra.cartaoId} cartoes={listas.cartoes} hoje={hoje} salvando={pendente === "compra"}
+        onClose={() => setCompra(null)} onSave={salvarCompra} onApagar={() => { setApagar(compra.item); setCompra(null); }} /> : null}
       {form && tab === "boletos" ? <window.BoletoForm item={form.item} fornecedores={fornecedores} hoje={hoje} enviar={enviar}
         onClose={fecharForm} onSave={salvarBoleto} salvando={pendente === "salvar"} />
-        : form ? <FinRegistro tab={tab} item={form.item} hoje={hoje} onClose={() => setForm(null)} onSave={salvar} salvando={pendente === "salvar"} /> : null}
+        : form ? <FinRegistro tab={tab} item={form.item} hoje={hoje} onClose={fecharForm} onSave={salvar} salvando={pendente === "salvar"} /> : null}
       {apagar ? <FN.ConfirmDialog tone="danger" icon="trash-2" title={apagar.tipo === "boleto" ? "Apagar boleto?" : "Remover registro?"}
         message={apagar.tipo === "boleto" ? `O boleto de ${nomeDe(apagar)} sai do financeiro com todas as parcelas. Não dá pra desfazer.` : nomeDe(apagar) + " sai do financeiro. Não dá pra desfazer."}
         pending={pendente === "remover"}

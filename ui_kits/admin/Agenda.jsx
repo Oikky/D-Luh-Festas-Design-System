@@ -127,7 +127,8 @@ function Agenda({ compact, onView }) {
   /* Boletos vêm do financeiro: cada parcela no dia do vencimento. Se o financeiro não carregar, a
      agenda segue só com as encomendas. */
   const fin = useAoVivo("financeiro");
-  const abrirBoleto = x => x.boletoId ? () => onView && onView("financeiro", { boleto: x.boletoId, n: x.n }) : undefined;
+  const abrirBoleto = x => x.boletoId ? () => onView && onView("financeiro", { boleto: x.boletoId, n: x.n })
+    : x.cartaoId ? () => onView && onView("financeiro", { cartao: x.cartaoId, mes: x.mesFatura }) : undefined;
   const [filtro, setFiltro] = React.useState("tudo");
   const [sel, setSel] = React.useState(hoje);
   const [cursor, setCursor] = React.useState(() => ({ ano: Number(hoje.slice(0, 4)), mes: Number(hoje.slice(5, 7)) - 1 }));
@@ -143,7 +144,7 @@ function Agenda({ compact, onView }) {
   const escolher = chave => { setSel(chave); setCursor({ ano: Number(chave.slice(0, 4)), mes: Number(chave.slice(5, 7)) - 1 }); };
 
   /* Rows with no date cannot sit on a calendar; they are left out rather than breaking the grid. */
-  const todos = [...(carga.dados || []).filter(x => x.tipo !== "boleto"), ...window.boletosNaAgenda(fin.dados, hoje)].filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
+  const todos = [...(carga.dados || []).filter(x => x.tipo !== "boleto" && x.tipo !== "cartao"), ...window.boletosNaAgenda(fin.dados, hoje), ...window.faturasNaAgenda(fin.dados, hoje)].filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
   const itens = filtro === "tudo" ? todos : todos.filter(x => x.tipo === filtro);
   const doDia = itens.filter(x => x.data === sel).sort((a, b) => (a.hora || "00:00").localeCompare(b.hora || "00:00"));
   const proximos = itens.filter(x => x.data > sel).sort((a, b) => (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || ""))).slice(0, 4);

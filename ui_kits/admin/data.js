@@ -87,8 +87,13 @@ window.DLUH = {
       { n: 1, venc: "2026-05-20", valor: 68445, codigo: "", arquivos: [], pago: true, pagoEm: "2026-05-20" },
       { n: 2, venc: "2026-05-27", valor: 68445, codigo: "", arquivos: [], pago: true, pagoEm: "2026-05-27" },
       { n: 3, venc: "2026-06-03", valor: 68445, codigo: "", arquivos: [], pago: true, pagoEm: "2026-06-03" }] },
-    { id: "f7", tipo: "cartao", nome: "Nubank Empresa", final: "4821", bandeira: "Mastercard", limite: 800000, fatura: 194230, venc: 10 },
-    { id: "f8", tipo: "cartao", nome: "Sicoob", final: "0377", bandeira: "Visa", limite: 500000, fatura: 61240, venc: 25 }
+    { id: "f7", tipo: "cartao", nome: "Nubank Empresa", final: "4821", bandeira: "Mastercard", limite: 800000, fatura: 0, venc: 10, fecha: 3,
+      faturas: { "2026-05": { pagoEm: "2026-05-10", valor: 231890, outros: 0, meio: "Pix" } } },
+    { id: "f8", tipo: "cartao", nome: "Sicoob", final: "0377", bandeira: "Visa", limite: 500000, fatura: 61240, venc: 25, fecha: 15 },
+    { id: "f9", tipo: "compra", cartaoId: "f7", desc: "Atacadão · farinha, açúcar e ovos", data: "2026-06-01", valor: 61240, parcelas: 1 },
+    { id: "f10", tipo: "compra", cartaoId: "f7", desc: "Batedeira planetária", data: "2026-05-20", valor: 189900, parcelas: 3 },
+    { id: "f11", tipo: "compra", cartaoId: "f7", desc: "Embalagens Rei do Plástico", data: "2026-06-08", valor: 34570, parcelas: 1 },
+    { id: "f12", tipo: "compra", cartaoId: "f7", desc: "Gás P13", data: "2026-04-28", valor: 13000, parcelas: 1 }
   ],
   /* Every payment received on an order, as sis_pagamentos arrives mapped by api.js (centavos). */
   todosPagamentos: [

@@ -7,7 +7,7 @@ import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
 import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, apagarPedido, apagarPagamento } from "../src/pedidos.js";
 import { salvarProduto, apagarProduto, salvarRecheios, publicarCatalogo } from "../src/produtos.js";
-import { salvarFinanceiro, apagarFinanceiro, pagarBoleto } from "../src/financeiro.js";
+import { salvarFinanceiro, apagarFinanceiro, pagarBoleto, pagarFatura, faturaDaData, parcelasDaCompra, vencDaFatura } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
 import { registrarNota } from "../src/notas.js";
 
@@ -267,6 +267,48 @@ test("financeiro: recusa valores e datas fora do formato", async () => {
   await assert.rejects(salvarFinanceiro(db, { tipo: "outro" }, "ana"), /Tipo/);
   const { id } = await salvarFinanceiro(db, { tipo: "transacao", desc: "Gás", entrada: false, meio: "Dinheiro", data: "2026-10-01", valor: 13000 }, "ana");
   await assert.rejects(pagarBoleto(db, { id }, "ana"), /boleto/);
+});
+
+test("fatura do cartão: fechamento, parcelas e vencimento", () => {
+  assert.equal(faturaDaData("2026-10-04", 5), "2026-10");
+  assert.equal(faturaDaData("2026-10-05", 5), "2026-11"); // no dia do fechamento já vai pra próxima
+  assert.equal(faturaDaData("2026-12-20", 5), "2027-01");
+  assert.equal(faturaDaData("2026-02-28", 31), "2026-03"); // fecha 31 = último dia do mês
+  assert.equal(faturaDaData("2026-10-30", null), "2026-10");
+  assert.deepEqual(parcelasDaCompra({ data: "2026-10-20", valor: 10000, parcelas: 3 }, 5).map(p => [p.fatura, p.valor]),
+    [["2026-11", 3334], ["2026-12", 3333], ["2027-01", 3333]]);
+  assert.equal(vencDaFatura("2026-10", { fecha: 3, venc: 10 }), "2026-10-10");
+  assert.equal(vencDaFatura("2026-10", { fecha: 25, venc: 5 }), "2026-11-05");
+  assert.equal(vencDaFatura("2026-01", { fecha: 20, venc: 31 }), "2026-01-31");
+  assert.equal(vencDaFatura("2026-10", { fecha: 3 }), null);
+});
+
+test("cartão: compras entram na fatura; pagar fatura zera o lançado à parte e desfaz", async () => {
+  const { id: cartaoId } = await salvarFinanceiro(db, { tipo: "cartao", nome: "Nubank", final: "4821", limite: 500000, fatura: 5000, venc: 10, fecha: 3 }, "ana");
+  await salvarFinanceiro(db, { tipo: "compra", cartaoId, desc: "Atacadão", data: "2026-10-01", valor: 20000 }, "ana");
+  await salvarFinanceiro(db, { tipo: "compra", cartaoId, desc: "Batedeira", data: "2026-10-02", valor: 60000, parcelas: 3 }, "ana");
+  await salvarFinanceiro(db, { tipo: "compra", cartaoId, desc: "Gás", data: "2026-10-03", valor: 13000 }, "ana"); // já na de novembro
+  await assert.rejects(salvarFinanceiro(db, { tipo: "compra", cartaoId: "nao-existe", desc: "X", data: "2026-10-01", valor: 100 }, "ana"), /cartão não existe/);
+  await assert.rejects(salvarFinanceiro(db, { tipo: "compra", cartaoId, desc: "X", data: "2026-10-01", valor: 100, parcelas: 30 }, "ana"), /Parcelas/);
+
+  assert.deepEqual(await pagarFatura(db, { id: cartaoId, mes: "2026-10", data: "2026-10-10", meio: "Pix" }, "ana"), { mudou: true, valor: 20000 + 20000 + 5000 });
+  assert.deepEqual(await pagarFatura(db, { id: cartaoId, mes: "2026-10" }, "ana"), { mudou: false });
+  let c = (await db.collection("sis_financeiro").doc(cartaoId).get()).data();
+  assert.equal(c.fatura, 0);
+  assert.deepEqual(c.faturas["2026-10"], { pagoEm: "2026-10-10", valor: 45000, outros: 5000, meio: "Pix" });
+  assert.equal((await pagarFatura(db, { id: cartaoId, mes: "2026-11", data: "2026-11-10" }, "ana")).valor, 20000 + 13000);
+  await assert.rejects(pagarFatura(db, { id: cartaoId, mes: "2027-06" }, "ana"), /zerada/);
+
+  assert.deepEqual(await pagarFatura(db, { id: cartaoId, mes: "2026-10", pago: false }, "ana"), { mudou: true, valor: 0 });
+  c = (await db.collection("sis_financeiro").doc(cartaoId).get()).data();
+  assert.equal(c.fatura, 5000);
+  assert.equal(c.faturas["2026-10"], undefined);
+  assert.ok(c.faturas["2026-11"]);
+  await assert.rejects(pagarFatura(db, { id: cartaoId, mes: "10/2026" }, "ana"), /AAAA-MM/);
+
+  await assert.rejects(apagarFinanceiro(db, { id: cartaoId }), /3 compras lançadas/);
+  for (const x of await db.collection("sis_financeiro").consultar([["cartaoId", "==", cartaoId]])) await apagarFinanceiro(db, { id: x.id });
+  assert.deepEqual(await apagarFinanceiro(db, { id: cartaoId }), { apagado: true });
 });
 
 test("apagarPedido tira o pedido, os eventos e os pagamentos dele", async () => {

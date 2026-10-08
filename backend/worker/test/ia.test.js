@@ -336,10 +336,32 @@ test("propor_boleto, propor_transacao e propor_cartao: novo valida; com id, junt
   assert.deepEqual(c.lista[2].dados, { tipo: "transacao", desc: "Gás", entrada: false, meio: "Dinheiro", data: "2026-10-05", valor: 12000 });
 
   await executarFerramenta("propor_cartao", { id: "c1", fatura_reais: 0 }, { db, propor: c.propor });
-  assert.deepEqual(c.lista[3].dados, { id: "c1", nome: "Nubank", final: "1234", bandeira: "Mastercard", limite: 500000, fatura: 0, venc: 10 });
+  assert.deepEqual(c.lista[3].dados, { id: "c1", nome: "Nubank", final: "1234", bandeira: "Mastercard", limite: 500000, fatura: 0, venc: 10, fecha: null });
 
   await assert.rejects(executarFerramenta("propor_transacao", { id: "b1", valor_reais: 1 }, { db, propor: c.propor }), /não é uma transação/);
   await assert.rejects(executarFerramenta("propor_transacao", { valor_reais: 1 }, { db, propor: c.propor }), /descrição/);
+});
+
+test("propor_compra_cartao mostra as faturas; propor_pagar_fatura soma a fatura e o lançado à parte", async () => {
+  const db = bancoFalso({
+    "sis_financeiro/c1": { tipo: "cartao", nome: "Nubank", final: "1234", bandeira: "Mastercard", limite: 500000, fatura: 1000, venc: 10, fecha: 3 },
+    "sis_financeiro/k1": { tipo: "compra", cartaoId: "c1", desc: "Atacadão", data: "2026-10-01", valor: 20000, parcelas: 1 },
+    "sis_financeiro/t1": { tipo: "transacao", desc: "Gás", entrada: false, meio: "Pix", data: "2026-10-01", valor: 100 }
+  });
+  const c = ctxPropor();
+  await executarFerramenta("propor_compra_cartao", { cartao_id: "c1", descricao: "Batedeira", valor_reais: 600, parcelas: 3, data: "2026-10-20" }, { db, propor: c.propor });
+  assert.deepEqual(c.lista[0].dados, { tipo: "compra", cartaoId: "c1", desc: "Batedeira", data: "2026-10-20", valor: 60000, parcelas: 3 });
+  assert.match(c.lista[0].resumo, /3x de R\$\s?200,00 .*\n.*faturas 11\/2026 a 01\/2027/);
+  await assert.rejects(executarFerramenta("propor_compra_cartao", { cartao_id: "t1", descricao: "X", valor_reais: 1 }, { db, propor: c.propor }), /não é um cartão/);
+
+  await executarFerramenta("propor_pagar_fatura", { id: "c1", mes: "2026-10", data: "2026-10-10" }, { db, propor: c.propor });
+  assert.deepEqual(c.lista[1].dados, { id: "c1", mes: "2026-10", pago: true, data: "2026-10-10", meio: "Pix" });
+  assert.match(c.lista[1].resumo, /R\$\s?210,00/);
+  await assert.rejects(executarFerramenta("propor_pagar_fatura", { id: "c1", mes: "2026-10", desfazer: true }, { db, propor: c.propor }), /não está paga/);
+
+  const v = await executarFerramenta("ver_lancamento", { id: "c1" }, { db });
+  assert.equal(v.faturas.length, 1);
+  assert.match(v.limite_usado, /210,00/);
 });
 
 test("buscar_financeiro acha parcela vencida; resumo_caixa junta pedidos, avulsos e boletos", async () => {

@@ -109,10 +109,11 @@ const ACOES = {
   /* Nota fiscal emitida no ERP4ME: guarda tipo, número e CPF/CNPJ no pedido (notas.js). */
   registrarNota: (db, dados, por) => notas.registrarNota(db, dados, por),
 
-  /* Financeiro: transações avulsas, boletos e cartões (financeiro.js). */
+  /* Financeiro: transações avulsas, boletos, cartões e compras no cartão (financeiro.js). */
   salvarFinanceiro: (db, dados, por) => financeiro.salvarFinanceiro(db, dados, por),
   apagarFinanceiro: (db, dados) => financeiro.apagarFinanceiro(db, dados),
   pagarBoleto: (db, dados, por) => financeiro.pagarBoleto(db, dados, por),
+  pagarFatura: (db, dados, por) => financeiro.pagarFatura(db, dados, por),
   /* Foto ou PDF da nota ou de uma parcela: sobe pro Drive e devolve { url, pdf } para ir em arquivos[]. */
   enviarArquivoBoleto: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "boleto", aceitaPdf: true }),
 
