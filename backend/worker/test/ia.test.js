@@ -339,6 +339,22 @@ test("propor_pagar_boleto: parcela em aberto vira pagarBoleto com a data; paga d
   assert.deepEqual(c.lista[1].dados, { id: "b1", n: 1, pago: false });
 });
 
+test("propor_boleto anexa as fotos da conversa no boleto ou na parcela; link de fora é recusado", async () => {
+  const db = bancoFalso({});
+  const c = ctxPropor();
+  await executarFerramenta("propor_boleto", {
+    fornecedor: "Fermontes", parcelas: [{ venc: "2026-10-15", valor_reais: 385.14 }, { venc: "2026-10-22", valor_reais: 385.14 }],
+    arquivos: [{ url: "https://lh3.googleusercontent.com/d/abc123" }, { url: "https://lh3.googleusercontent.com/d/def456", parcela: 2 }]
+  }, { db, propor: c.propor });
+  const d = c.lista[0].dados;
+  assert.deepEqual(d.arquivos.map(a => a.url), ["https://lh3.googleusercontent.com/d/abc123"]);
+  assert.deepEqual([d.parcelas[0].arquivos.length, d.parcelas[1].arquivos[0].url], [0, "https://lh3.googleusercontent.com/d/def456"]);
+  assert.match(c.lista[0].resumo, /2ª .* 📎/);
+  assert.match(c.lista[0].resumo, /📎 2 arquivos anexados/);
+  await assert.rejects(executarFerramenta("propor_boleto", { fornecedor: "X", parcelas: [{ venc: "2026-10-15", valor_reais: 1 }], arquivos: [{ url: "https://exemplo.com/a.jpg" }] }, { db, propor: c.propor }), /veio pela conversa/);
+  await assert.rejects(executarFerramenta("propor_boleto", { fornecedor: "X", parcelas: [{ venc: "2026-10-15", valor_reais: 1 }], arquivos: [{ url: "https://lh3.googleusercontent.com/d/abc", parcela: 3 }] }, { db, propor: c.propor }), /parcela 3/);
+});
+
 test("propor_boleto, propor_transacao e propor_cartao: novo valida; com id, junta com o que já existe", async () => {
   const db = bancoFalso({
     "sis_financeiro/b1": boleto(),

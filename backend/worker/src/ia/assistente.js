@@ -11,6 +11,7 @@ import { DEFINICOES, executarFerramenta, hojeSP } from "./ferramentas.js";
 import { RESULTADO_LOJA } from "./ferramentas-loja.js";
 import { brl } from "../efeitos.js";
 import { audioLigado, transcrever } from "./audio.js";
+import { enviarImagem, googleLigado } from "../google.js";
 
 const MODELO = "claude-sonnet-5";
 const CONVERSAS = "sis_ia";
@@ -44,11 +45,12 @@ Como responder:
 - Os valores das ferramentas já vêm em reais formatados; use como vieram.
 - Mensagem que começa com "(áudio transcrito)" veio de um áudio e pode ter erro de transcrição. Nome, telefone, número de pedido ou valor que pareça estranho: confirme antes de usar.
 
-Foto ou PDF (a mensagem começa com "(mandou uma foto)" ou "(mandou um PDF)"):
+Foto ou PDF (a mensagem começa com "(mandou uma foto" ou "(mandou um PDF"):
 - Quase sempre é nota fiscal, cupom ou boleto de uma compra da loja. Leia e mostre o que entendeu, curto: fornecedor, data da compra, os itens principais resumidos (ex.: "farinha 25 kg, açúcar 10 kg e mais 6 itens") e o total; se for boleto, cada vencimento e valor.
 - Se a nota não disser como foi pago, pergunte só isso, dando as opções: Pix, dinheiro, cartão da loja (cite os cartões cadastrados, de buscar_financeiro tipo cartao) ou boleto. Se disser (ex.: "cartão de crédito final 4821"), já proponha.
 - Com a forma: Pix, dinheiro ou transferência → propor_transacao (saída, data da nota); cartão da loja → propor_compra_cartao (data da nota; parcelas se a nota mostrar); boleto → propor_boleto. Descrição: "Fornecedor · itens principais".
 - A imagem não fica salva na conversa: deixe na sua resposta tudo que vai precisar depois (fornecedor, data, total, itens, parcelas).
+- Quando vier "arquivo: <link>", é a foto/PDF já guardada. Ao propor_boleto, anexe em arquivos: a do boleto de uma parcela com o número dela em parcela; a nota ou foto do boleto todo sem parcela. Junte as fotos que a pessoa mandou para o mesmo boleto.
 - Se não for nota (ex.: comprovante de Pix de cliente, foto de bolo), diga o que viu e pergunte o que fazer. Se não der para ler algum valor, diga qual e peça outra foto ou o número.
 
 Mudanças (qualquer coisa que grave ou mande mensagem: pedido novo ou alterado, status, pagamento, cobrança, aviso ao cliente, nota, boleto, caixa, cartão, produto, recheio):
@@ -202,6 +204,15 @@ async function responderBotao({ env, db, numero, botao, agora = Date.now(), exec
   }, { merge: true });
 }
 
+/* Sobe a foto/PDF para o Drive na hora em que chega, para poder anexar ao boleto depois (a imagem em
+   si não fica na conversa, o link fica). Não segura a resposta: se o Drive demorar ou falhar, segue sem link. */
+async function guardarNoDrive(env, { base64, mime }) {
+  if (!googleLigado(env) || mime === "image/gif") return null;
+  const envio = enviarImagem(env, { dataUrl: `data:${mime};base64,${base64}`, prefixo: "whats", aceitaPdf: true }).then(r => r.url);
+  const limite = new Promise(r => setTimeout(() => r(null), 6000));
+  return Promise.race([envio, limite]).catch(e => { console.error(JSON.stringify({ msg: "foto do Whats não subiu pro Drive", erro: String(e) })); return null; });
+}
+
 /* Uma mensagem recebida (Meta ou Evolution): filtra, tira duplicata e responde. Roda depois do
    200 ao webhook. `canal` = { texto(numero, t), botoes(numero, t, botoes), lida(msg) }. */
 async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
@@ -238,7 +249,8 @@ async function tratarMensagem({ env, db, msg, executar, claude, canal }) {
       if (!base64) return await enviar.texto("Não consegui abrir esse arquivo. Pode mandar de novo?");
       if (base64.length > (mime === "application/pdf" ? 30e6 : 6.5e6)) return await enviar.texto("Esse arquivo é grande demais pra mim. Manda uma foto normal (não como documento) ou um PDF menor?");
       anexo = { base64, mime };
-      texto = `(mandou ${mime === "application/pdf" ? "um PDF" : "uma foto"})${String(msg.texto || "").trim() ? ` ${String(msg.texto).trim()}` : ""}`;
+      const link = await guardarNoDrive(env, anexo);
+      texto = `(mandou ${mime === "application/pdf" ? "um PDF" : "uma foto"}${link ? ` · arquivo: ${link}` : ""})${String(msg.texto || "").trim() ? ` ${String(msg.texto).trim()}` : ""}`;
     }
     if (!texto) return await enviar.texto("Por enquanto eu entendo texto, áudio, foto e PDF 🙂");
 

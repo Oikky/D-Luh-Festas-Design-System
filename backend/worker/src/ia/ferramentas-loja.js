@@ -11,6 +11,8 @@ const dataOk = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 const cent = v => Math.round(Number(v) * 100);
 const dataLonga = d => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "—";
 const exigirPeriodo = (de, ate) => { if (!dataOk(de) || !dataOk(ate)) throw new ErroDominio("invalid-argument", "de/ate no formato AAAA-MM-DD"); };
+// Links que a própria assistente subiu (google.js): imagem no lh3, PDF na visualização do Drive.
+const DO_DRIVE = /^https:\/\/(lh3\.googleusercontent\.com\/d\/|drive\.google\.com\/file\/d\/)[\w-]+(\/view)?$/;
 const hojeSP = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
 
 async function lerLancamento(db, id) {
@@ -101,7 +103,11 @@ const DEFINICOES_LOJA = [
           items: { type: "object", properties: { venc: DATA, valor_reais: { type: "number", exclusiveMinimum: 0 }, codigo: { type: "string" } }, required: ["venc", "valor_reais"] }
         },
         periodo: { type: "string", enum: ["semanal", "quinzenal", "mensal"] },
-        cnpj_antigo: { type: "boolean" }
+        cnpj_antigo: { type: "boolean" },
+        arquivos: {
+          type: "array", description: "Fotos/PDFs da conversa (o link que veio em \"arquivo: …\") para anexar. Com parcela, vai na parcela; sem, no boleto. Somam aos que já estavam.",
+          items: { type: "object", properties: { url: { type: "string" }, parcela: { type: "integer", minimum: 1 } }, required: ["url"] }
+        }
       }
     }
   },
@@ -316,12 +322,23 @@ const EXECUTAR_LOJA = {
       desc: e.fornecedor ?? antes?.desc, periodo: e.periodo ?? antes?.periodo,
       cnpjAntigo: e.cnpj_antigo ?? antes?.cnpjAntigo ?? false, arquivos: antes?.arquivos || [], parcelas
     };
+    for (const a of e.arquivos || []) {
+      const url = String(a.url || "");
+      if (!DO_DRIVE.test(url)) throw new ErroDominio("invalid-argument", "Só dá para anexar arquivo que veio pela conversa");
+      const novo = { url, nome: "WhatsApp", pdf: url.startsWith("https://drive.google.com/file/") };
+      if (a.parcela == null) { dados.arquivos = [...dados.arquivos, novo]; continue; }
+      const p = parcelas[a.parcela - 1];
+      if (!p) throw new ErroDominio("invalid-argument", `O boleto não tem a parcela ${a.parcela}`);
+      p.arquivos = [...p.arquivos, novo];
+    }
     const v = validarFinanceiro("boleto", dados);
     const total = v.parcelas.reduce((s, p) => s + p.valor, 0);
+    const anexos = v.arquivos.length + v.parcelas.reduce((s, p) => s + p.arquivos.length, 0);
     const resumo = [
       `*${antes ? "Corrigir boleto" : "Novo boleto"} — confirma?*`,
       `${v.desc}${v.cnpjAntigo ? " (CNPJ antigo)" : ""} · ${brl(total)} em ${v.parcelas.length}x`,
-      ...v.parcelas.map(p => `${p.n}ª ${dataLonga(p.venc)} — ${brl(p.valor)}${p.codigo ? ` · ${p.codigo}` : ""}${velhas[p.n - 1]?.pago ? " (já paga)" : ""}`)
+      ...v.parcelas.map(p => `${p.n}ª ${dataLonga(p.venc)} — ${brl(p.valor)}${p.codigo ? ` · ${p.codigo}` : ""}${p.arquivos.length ? " 📎" : ""}${velhas[p.n - 1]?.pago ? " (já paga)" : ""}`),
+      ...(anexos ? [`📎 ${anexos} ${anexos === 1 ? "arquivo anexado" : "arquivos anexados"}`] : [])
     ].join("\n");
     return propor("salvarFinanceiro", { ...(antes ? { id: antes.id } : { tipo: "boleto" }), ...v }, resumo);
   },
