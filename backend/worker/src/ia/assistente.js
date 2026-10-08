@@ -50,7 +50,8 @@ Foto ou PDF (a mensagem começa com "(mandou uma foto" ou "(mandou um PDF"):
 - Se a nota não disser como foi pago, pergunte só isso, dando as opções: Pix, dinheiro, cartão da loja (cite os cartões cadastrados, de buscar_financeiro tipo cartao) ou boleto. Se disser (ex.: "cartão de crédito final 4821"), já proponha.
 - Com a forma: Pix, dinheiro ou transferência → propor_transacao (saída, data da nota); cartão da loja → propor_compra_cartao (data da nota; parcelas se a nota mostrar); boleto → propor_boleto. Descrição: "Fornecedor · itens principais".
 - A imagem não fica salva na conversa: deixe na sua resposta tudo que vai precisar depois (fornecedor, data, total, itens, parcelas).
-- Quando vier "arquivo: <link>", é a foto/PDF já guardada. Ao propor_boleto, anexe em arquivos: a do boleto de uma parcela com o número dela em parcela; a nota ou foto do boleto todo sem parcela. Junte as fotos que a pessoa mandou para o mesmo boleto.
+- O sistema guarda sozinho cada foto/PDF e põe o link na mensagem ("arquivo: <link>"); a pessoa não vê nem manda esse link, então nunca peça link a ela nem fale em "arquivo:". Ao propor_boleto (novo ou corrigindo, com id), anexe em arquivos: a foto do boleto de uma parcela com o número dela em parcela; a nota ou a foto do boleto todo sem parcela. Junte todas as fotos que a pessoa mandou para o mesmo boleto. Se pedirem para anexar fotos a um boleto já lançado, use propor_boleto com o id e os links das fotos da conversa.
+- Se uma foto veio sem "arquivo:", ela não ficou guardada: diga só que não deu para guardar aquela foto e peça para mandar de novo.
 - Se não for nota (ex.: comprovante de Pix de cliente, foto de bolo), diga o que viu e pergunte o que fazer. Se não der para ler algum valor, diga qual e peça outra foto ou o número.
 
 Mudanças (qualquer coisa que grave ou mande mensagem: pedido novo ou alterado, status, pagamento, cobrança, aviso ao cliente, nota, boleto, caixa, cartão, produto, recheio):
@@ -80,7 +81,10 @@ function aparar(historico) {
 
 async function carregar(db, numero, agora) {
   const snap = await db.collection(CONVERSAS).doc(numero).get();
-  const d = snap.exists ? snap.data() : {};
+  return lerConversa(snap.exists ? snap.data() : {}, agora);
+}
+
+function lerConversa(d, agora) {
   const recente = d.atualizadoEm && agora - new Date(d.atualizadoEm).getTime() < ESQUECER_APOS;
   const pendentes = Object.fromEntries(Object.entries(d.pendentes || {})
     .filter(([, p]) => agora - new Date(p.criadoEm).getTime() < PRAZO_CONFIRMAR));
@@ -141,13 +145,20 @@ async function conversar({ env, db, numero, texto, anexo, agora = Date.now(), cl
   }
 
   const nota = propostas.length ? `\n[propostas enviadas com botões: ${propostas.map(p => p.resumo.split("\n")[0]).join("; ")}]` : "";
-  const pendentes = { ...conv.pendentes, ...Object.fromEntries(propostas.map(({ id, ...p }) => [id, p])) };
-  await db.collection(CONVERSAS).doc(numero).set({
-    historico: aparar([...conv.historico, { role: "user", content: entrada }, { role: "assistant", content: (resposta || "(sem texto)") + nota }]),
-    pendentes,
-    ultimas: propostas.map(p => p.id),
-    atualizadoEm: new Date(agora)
-  }, { merge: true });
+  /* Relê na hora de gravar: duas fotos seguidas são respondidas ao mesmo tempo, e a que termina por
+     último não pode apagar a conversa nem as propostas que a outra gravou no meio. */
+  await db.runTransaction(async tx => {
+    const ref = db.collection(CONVERSAS).doc(numero);
+    const snap = await tx.get(ref);
+    const atual = snap.exists ? lerConversa(snap.data(), Date.now()) : { historico: [], pendentes: {}, ultimas: [] };
+    const doMeio = atual.ultimas.filter(id => new Date(atual.pendentes[id].criadoEm).getTime() >= agora);
+    tx.set(ref, {
+      historico: aparar([...atual.historico, { role: "user", content: entrada }, { role: "assistant", content: (resposta || "(sem texto)") + nota }]),
+      pendentes: { ...atual.pendentes, ...Object.fromEntries(propostas.map(({ id, ...p }) => [id, p])) },
+      ultimas: [...doMeio, ...propostas.map(p => p.id)],
+      atualizadoEm: new Date(agora)
+    }, { merge: true });
+  });
   return { resposta, propostas };
 }
 
@@ -209,7 +220,7 @@ async function responderBotao({ env, db, numero, botao, agora = Date.now(), exec
 async function guardarNoDrive(env, { base64, mime }) {
   if (!googleLigado(env) || mime === "image/gif") return null;
   const envio = enviarImagem(env, { dataUrl: `data:${mime};base64,${base64}`, prefixo: "whats", aceitaPdf: true }).then(r => r.url);
-  const limite = new Promise(r => setTimeout(() => r(null), 6000));
+  const limite = new Promise(r => setTimeout(() => { console.error(JSON.stringify({ msg: "foto do Whats demorou para subir pro Drive" })); r(null); }, 10000));
   return Promise.race([envio, limite]).catch(e => { console.error(JSON.stringify({ msg: "foto do Whats não subiu pro Drive", erro: String(e) })); return null; });
 }
 

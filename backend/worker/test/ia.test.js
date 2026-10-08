@@ -103,6 +103,26 @@ test("resumo_vendas soma pela data de entrega e deixa cancelados de fora", async
 /* Claude de mentira: devolve as respostas na ordem. */
 const claudeFalso = respostas => ({ chamadas: [], messages: { create: async function (req) { this.chamadas?.push(req); return respostas.shift(); } } });
 
+test("duas mensagens ao mesmo tempo: a que termina por último não apaga a proposta nem a conversa da outra", async () => {
+  const db = bancoFalso({ "sis_pedidos/PED-3012": pedido("PED-3012") });
+  const enviar = { texto: async () => {}, botoes: async () => {} };
+  let soltar;
+  const devagar = { messages: { create: () => new Promise(r => { soltar = () => r({ stop_reason: "end_turn", content: [{ type: "text", text: "Essa é a nota." }] }); }) } };
+  const rapida = claudeFalso([
+    { stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "propor_status", input: { pedido_id: "3012", status: "Pronto" } }] },
+    { stop_reason: "end_turn", content: [{ type: "text", text: "Confirma?" }] }
+  ]);
+  const agora = Date.now();
+  const a = conversar({ env: {}, db, numero: "553899540665", texto: "foto 1", agora, claude: devagar, enviar });
+  const { propostas } = await conversar({ env: {}, db, numero: "553899540665", texto: "foto 2", agora: agora + 1, claude: rapida, enviar });
+  soltar();
+  await a;
+  const conv = db.docs.get("sis_ia/553899540665");
+  assert.deepEqual(conv.ultimas, [propostas[0].id]);
+  assert.ok(conv.pendentes[propostas[0].id]);
+  assert.equal(conv.historico.length, 4);
+});
+
 test("proposta vira botões; Confirmar grava uma vez só, pelo caminho das telas", async () => {
   const db = bancoFalso({ "sis_pedidos/PED-3012": pedido("PED-3012") });
   const enviados = [];
