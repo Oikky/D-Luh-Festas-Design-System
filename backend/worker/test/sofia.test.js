@@ -3,7 +3,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { pedidoDaSofia, pedidosDoCliente, conferirParaPagar, sugestoes } from "../src/sofia.js";
+import { pedidoDaSofia, pedidosDoCliente, conferirParaPagar, conferirParaCancelar, sugestoes } from "../src/sofia.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
 const PROJETO = "demo-dluh";
@@ -109,4 +109,14 @@ test("'à escolha da casa' vira os sabores mais pedidos daquela categoria, respe
   const p = (await db.collection("sis_pedidos").doc(r.id).get()).data();
   assert.deepEqual(p.itens.map(i => [i.nome, i.qtd]), [["Empada", 50], ["Pastel frango", 50], ["Casadinho", 50]]);
   assert.match(p.obs, /escolhidos pela loja \(mais pedidos da semana\)/);
+});
+
+test("cancelar: só do próprio telefone e antes da produção; avisa se já tinha pago", async () => {
+  const r = await pedidoDaSofia(db, base(), { agora: AGORA });
+  await assert.rejects(conferirParaCancelar(db, { telefone: "5538911112222", pedido: r.id }), /Não achei/);
+  assert.deepEqual(await conferirParaCancelar(db, { telefone: "5538998124410", pedido: r.id }), { pedidoId: r.id, pago: 0 });
+  await db.collection("sis_pedidos").doc(r.id).set({ status: "Confirmado — Esperando pagamento", pago: 7375 }, { merge: true });
+  assert.deepEqual(await conferirParaCancelar(db, { telefone: "5538998124410", pedido: r.id }), { pedidoId: r.id, pago: 7375 });
+  await db.collection("sis_pedidos").doc(r.id).set({ status: "Em produção" }, { merge: true });
+  await assert.rejects(conferirParaCancelar(db, { telefone: "5538998124410", pedido: r.id }), /Em produção.*equipe/);
 });

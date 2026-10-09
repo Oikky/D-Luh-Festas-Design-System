@@ -271,3 +271,21 @@ async function sugestoes(db, telefone, { agora = new Date() } = {}) {
 }
 
 export { sugestoes };
+
+/* Cancelamento pedido pelo próprio cliente: qualquer pedido dele que ainda não entrou em produção,
+   sem prazo (decisão da loja, 09/10). Se já tinha algo pago, a equipe é avisada para devolver. */
+const CANCELAVEIS = ["Aguardando confirmação", "Verificando Estoque", "Confirmado — Esperando pagamento"];
+async function conferirParaCancelar(db, { telefone, pedido }) {
+  const n = String(pedido || "").toUpperCase().replace(/[^\d]/g, "");
+  const snap = n ? await db.collection(PEDIDOS).doc(`PED-${Number(n)}`).get() : null;
+  const tel = String(snap?.get?.("cliente")?.telefone || "").replace(/\D/g, "");
+  if (!snap?.exists || !variantesTelefone(telefone).includes(tel) && !variantesTelefone(tel).includes(String(telefone).replace(/\D/g, ""))) {
+    throw new ErroDominio("not-found", "Não achei esse pedido no telefone deste cliente");
+  }
+  const status = snap.get("status");
+  if (status === "Cancelado") throw new ErroDominio("failed-precondition", "Esse pedido já está cancelado");
+  if (!CANCELAVEIS.includes(status)) throw new ErroDominio("failed-precondition", `O pedido já está "${status}" e não dá mais para cancelar por aqui; passe para a equipe`);
+  return { pedidoId: snap.id, pago: snap.get("pago") || 0 };
+}
+
+export { conferirParaCancelar, CANCELAVEIS, opcional };

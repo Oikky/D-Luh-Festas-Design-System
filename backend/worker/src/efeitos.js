@@ -107,6 +107,20 @@ async function telegramPagamento(env, db, pedidoId, valor, meio, por) {
   ].join("\n"));
 }
 
+/* Telegram, tópico Pendentes: o cliente cancelou pela Sofia; se já tinha pago, alguém precisa devolver. */
+async function telegramCancelado(env, db, pedidoId, motivo) {
+  if (!telegramLigado(env)) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  const e = p.entrega || {};
+  return enviarTelegram(env, "pendentes", [
+    `❌ ${p.id} cancelado pelo cliente (WhatsApp)`,
+    `${p.cliente?.nome} · ${dataBR(e.data)}${e.hora ? ` ${e.hora}` : ""} · Total ${brl(p.total)}`,
+    ...(motivo ? [`Motivo: ${motivo}`] : []),
+    ...(p.pago > 0 ? [`⚠️ Já tinha pago ${brl(p.pago)}: combinar a devolução`] : [])
+  ].join("\n"));
+}
+
 async function avisarLojaNovoPedido(env, db, pedidoId) {
   if (!whatsappLigado(env) || !env.WHATSAPP_LOJA) return;
   const p = await lerPedido(db, pedidoId);
@@ -197,4 +211,4 @@ async function backup(env, db) {
   return r;
 }
 
-export { brl, dataBR, linhasItens, sincronizarAgenda, avisarLojaNovoPedido, telegramNovoPedido, telegramConfirmado, telegramPagamento, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };
+export { brl, dataBR, linhasItens, sincronizarAgenda, telegramCancelado, avisarLojaNovoPedido, telegramNovoPedido, telegramConfirmado, telegramPagamento, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };
