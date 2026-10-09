@@ -345,7 +345,8 @@ async function webhookWhatsapp(request, env, ctx, url) {
 }
 
 /* Todos os eventos da Evolution (número da loja). Mensagem de texto de quem está em IA_NUMEROS vai
-   para a assistente; todo o resto segue igual para EVOLUTION_REPASSE (quem recebia antes). */
+   para a assistente; todo o resto segue igual para EVOLUTION_REPASSE (quem recebia antes), a não ser que
+   EVOLUTION_REPASSE_DESLIGADO seja "1" (08/10: clientes passaram a ser atendidos pela Sofia, do GPTMaker). */
 async function webhookEvolution(request, env, ctx, token) {
   if (request.method !== "POST") return new Response(null, { status: 405 });
   if (!env.EVOLUTION_WEBHOOK_TOKEN || token !== env.EVOLUTION_WEBHOOK_TOKEN) return new Response(null, { status: 404 });
@@ -359,7 +360,7 @@ async function webhookEvolution(request, env, ctx, token) {
   const daIA = !!(msg && iaPronta(env) && !metaLigado(env) && autorizado(env, msg.de));
   if (daIA) {
     ctx.waitUntil(conversaDaIA(env, ctx, banco(env), msg, canalEvolution(env)));
-  } else if (env.EVOLUTION_REPASSE) {
+  } else if (env.EVOLUTION_REPASSE && env.EVOLUTION_REPASSE_DESLIGADO !== "1") {
     ctx.waitUntil(fetch(env.EVOLUTION_REPASSE, { method: "POST", headers: { "Content-Type": "application/json" }, body: corpo })
       .then(r => { if (!r.ok) console.error(JSON.stringify({ msg: "repasse da Evolution recusado", status: r.status, evento: dados?.event })); })
       .catch(e => console.error(JSON.stringify({ msg: "repasse da Evolution falhou", erro: String(e) }))));
