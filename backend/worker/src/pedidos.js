@@ -68,7 +68,7 @@ async function criarPedido(db, dados, por) {
       pagamento: "Não pago",
       status: "Aguardando confirmação",
       cozinha: "pendente",
-      origem: ["site", "empresas", "admin"].includes(dados.origem) ? dados.origem : "admin",
+      origem: ["site", "whatsapp", "empresas", "admin"].includes(dados.origem) ? dados.origem : "admin",
       criadoEm: agora(),
       atualizadoEm: agora()
     });

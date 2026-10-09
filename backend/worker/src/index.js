@@ -2,6 +2,7 @@
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /site/pedido, /site/consultar, /site/frete  site dos clientes, sem login (site.js, frete.js)
+     /sofia/<pedido|consultar|pagar>/<token>  agente Sofia do GPTMaker (sofia.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
@@ -15,6 +16,7 @@ import { ErroDominio, MEIOS } from "./dominio.js";
 import { ehEquipe } from "./equipe.js";
 import * as pedidos from "./pedidos.js";
 import * as infinitepay from "./infinitepay.js";
+import * as sofia from "./sofia.js";
 import * as produtos from "./produtos.js";
 import * as financeiro from "./financeiro.js";
 import * as notas from "./notas.js";
@@ -277,6 +279,34 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
   }
 }
 
+/* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar>/<SOFIA_TOKEN>.
+   Aceita parâmetros na URL e/ou JSON no corpo. Responde sempre 200 com { ok, ... } ou { ok: false,
+   erro }: o GPTMaker lê a resposta e explica ao cliente. */
+async function rotaDaSofia(request, env, ctx, rota, token) {
+  if (!env.SOFIA_TOKEN || token !== env.SOFIA_TOKEN) return new Response(null, { status: 404 });
+  const url = new URL(request.url);
+  // Parâmetros na URL e/ou JSON no corpo (o do corpo vale mais).
+  const corpo = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+  const dados = { ...Object.fromEntries(url.searchParams), ...(corpo && typeof corpo === "object" ? corpo : {}) };
+  const db = banco(env);
+  try {
+    if (rota === "consultar") return json({ ok: true, ...(await sofia.pedidosDoCliente(db, dados.telefone)) });
+    if (rota === "pagar") {
+      const pedidoId = await sofia.conferirParaPagar(db, dados);
+      const tipo = dados.tipo === "entrada" ? "entrada" : "restante";
+      const r = await ACOES.gerarCobranca(db, { pedidoId, tipo }, "sofia", env, ORIGEM_API);
+      return json({ ok: true, pedido: pedidoId, link: r.url, valor: sofia.reais(r.valor) });
+    }
+    const r = await sofia.pedidoDaSofia(db, dados, { frete: local => estimarFrete(env, local) });
+    depois(ctx, [...DEPOIS.criarPedido(env, db, dados, r), efeitos.avisarClienteRecebido(env, db, r.id)], "pedidoDaSofia", r.id);
+    return json({ ok: true, pedido: r.id, total: sofia.reais(r.total), proximo: "A equipe confere e confirma pelo WhatsApp, com o link de pagamento." });
+  } catch (e) {
+    if (e instanceof ErroDominio) return json({ ok: false, erro: e.message });
+    console.error(JSON.stringify({ msg: "erro na rota da Sofia", rota, erro: String(e) }));
+    return json({ ok: false, erro: "O sistema não respondeu agora. Passe para a equipe." });
+  }
+}
+
 async function webhookInfinitepay(request, env, ctx) {
   const ok = (message = null) => json({ success: true, message });
   const tentarDeNovo = message => json({ success: false, message }, 400); // a InfinitePay reenvia no 400
@@ -462,6 +492,8 @@ export default {
     if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
     if (url.pathname === "/webhook/alexa") return webhookAlexa(request, env, ctx);
+    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar)\/([\w-]+)$/);
+    if (sof) return rotaDaSofia(request, env, ctx, sof[1], sof[2]);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
     if (evo) return webhookEvolution(request, env, ctx, evo[1]);
 

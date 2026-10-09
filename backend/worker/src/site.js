@@ -18,7 +18,7 @@ function hojeBrasilia(agora = new Date()) {
 
 /* frete: (local) => { disponivel, taxa } — a taxa é refeita aqui, nunca vem do navegador. Sem
    estimativa (Moblets fora do ar, sem chave), a taxa fica 0 e a loja combina na confirmação. */
-async function pedidoDoSite(db, dados, { agora = new Date(), frete = null } = {}) {
+async function pedidoDoSite(db, dados, { agora = new Date(), frete = null, origem = "site" } = {}) {
   const itensEntrada = Array.isArray(dados?.itens) ? dados.itens : [];
   if (!itensEntrada.length) throw new ErroDominio("invalid-argument", "O pedido precisa de pelo menos um item");
   if (itensEntrada.length > MAX_ITENS) throw new ErroDominio("invalid-argument", "Itens demais num pedido só");
@@ -93,8 +93,8 @@ async function pedidoDoSite(db, dados, { agora = new Date(), frete = null } = {}
     itens,
     taxaEntrega: estimativa?.disponivel ? estimativa.taxa : 0,
     obs: texto(dados?.obs, 1000),
-    origem: "site"
-  }, "site");
+    origem
+  }, origem);
 }
 
 /* Mesmas regras do site: DDD + 8 dígitos finais (o 9 extra e o 55 não importam). */
