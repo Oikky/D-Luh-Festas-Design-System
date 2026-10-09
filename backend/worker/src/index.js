@@ -3,6 +3,7 @@
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /site/pedido, /site/consultar, /site/frete, /site/entrega  site dos clientes, sem login (site.js, frete.js)
      /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento>/<token>  agente Sofia do GPTMaker (sofia.js)
+     POST /webhook/orcamento/<token>  alerta de gasto do Google Cloud via Pub/Sub (orcamento.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
@@ -38,6 +39,7 @@ const CRON_COZINHA = "*/15 * * * *";
 import * as site from "./site.js";
 import { estimarFrete } from "./frete.js";
 import * as ryd from "./ryd.js";
+import * as orcamento from "./orcamento.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
 
@@ -564,6 +566,15 @@ export default {
     if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
     if (url.pathname === "/webhook/alexa") return webhookAlexa(request, env, ctx);
+    /* Alerta de gasto do Google Cloud (Pub/Sub push): avisa no WhatsApp e no Telegram (orcamento.js). */
+    const orc = url.pathname.match(/^\/webhook\/orcamento\/([\w-]+)$/)?.[1];
+    if (orc) {
+      if (!env.ORCAMENTO_TOKEN || orc !== env.ORCAMENTO_TOKEN || request.method !== "POST") return new Response(null, { status: 404 });
+      const corpo = await request.json().catch(() => null);
+      const r = await orcamento.tratarAlerta(env, banco(env), corpo);
+      console.log(JSON.stringify({ msg: "alerta de orçamento", ...r }));
+      return new Response(null, { status: 204 });
+    }
     const rydToken = url.pathname.match(/^\/webhook\/ryd\/([\w-]+)$/)?.[1];
     if (rydToken) return webhookRyd(request, env, rydToken);
     /* Configuração da RYD (tarifas, recursos, webhook), protegida pelo mesmo token do webhook.
