@@ -1,7 +1,7 @@
-/* Taxa de entrega pela estimativa da Moblets (frete.js), com a API da Machine simulada. */
+/* Cotação antiga pela Moblets (frete.js, fora de uso), com a API da Machine simulada. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { estimarFrete, paraCimaNoReal, localDe } from "../src/frete.js";
+import { estimarFreteMoblets as estimarFrete, paraCimaNoReal, localDe } from "../src/frete.js";
 
 const ENV = { MACHINE_API_KEY: "chave", MACHINE_USUARIO: "dluh", MACHINE_SENHA: "senha", LOJA_ENDERECO: "Rua da Loja, 10|Centro|Montes Claros|MG" };
 const LOCAL = { rua: "Rua Dom Pedro II", numero: "200", bairro: "Todos os Santos", cep: "39400-000", cidade: "Montes Claros", uf: "mg" };

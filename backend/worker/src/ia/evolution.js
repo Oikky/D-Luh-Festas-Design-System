@@ -29,6 +29,8 @@ async function baixarAudio(env, msg, { fetchFn = fetch, esperas = [1000, 1500, 2
 
 /* { id, de, tipo, texto } de um "messages.upsert" que alguém mandou para a loja; null para o resto
    (eventos de conexão, mensagens da própria loja, grupos, status). */
+const midiaJunto = d => [d.message?.base64, d.base64].find(b => typeof b === "string" && b) || null;
+
 function mensagemEvolution(corpo) {
   if (String(corpo?.event || "").toLowerCase().replace("_", ".") !== "messages.upsert") return null;
   const d = Array.isArray(corpo.data) ? corpo.data[0] : corpo.data;
@@ -42,11 +44,13 @@ function mensagemEvolution(corpo) {
   const arquivo = m.imageMessage || (/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(doc?.mimetype || "") ? doc : null);
   const texto = m.conversation || m.extendedTextMessage?.text || "";
   const tipo = texto ? "text" : m.audioMessage ? "audio" : arquivo ? "imagem" : d.messageType || "outro";
+  // TEMP (08/10): onde a Evolution põe a mídia com "Webhook Base64" ligado.
+  if (tipo === "imagem" && !midiaJunto(d)) console.log(JSON.stringify({ msg: "foto sem base64 no webhook", chavesData: Object.keys(d), chavesMsg: Object.keys(m) }));
   return {
     id: k.id, de: comNumero.split("@")[0], tipo, texto: texto || arquivo?.caption || "",
     ...(tipo === "audio" || tipo === "imagem" ? { bruta: { key: k, message: m } } : {}),
     // Com "Webhook Base64" ligado na Evolution a mídia já vem aqui e não precisa ser buscada pelo túnel.
-    ...((tipo === "audio" || tipo === "imagem") && typeof m.base64 === "string" && m.base64 ? { base64: m.base64 } : {}),
+    ...((tipo === "audio" || tipo === "imagem") && midiaJunto(d) ? { base64: midiaJunto(d) } : {}),
     ...(tipo === "imagem" ? { mime: String(arquivo.mimetype || "image/jpeg").split(";")[0] } : {})
   };
 }

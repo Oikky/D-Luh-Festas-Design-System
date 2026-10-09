@@ -8,6 +8,7 @@
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
      POST /webhook/telegram    grupo da equipe no Telegram: botão "Confirmar estoque" e tópico IA (telegram.js)
      POST /webhook/alexa       skill da Alexa na cozinha: lê a fila e marca feito (alexa.js)
+     POST /webhook/ryd/<token> status das entregas da RYD (ryd.js)
      cron diário               backup no Google Drive; lembrete da entrada (lembretes.js)
    As telas LEEM direto do Firestore (tempo real); toda ESCRITA passa por aqui e deixa evento. */
 import { criarFirestore } from "./firestore.js";
@@ -35,6 +36,7 @@ const CRON_LEMBRETE = "0 12 * * *";
 const CRON_COZINHA = "*/15 * * * *";
 import * as site from "./site.js";
 import { estimarFrete } from "./frete.js";
+import * as ryd from "./ryd.js";
 
 const STATUS_HTTP = { "invalid-argument": 400, unauthenticated: 401, "permission-denied": 403, "not-found": 404, "failed-precondition": 409 };
 
@@ -128,6 +130,12 @@ const ACOES = {
     // A lista vai para o DEPOIS, não para a resposta da tela.
     return Object.defineProperty({ total: lista.length }, "lista", { value: lista, enumerable: false });
   },
+
+  /* Entregador da RYD: cotar mostra o preço (não cobra); confirmar debita o saldo da RYD e chama;
+     cancelar só antes de o entregador chegar na loja. O status chega pelo /webhook/ryd. */
+  cotarEntrega: (db, dados, por, env) => ryd.cotarEntrega(db, env, dados),
+  confirmarEntrega: (db, dados, por, env) => ryd.confirmarEntrega(db, env, dados, por),
+  cancelarEntrega: (db, dados, por, env) => ryd.cancelarEntrega(db, env, dados, por),
 
   /* "Notificar alterações": manda ao cliente, pelo WhatsApp da loja, o resumo atual do pedido. */
   async avisarCliente(db, { pedidoId }, por, env) {
@@ -483,6 +491,24 @@ async function webhookTelegram(request, env, ctx, url) {
   return new Response("ok");
 }
 
+/* Webhook da RYD: responde 200 rápido (ela espera até 10 s) com o id do evento; o status vai para o
+   pedido. Erro nosso devolve 500 para a RYD reenviar (com "entrega garantida" ligada na chave). */
+async function webhookRyd(request, env, token) {
+  if (request.method !== "POST") return new Response(null, { status: 405 });
+  if (!env.RYD_WEBHOOK_TOKEN || token !== env.RYD_WEBHOOK_TOKEN) return new Response(null, { status: 404 });
+  const ev = await request.json().catch(() => null);
+  if (!ev) return new Response(null, { status: 400 });
+  const eventoId = request.headers.get("X-RYD-Event-Id") || String(ev["event-id"] || "");
+  try {
+    const r = await ryd.eventoDaRyd(banco(env), ev, { simulacao: request.headers.get("X-RYD-Simulation") === "1" || ev.test === true });
+    if (r.ignorado) console.log(JSON.stringify({ msg: "evento RYD ignorado", motivo: r.ignorado, deliveryId: ev["delivery-id"] }));
+    return json({ requestId: `ryd-${eventoId}` });
+  } catch (e) {
+    console.error(JSON.stringify({ msg: "webhook RYD falhou", erro: String(e), deliveryId: ev["delivery-id"] }));
+    return json({ erro: "temporário" }, 500);
+  }
+}
+
 /* Skill da Alexa na cozinha. A Amazon espera a resposta na hora (até 8 s), então aqui não há waitUntil. */
 async function webhookAlexa(request, env, ctx) {
   if (!alexa.alexaLigada(env)) return new Response(null, { status: 404 });
@@ -526,6 +552,18 @@ export default {
     if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
     if (url.pathname === "/webhook/alexa") return webhookAlexa(request, env, ctx);
+    const rydToken = url.pathname.match(/^\/webhook\/ryd\/([\w-]+)$/)?.[1];
+    if (rydToken) return webhookRyd(request, env, rydToken);
+    /* Configuração da RYD (tarifas, recursos, webhook), protegida pelo mesmo token do webhook.
+       ?registrar=1 cadastra o webhook; ?simular=1 dispara uma entrega de mentira. */
+    const rydConfig = url.pathname.match(/^\/ryd\/config\/([\w-]+)$/)?.[1];
+    if (rydConfig) {
+      if (!env.RYD_WEBHOOK_TOKEN || rydConfig !== env.RYD_WEBHOOK_TOKEN) return new Response(null, { status: 404 });
+      return ryd.configuracao(env, {
+        registrar: url.searchParams.get("registrar") === "1", simular: url.searchParams.get("simular") === "1",
+        urlWebhook: `${ORIGEM_API}/webhook/ryd/${env.RYD_WEBHOOK_TOKEN}`
+      }).then(r => json(r), e => json({ erro: e.message }, 400));
+    }
     const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir|cancelar|comprovante)\/([\w-]+)$/);
     if (sof) return rotaDaSofia(request, env, ctx, sof[1], sof[2]);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);

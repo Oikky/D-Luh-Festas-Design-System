@@ -1,4 +1,12 @@
-/* Taxa de entrega pela Moblets (Let's Express), que roda na plataforma Machine: a estimativa oficial
+/* Taxa de entrega do site: cotação da RYD (ryd.js), arredondada para cima no real. Só liga com
+   RYD_TAXA_SITE="1" (separado da chave: o botão do admin pode funcionar antes de o site cobrar a taxa).
+   Sem isso, sem a chave, ou se a RYD recusar o endereço, { disponivel: false } e a taxa é combinada
+   na confirmação.
+
+   Abaixo, estimarFreteMoblets: a cotação antiga pela Moblets, fora de uso desde 09/10/2026 (a RYD
+   entrou no lugar). Fica para voltar, se precisar.
+
+   Taxa de entrega pela Moblets (Let's Express), que roda na plataforma Machine: a estimativa oficial
    da corrida (POST /entregas/estimativas da API v2 da Machine), arredondada para cima no real.
    Precisa de quatro segredos (`npx wrangler secret put <NOME>`):
      MACHINE_API_KEY   a chave da central (a Moblets vê em Configuração > Integrações > Machine API)
@@ -8,6 +16,8 @@
    Opcional: MACHINE_CATEGORIA (id da categoria, se a Moblets tiver mais de uma; sem ela vale a padrão).
    Sem esses segredos, ou se a Moblets não responder, a resposta é { disponivel: false } e a taxa
    continua sendo combinada na confirmação, como antes. */
+
+import { rydLigada, cotar } from "./ryd.js";
 
 const BASE = "https://api.taximachine.com.br/api/v2/integracao";
 const texto = (v, max) => String(v ?? "").trim().slice(0, max);
@@ -31,7 +41,28 @@ function localDe(l) {
 /* Centavos arredondados para cima no real: R$ 11,40 vira R$ 12,00. */
 const paraCimaNoReal = reais => Math.ceil(Math.round(reais * 100) / 100) * 100;
 
+/* "Rua X, 12 - Bairro, Cidade - UF, 39400000": o destino num texto só, como a RYD pede. */
+const textoDoLocal = d => `${d.endereco} - ${d.bairro}, ${d.cidade} - ${d.estado}${d.cep ? `, ${d.cep}` : ""}`;
+
 async function estimarFrete(env, local, { fetchFn = fetch } = {}) {
+  const destino = localDe(local);
+  if (!destino || !rydLigada(env) || env.RYD_TAXA_SITE !== "1") return { disponivel: false };
+  try {
+    const c = await cotar(env, textoDoLocal(destino), {}, { fetchFn });
+    if (!(c.valor > 0)) return { disponivel: false };
+    return {
+      disponivel: true,
+      taxa: paraCimaNoReal(c.valor / 100),
+      km: c.metros ? Math.round(c.metros / 100) / 10 : null,
+      minutos: c.segundos ? Math.round(c.segundos / 60) : null
+    };
+  } catch (e) {
+    console.error(JSON.stringify({ msg: "cotação RYD falhou", erro: String(e?.message || e) }));
+    return { disponivel: false };
+  }
+}
+
+async function estimarFreteMoblets(env, local, { fetchFn = fetch } = {}) {
   const destino = localDe(local);
   if (!destino || !configurado(env)) return { disponivel: false };
   const [endereco, bairro, cidade, estado] = String(env.LOJA_ENDERECO).split("|").map(s => s.trim());
@@ -70,4 +101,4 @@ async function estimarFrete(env, local, { fetchFn = fetch } = {}) {
   }
 }
 
-export { estimarFrete, localDe, paraCimaNoReal, configurado };
+export { estimarFrete, estimarFreteMoblets, localDe, textoDoLocal, paraCimaNoReal, configurado };

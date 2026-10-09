@@ -59,10 +59,31 @@ const CONFIRMA = {
     confirmLabel: "Sim, mandar", ok: "Pedido em produção", falhou: "Não deu pra mandar para produção",
     aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Em produção" } : x),
     pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Em produção", motivo: "liberado sem pagamento" } } }),
+  cancelarRyd: p => ({ tone: "danger", icon: "truck", title: "Cancelar o entregador?",
+    message: "A RYD cancela a corrida (só dá antes de o entregador chegar na loja). O pedido continua como está.", confirmLabel: "Sim, cancelar",
+    ok: "Entregador cancelado", falhou: "Não deu pra cancelar o entregador",
+    pedido: { acao: "cancelarEntrega", dados: { pedidoId: p.id } } }),
   cancelar: p => ({ tone: "danger", icon: "circle-x", title: "Cancelar pedido?",
     message: "O pedido vai para Cancelados e sai da fila da cozinha. O histórico continua guardado.", confirmLabel: "Sim, cancelar",
     ok: "Pedido cancelado", falhou: "Não deu pra cancelar o pedido",
     pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Cancelado" } } })
+};
+
+/* Entregador da RYD: como cada status aparece no cartão. "Cancelar entregador" só vale antes de ele
+   chegar na loja (a RYD recusa depois disso). */
+const RYD = {
+  pending: { rotulo: "Procurando entregador", tone: "warn" }, scheduled: { rotulo: "Entregador agendado", tone: "neutral" },
+  accepted: { rotulo: "Entregador a caminho", tone: "accent" }, withdraw: { rotulo: "Entregador na loja", tone: "accent" },
+  delivering: { rotulo: "Saiu para entrega", tone: "accent" }, finished: { rotulo: "Entrega concluída", tone: "success" },
+  canceled: { rotulo: "Entregador cancelado", tone: "neutral" }
+};
+const rydAtiva = p => !!p.ryd && !["finished", "canceled"].includes(p.ryd.status);
+const rydCancelavel = p => !!p.ryd && ["pending", "scheduled", "accepted"].includes(p.ryd.status);
+const podeChamarRyd = p => p.modo === "Entrega em endereço" && !!p.endereco && !rydAtiva(p)
+  && ["Em produção", "Entregue — Esperando restante"].includes(p.status) && !(p.status === "Entregue — Esperando restante" && p.ryd);
+const textoRyd = p => {
+  const r = RYD[p.ryd.status] || { rotulo: p.ryd.status };
+  return p.ryd.entregador && ["accepted", "withdraw", "delivering"].includes(p.ryd.status) ? `${r.rotulo}: ${p.ryd.entregador}` : r.rotulo;
 };
 
 /* A charge is a link the atendente sends; this is where it lands after it's generated. */
@@ -281,6 +302,19 @@ function Pedidos({ compact, q }) {
   const counts = {};
   abas.forEach(t => counts[t.id] = todos.filter(p => (!t.filtro || t.filtro.includes(p.status)) && casa(p, q)).length);
   const pede = (tipo, p) => setConfirm({ tipo, p, ...CONFIRMA[tipo](p) });
+  /* Primeiro a cotação (não cobra nada), e a pergunta já com o preço e o endereço que a RYD entendeu:
+     o "sim" é que debita o saldo da RYD e chama o entregador. */
+  const chamarEntregador = async p => {
+    const r = await acao("cotar-" + p.id, { falhou: "Não deu pra cotar a entrega" }, null, { acao: "cotarEntrega", dados: { pedidoId: p.id } });
+    if (!r) return;
+    const c = REAL() ? r : { valor: 1140, previewId: "demo", metros: 3027, enderecos: [p.endereco] };
+    const destino = (c.enderecos || []).slice(-1)[0] || p.endereco;
+    setConfirm({ tipo: "entregador", p, tone: "delivered", icon: "truck", title: `Chamar entregador por ${reais(c.valor)}?`,
+      message: `A RYD leva até ${destino}${c.metros ? ` (${(c.metros / 1000).toFixed(1).replace(".", ",")} km)` : ""}. Confira o endereço: o valor sai do saldo da RYD assim que confirmar.`,
+      confirmLabel: "Sim, chamar", ok: "Entregador chamado: o status aparece no pedido", falhou: "Não deu pra chamar o entregador",
+      aplicar: l => l.map(x => x.id === p.id ? { ...x, ryd: { status: "pending", entregador: "", valor: c.valor } } : x),
+      pedido: { acao: "confirmarEntrega", dados: { pedidoId: p.id, previewId: c.previewId, valor: c.valor } } });
+  };
 
   if (carga.estado === "erro" && !carga.dados) return <ErroCarga erro={carga.erro} oque="os pedidos" onTentar={carga.tentar} />;
   if (!carga.dados) return <Carregando oque="pedidos" />;
@@ -321,6 +355,8 @@ function Pedidos({ compact, q }) {
               ...(podeImprimir(p) ? [{ label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) }]
                 : [{ label: "Mandar para produção", icon: "chef-hat", onClick: () => pede("producao", p) }]),
               ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
+              ...(podeChamarRyd(p) ? [{ label: "Chamar entregador (RYD)", icon: "truck", onClick: () => chamarEntregador(p) }] : []),
+              ...(rydCancelavel(p) ? [{ label: "Cancelar entregador", icon: "circle-x", onClick: () => pede("cancelarRyd", p) }] : []),
               { divider: true },
               { label: "Cancelar pedido", icon: "circle-x", tone: "danger", onClick: () => pede("cancelar", p) },
               { label: "Apagar pedido", icon: "trash-2", tone: "danger", onClick: () => setApagando(p) }
@@ -335,6 +371,7 @@ function Pedidos({ compact, q }) {
                 {p.falta ? <Badge tone="warn">Falta {p.falta}</Badge> : null}
                 {p.feitoNaCozinha && p.status === "Em produção" ? <Badge tone="success" icon="chef-hat">Feito na cozinha</Badge> : null}
                 {p.nota ? <Badge tone="neutral" icon="receipt-text">{p.nota.tipo} {p.nota.numero}</Badge> : null}
+                {p.ryd ? <Badge tone={(RYD[p.ryd.status] || {}).tone || "neutral"} icon="truck">{textoRyd(p)}</Badge> : null}
               </>}
               items={p.itens || []} total={p.total} paid={p.pago} due={p.falta}
               actions={<>
