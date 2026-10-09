@@ -23,10 +23,11 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
     // Cache no aparelho: sem internet, a tela mostra a última lista recebida em vez de ficar em branco.
     const db = F.initializeFirestore(app, { localCache: F.persistentLocalCache() });
 
-    /* Cota grátis: 50 mil leituras por dia, e cada abertura do admin relê o que assina. O dia a dia
-       (Visão geral, Pedidos, Agenda) acompanha só os pedidos em aberto e os com entrega nos últimos
-       ${DIAS} dias; a coleção inteira (~1.400, quase tudo histórico do Coda) só quando precisa:
-       busca, abas Finalizados/Cancelados, Clientes e Financeiro. */
+    /* Cada leitura conta (Blaze: R$ por leitura acima de 50 mil/dia), e cada abertura do admin relê
+       o que assina. O dia a dia (Visão geral, Pedidos, Agenda) acompanha só os pedidos em aberto e
+       os com entrega nos últimos ${DIAS} dias. A coleção inteira (~1.400, quase tudo histórico do
+       Coda, que não muda) vem do servidor no máximo uma vez por dia por aparelho e fica no cache;
+       por cima dela, ao vivo, só o que está em aberto, é recente ou mudou hoje. */
     const DIAS = 60;
     const ABERTOS = ["Aguardando confirmação", "Verificando Estoque", "Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante", "Fiado"];
     const corte = () => new Date(Date.now() - DIAS * 864e5);
@@ -34,14 +35,22 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
       F.query(F.collection(db, "sis_pedidos"), F.where("status", "in", ABERTOS)),
       F.query(F.collection(db, "sis_pedidos"), F.where("entrega.data", ">=", corte().toISOString().slice(0, 10)))
     ];
+    const inicioDoDia = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+    /* Coleção inteira, do servidor uma vez por dia (por aparelho); no resto do dia, do cache. */
+    const diario = colecao => ({ diario: colecao });
+    const pedidosTodos = () => [
+      diario("sis_pedidos"),
+      ...pedidosRecentes(),
+      F.query(F.collection(db, "sis_pedidos"), F.where("atualizadoEm", ">=", inicioDoDia()))
+    ];
     const CONSULTAS = {
       fila: () => F.query(F.collection(db, "sis_pedidos"), F.where("status", "in", ["Em produção", "Fiado"])),
       pedidos: pedidosRecentes,
       agenda: pedidosRecentes,
-      pedidosTodos: () => F.collection(db, "sis_pedidos"),
+      pedidosTodos,
       produtos: () => F.collection(db, "sis_produtos"),
       recheios: () => F.collection(db, "sis_catalogo"),
-      todosPagamentos: () => F.collection(db, "sis_pagamentos"),
+      todosPagamentos: () => [diario("sis_pagamentos"), F.query(F.collection(db, "sis_pagamentos"), F.where("em", ">=", corte()))],
       pagamentosRecentes: () => F.query(F.collection(db, "sis_pagamentos"), F.where("em", ">=", corte())),
       financeiro: () => F.collection(db, "sis_financeiro"),
       atendimentos: () => F.collection(db, "sis_atendimentos"),
@@ -49,6 +58,25 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
       boletosAbertos: () => F.query(F.collection(db, "sis_financeiro"), F.where("tipo", "==", "boleto"), F.where("pago", "==", false)),
       pagamentos: pedidoId => F.query(F.collection(db, "sis_pagamentos"), F.where("pedidoId", "==", pedidoId))
     };
+
+    /* A coleção inteira: do cache se já veio do servidor hoje neste aparelho; senão, do servidor.
+       Duas telas pedindo ao mesmo tempo dividem a mesma leitura. */
+    const emCurso = {};
+    const lerDiario = colecao => emCurso[colecao] || (emCurso[colecao] = (async () => {
+      const chave = "dluh-diario-" + colecao, hoje = inicioDoDia().toDateString();
+      let marca = null;
+      try { marca = localStorage.getItem(chave); } catch (e) {}
+      const ref = F.collection(db, colecao);
+      if (marca === hoje) {
+        try {
+          const snap = await F.getDocsFromCache(ref);
+          if (snap.size) return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (e) { /* cache vazio ou apagado: vai ao servidor */ }
+      }
+      const snap = await F.getDocsFromServer(ref);
+      try { localStorage.setItem(chave, hoje); } catch (e) {}
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    })().finally(() => { delete emCurso[colecao]; }));
 
     return {
       entrar: () => A.signInWithPopup(auth, new A.GoogleAuthProvider()),
@@ -62,21 +90,36 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
         if (!Array.isArray(c)) return F.onSnapshot(c, { includeMetadataChanges: true },
           snap => aoDados(snap.docs.map(d => ({ id: d.id, ...d.data() })), { doCache: snap.metadata.fromCache }),
           aoErro);
-        /* Várias consultas somadas numa lista só (sem repetir o pedido que casa com duas). Só
-           entrega depois que todas responderam pela primeira vez. */
+        /* Várias consultas somadas numa lista só (sem repetir o pedido que casa com duas; a mais
+           nova da lista ganha, então o "diário" vem primeiro e o ao vivo por cima). Só entrega
+           depois que todas responderam pela primeira vez. */
         const partes = c.map(() => null), cache = c.map(() => true);
+        /* Sumiu de uma escuta ao vivo (entre duas respostas do servidor, nesta sessão) e não está em
+           nenhuma outra: foi apagado. O "diário" ainda tem a cópia de manhã, então ela sai também.
+           Mudou de status continua aparecendo pela escuta "mudou hoje". */
+        const removidos = new Set(), doServidor = c.map(() => null);
         const juntar = () => {
           if (partes.some(p => !p)) return;
-          const porId = new Map();
-          partes.forEach(p => p.forEach(d => porId.set(d.id, d)));
+          const porId = new Map(), ao = new Set();
+          partes.forEach((p, i) => p.forEach(d => { porId.set(d.id, d); if (!c[i].diario) ao.add(d.id); }));
+          removidos.forEach(id => { if (!ao.has(id)) porId.delete(id); else removidos.delete(id); });
           aoDados([...porId.values()], { doCache: cache.some(Boolean) });
         };
-        const parar = c.map((q, i) => F.onSnapshot(q, { includeMetadataChanges: true }, snap => {
+        let vivo = true;
+        const parar = c.map((q, i) => q.diario ? (lerDiario(q.diario).then(docs => {
+          if (!vivo) return;
+          partes[i] = docs; cache[i] = false; juntar();
+        }, e => vivo && aoErro(e)), () => {}) : F.onSnapshot(q, { includeMetadataChanges: true }, snap => {
+          if (!snap.metadata.fromCache) {
+            const agora = new Set(snap.docs.map(d => d.id));
+            if (doServidor[i]) doServidor[i].forEach(id => { if (!agora.has(id)) removidos.add(id); });
+            doServidor[i] = agora;
+          }
           partes[i] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           cache[i] = snap.metadata.fromCache;
           juntar();
         }, aoErro));
-        return () => parar.forEach(p => p());
+        return () => { vivo = false; parar.forEach(p => p()); };
       },
 
       async chamar(acao, dados) {
