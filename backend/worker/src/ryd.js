@@ -150,6 +150,30 @@ async function eventoDaRyd(db, ev, { simulacao = false } = {}) {
   return { pedidoId: achado.id, status, mudou: status !== achado.ryd?.status };
 }
 
+/* Sincronização (cron de 15 min): consulta na RYD (/api/info) as entregas ainda abertas no sistema e
+   grava o que mudou, como o webhook faria. Cobre evento perdido, já que sem "entrega garantida" a RYD
+   tenta o webhook uma vez só. Uma consulta por entrega a cada 15 min fica bem acima do mínimo de 30 s. */
+async function sincronizarEntregas(db, env, opcoes) {
+  if (!rydLigada(env)) return { conferidas: 0, mudaram: 0 };
+  const abertos = Object.keys(STATUS).filter(s => !ENCERRADOS.includes(s));
+  const listas = await Promise.all(abertos.map(s => db.collection(PEDIDOS).consultar([["ryd.status", "==", s]])));
+  const pedidos = listas.flat().filter(p => p.ryd?.deliveryId);
+  let mudaram = 0;
+  for (const p of pedidos) {
+    try {
+      const info = await chamar(env, "info", { "delivery-id": p.ryd.deliveryId }, opcoes);
+      const r = await eventoDaRyd(db, { ...info, "delivery-id": p.ryd.deliveryId });
+      if (r.mudou) {
+        mudaram++;
+        console.log(JSON.stringify({ msg: "RYD sincronizada", pedidoId: p.id, de: p.ryd.status, para: r.status }));
+      }
+    } catch (e) {
+      console.error(JSON.stringify({ msg: "sincronizar RYD falhou", pedidoId: p.id, deliveryId: p.ryd.deliveryId, erro: String(e.message || e) }));
+    }
+  }
+  return { conferidas: pedidos.length, mudaram };
+}
+
 /* Configuração (rota /ryd/config/<RYD_WEBHOOK_TOKEN>): tipos de veículo, recursos liberados e a URL de
    webhook da chave. Com `registrar`, cadastra `urlWebhook`; com `simular`, a RYD manda para ela a
    sequência de eventos de uma entrega de mentira (sem cobrar nada). */
@@ -168,4 +192,4 @@ async function configuracao(env, { registrar = false, simular = false, urlWebhoo
   return r;
 }
 
-export { configuracao, rydLigada, origem, chamar, cotar, cotarEntrega, confirmarEntrega, cancelarEntrega, eventoDaRyd, STATUS };
+export { configuracao, rydLigada, origem, chamar, cotar, cotarEntrega, confirmarEntrega, cancelarEntrega, eventoDaRyd, sincronizarEntregas, STATUS };

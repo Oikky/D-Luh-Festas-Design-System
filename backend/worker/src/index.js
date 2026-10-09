@@ -132,7 +132,8 @@ const ACOES = {
   },
 
   /* Entregador da RYD: cotar mostra o preço (não cobra); confirmar debita o saldo da RYD e chama;
-     cancelar só antes de o entregador chegar na loja. O status chega pelo /webhook/ryd. */
+     cancelar só antes de o entregador chegar na loja. O status chega pelo /webhook/ryd e o cron
+     de 15 min confere as entregas abertas. */
   cotarEntrega: (db, dados, por, env) => ryd.cotarEntrega(db, env, dados),
   confirmarEntrega: (db, dados, por, env) => ryd.confirmarEntrega(db, env, dados, por),
   cancelarEntrega: (db, dados, por, env) => ryd.cancelarEntrega(db, env, dados, por),
@@ -593,12 +594,14 @@ export default {
 
   /* Três crons (wrangler.jsonc): 06:00 UTC = backup; 12:00 UTC (9h de Brasília) = lembrete
      automático da entrada, para quem tem pedido em até 3 dias; de 15 em 15 min = a Alexa da
-     cozinha lembra dos pedidos da próxima hora e a Sofia retoma conversas paradas há 2h com a equipe. */
+     cozinha lembra dos pedidos da próxima hora, a Sofia retoma conversas paradas há 2h com a equipe
+     e as entregas abertas da RYD são conferidas no /api/info (caso algum webhook tenha se perdido). */
   async scheduled(evento, env, ctx) {
     const db = banco(env);
     if (evento.cron === CRON_COZINHA) {
       ctx.waitUntil(alexa.lembrarProximos(env, db).catch(e => console.error(JSON.stringify({ msg: "lembrete da cozinha falhou", erro: String(e) }))));
       ctx.waitUntil(sofiaHumano.voltarParaSofia(env, db).catch(e => console.error(JSON.stringify({ msg: "volta da Sofia falhou", erro: String(e) }))));
+      ctx.waitUntil(ryd.sincronizarEntregas(db, env).catch(e => console.error(JSON.stringify({ msg: "sincronização da RYD falhou", erro: String(e) }))));
       return;
     }
     if (evento.cron === CRON_LEMBRETE) {

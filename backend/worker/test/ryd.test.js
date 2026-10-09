@@ -118,3 +118,28 @@ test("cancelar: avisa a RYD e marca cancelada; a recusa da RYD chega como erro",
   const nao = rydFalsa({ cancel: { erro: "Cancelamento indisponível, entregador em rota de entrega" } });
   await assert.rejects(ryd.cancelarEntrega(db, ENV, { pedidoId: "PED-10" }, "ana", nao), /em rota de entrega/);
 });
+
+test("sincronizar: confere só as entregas abertas e corrige o que o webhook perdeu", async () => {
+  await db.collection("sis_pedidos").doc("PED-10").set({ ryd: { deliveryId: "100", status: "accepted", entregador: null } }, { merge: true });
+  await db.collection("sis_pedidos").doc("PED-12").set({ id: "PED-12", status: "Em produção", ryd: { deliveryId: "200", status: "pending", entregador: null } });
+  await db.collection("sis_pedidos").doc("PED-13").set({ id: "PED-13", status: "Entregue", ryd: { deliveryId: "300", status: "finished", entregador: null } });
+  await db.collection("sis_pedidos").doc("PED-14").set({ id: "PED-14", status: "Em produção", ryd: { deliveryId: "400", status: "delivering", entregador: null } });
+  const chamadas = [];
+  const fetchFn = async (url, init) => {
+    const id = JSON.parse(init.body)["delivery-id"];
+    chamadas.push(id);
+    const resp = {
+      100: { success: true, "delivery-id": "100", "driver-id": 1, "driver-name": "João Pereira", "driver-image": "", status: "finished", "status-final": "finished", "date-final": "2026-10-09 15:32:10" },
+      200: { success: true, "delivery-id": "200", "driver-id": 0, "driver-name": "", "driver-image": "", status: "pending" },
+      400: { error: "Entrega não encontrada" }
+    }[id];
+    return new Response(JSON.stringify(resp), { status: 200 });
+  };
+  assert.deepEqual(await ryd.sincronizarEntregas(db, ENV, { fetchFn }), { conferidas: 3, mudaram: 1 });
+  assert.deepEqual(chamadas.sort(), ["100", "200", "400"], "a entregue não é consultada");
+  const p10 = (await db.collection("sis_pedidos").doc("PED-10").get()).data();
+  assert.equal(p10.ryd.status, "finished");
+  assert.equal(p10.ryd.entregador.nome, "João Pereira");
+  assert.equal((await db.collection("sis_pedidos").doc("PED-14").get()).get("ryd").status, "delivering", "erro numa não para as outras");
+  assert.deepEqual(await ryd.sincronizarEntregas(db, {}, { fetchFn }), { conferidas: 0, mudaram: 0 }, "sem chave não faz nada");
+});
