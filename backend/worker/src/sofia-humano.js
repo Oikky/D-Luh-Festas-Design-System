@@ -11,19 +11,21 @@ const API = "https://api.gptmaker.ai/v2";
 const ESPERA = 2 * 60 * 60 * 1000;
 const docNosso = (db, telefone) => db.collection("sis_ia").doc(`humano-${telefone}`);
 
-/* Mensagem que a loja mandou para um cliente (não grupo/status). Telefone no formato do WhatsApp. */
-function telefoneDaNossaMensagem(corpo) {
-  if (String(corpo?.event || "").toLowerCase().replace("_", ".") !== "messages.upsert") return null;
+/* Mensagem que a loja mandou para um cliente (não grupo/status): o telefone e, em conta nova do
+   WhatsApp, também o "…@lid" — o GPTMaker usa um ou outro no fim do id da conversa. */
+function telefonesDaNossaMensagem(corpo) {
+  if (String(corpo?.event || "").toLowerCase().replace("_", ".") !== "messages.upsert") return [];
   const d = Array.isArray(corpo.data) ? corpo.data[0] : corpo.data;
   const k = d?.key || {};
-  if (!k.fromMe) return null;
-  const jid = [k.remoteJidAlt, k.remoteJid].find(j => /@s\.whatsapp\.net$/.test(String(j || "")));
-  return jid ? jid.split("@")[0] : null;
+  if (!k.fromMe) return [];
+  return [...new Set([k.remoteJid, k.remoteJidAlt]
+    .map(j => String(j || ""))
+    .filter(j => /@s\.whatsapp\.net$/.test(j) || j.endsWith("@lid"))
+    .map(j => j.endsWith("@lid") ? j : j.split("@")[0]))];
 }
 
 async function anotarNossaMensagem(db, corpo, agora = Date.now()) {
-  const tel = telefoneDaNossaMensagem(corpo);
-  if (tel) await docNosso(db, tel).set({ ultima: agora });
+  await Promise.all(telefonesDaNossaMensagem(corpo).map(tel => docNosso(db, tel).set({ ultima: agora })));
 }
 
 async function gpt(env, metodo, caminho, fetchFn) {
@@ -44,10 +46,11 @@ async function voltarParaSofia(env, db, { agora = Date.now(), fetchFn = fetch } 
     const assumiu = Math.max(0, ...(Array.isArray(msgs) ? msgs : [])
       .filter(m => m.conversationNotificationType === "START_INTERACTION_HUMAN" || (m.userId && m.role !== "system"))
       .map(m => Number(m.time) || 0));
-    const tel = String(c.id).split("-").pop();
+    const tel = String(c.id).slice(String(c.id).indexOf("-") + 1);
     const snap = await docNosso(db, tel).get();
     const ultima = Math.max(assumiu, snap.exists ? Number(snap.data().ultima) || 0 : 0);
-    // Sem nenhuma hora conhecida não mexe: melhor a Sofia calada do que atropelar a dona.
+    // Sem nenhuma hora conhecida não mexe: melhor a Sofia calada do que atropelar a dona. Inclui a
+    // conversa que a própria Sofia passou para a equipe (TRANSFER_QUEUE): fica esperando a equipe.
     if (!ultima || agora - ultima < ESPERA) continue;
     await gpt(env, "PUT", `/chat/${encodeURIComponent(c.id)}/stop-human`, fetchFn);
     voltaram.push(tel);
@@ -56,4 +59,4 @@ async function voltarParaSofia(env, db, { agora = Date.now(), fetchFn = fetch } 
   return voltaram;
 }
 
-export { anotarNossaMensagem, telefoneDaNossaMensagem, voltarParaSofia };
+export { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia };

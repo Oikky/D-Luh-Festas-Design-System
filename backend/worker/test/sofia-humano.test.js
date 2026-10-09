@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anotarNossaMensagem, telefoneDaNossaMensagem, voltarParaSofia } from "../src/sofia-humano.js";
+import { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia } from "../src/sofia-humano.js";
 
 const H = 60 * 60 * 1000;
 const agora = Date.parse("2026-10-09T15:00:00Z");
@@ -23,11 +23,11 @@ function banco(inicial = {}) {
 const upsert = key => ({ event: "messages.upsert", data: { key: { id: "X", ...key }, message: { conversation: "oi" } } });
 
 test("anota só mensagem que a loja mandou para um cliente", async () => {
-  assert.equal(telefoneDaNossaMensagem(upsert({ fromMe: true, remoteJid: "553899691571@s.whatsapp.net" })), "553899691571");
-  assert.equal(telefoneDaNossaMensagem(upsert({ fromMe: true, remoteJid: "123@lid", remoteJidAlt: "553899691571@s.whatsapp.net" })), "553899691571");
-  assert.equal(telefoneDaNossaMensagem(upsert({ fromMe: false, remoteJid: "553899691571@s.whatsapp.net" })), null);
-  assert.equal(telefoneDaNossaMensagem(upsert({ fromMe: true, remoteJid: "1203@g.us" })), null);
-  assert.equal(telefoneDaNossaMensagem({ event: "connection.update", data: {} }), null);
+  assert.deepEqual(telefonesDaNossaMensagem(upsert({ fromMe: true, remoteJid: "553899691571@s.whatsapp.net" })), ["553899691571"]);
+  assert.deepEqual(telefonesDaNossaMensagem(upsert({ fromMe: true, remoteJid: "123@lid", remoteJidAlt: "553899691571@s.whatsapp.net" })), ["123@lid", "553899691571"]);
+  assert.deepEqual(telefonesDaNossaMensagem(upsert({ fromMe: false, remoteJid: "553899691571@s.whatsapp.net" })), []);
+  assert.deepEqual(telefonesDaNossaMensagem(upsert({ fromMe: true, remoteJid: "1203@g.us" })), []);
+  assert.deepEqual(telefonesDaNossaMensagem({ event: "connection.update", data: {} }), []);
   const db = banco();
   await anotarNossaMensagem(db, upsert({ fromMe: true, remoteJid: "553899691571@s.whatsapp.net" }), agora);
   assert.deepEqual(db.docs["humano-553899691571"], { ultima: agora });
