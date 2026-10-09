@@ -25,6 +25,8 @@
     "FIREBASE_API_KEY": "AIzaSyCV7LcTZmCE9MpezCvBah0hHQ245WYcixs",
     "SISTEMA_EMAIL": "sistema@dluh-festas.firebaseapp.com",
     "INFINITEPAY_HANDLE": "dluh_festas",
+    // Workspace do GPTMaker (Sofia); o token vai no segredo GPTMAKER_TOKEN.
+    "GPTMAKER_WORKSPACE": "3FA5A9AB28B880CE546E261FF6403E7C",
     // Telas que podem chamar a API (separadas por vírgula).
     "ORIGENS": "https://www.dluhfestas.com,https://dluhfestas.com,https://sitedluh.github.io,https://oikky.github.io,http://localhost:8000,http://127.0.0.1:8000",
     // ── Integrações (vazias = desligadas; ver README) ──

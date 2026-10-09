@@ -17,6 +17,7 @@ import { ehEquipe } from "./equipe.js";
 import * as pedidos from "./pedidos.js";
 import * as infinitepay from "./infinitepay.js";
 import * as sofia from "./sofia.js";
+import * as sofiaHumano from "./sofia-humano.js";
 import * as produtos from "./produtos.js";
 import * as financeiro from "./financeiro.js";
 import * as notas from "./notas.js";
@@ -398,6 +399,8 @@ async function webhookEvolution(request, env, ctx, token) {
   let dados;
   try { dados = JSON.parse(corpo); } catch { return new Response(null, { status: 400 }); }
 
+  ctx.waitUntil(sofiaHumano.anotarNossaMensagem(banco(env), dados)
+    .catch(e => console.error(JSON.stringify({ msg: "anotar mensagem da loja falhou", erro: String(e) }))));
   const msg = mensagemEvolution(dados);
   // Com a Meta ligada a assistente mora só no número dela; o da loja volta a repassar tudo.
   const daIA = !!(msg && iaPronta(env) && !metaLigado(env) && autorizado(env, msg.de));
@@ -552,11 +555,12 @@ export default {
 
   /* Três crons (wrangler.jsonc): 06:00 UTC = backup; 12:00 UTC (9h de Brasília) = lembrete
      automático da entrada, para quem tem pedido em até 3 dias; de 15 em 15 min = a Alexa da
-     cozinha lembra dos pedidos da próxima hora. */
+     cozinha lembra dos pedidos da próxima hora e a Sofia retoma conversas paradas há 2h com a equipe. */
   async scheduled(evento, env, ctx) {
     const db = banco(env);
     if (evento.cron === CRON_COZINHA) {
       ctx.waitUntil(alexa.lembrarProximos(env, db).catch(e => console.error(JSON.stringify({ msg: "lembrete da cozinha falhou", erro: String(e) }))));
+      ctx.waitUntil(sofiaHumano.voltarParaSofia(env, db).catch(e => console.error(JSON.stringify({ msg: "volta da Sofia falhou", erro: String(e) }))));
       return;
     }
     if (evento.cron === CRON_LEMBRETE) {
