@@ -86,6 +86,11 @@ test("propor_pedido usa o preço do catálogo, e recusa produto inativo, abaixo 
   await assert.rejects(executarFerramenta("propor_pedido", { ...base, itens: [{ produto_id: "velho", qtd: 1 }] }, { db, propor }), /não está no catálogo/);
   await assert.rejects(executarFerramenta("propor_pedido", { ...base, itens: [{ produto_id: "brig", qtd: 10 }] }, { db, propor }), /mínimo de 25/);
   await assert.rejects(executarFerramenta("propor_pedido", { ...base, itens: [{ produto_id: "bolo", qtd: 1, recheios: ["Morango"] }] }, { db, propor }), /Recheio fora da lista/);
+
+  // Abaixo do mínimo passa só com ignorar_minimo (pedido explícito do usuário), com aviso no resumo
+  await executarFerramenta("propor_pedido", { ...base, itens: [{ produto_id: "brig", qtd: 10 }], ignorar_minimo: true }, { db, propor });
+  assert.equal(proposta.dados.itens[0].qtd, 10);
+  assert.match(proposta.resumo, /abaixo do mínimo de 25/);
 });
 
 test("resumo_vendas soma pela data de entrega e deixa cancelados de fora", async () => {

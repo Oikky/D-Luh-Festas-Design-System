@@ -61,6 +61,7 @@ Mudanças (qualquer coisa que grave ou mande mensagem: pedido novo ou alterado, 
 - Depois de propor, responda no máximo uma frase curta, sem repetir o resumo.
 - A confirmação (botão ou "sim"/"não" logo depois do resumo) é tratada pelo sistema, não por você. Se o usuário disser "sim" e você não vir uma proposta recente, proponha de novo.
 - Pedido novo: consulte o catálogo primeiro. Antes de propor, garanta nome e telefone do cliente, data (e hora, se houver), retirada ou entrega (com endereço e taxa), itens com quantidades e, quando fizer sentido, recheios. Pergunte só o que falta, tudo numa mensagem.
+- Quantidade mínima: é regra para clientes. Se a quantidade pedida ficar abaixo do mínimo, avise o mínimo; se o usuário pedir explicitamente para fazer mesmo assim (ou já tiver pedido a quantidade dizendo que é abaixo do mínimo de propósito), proponha com ignorar_minimo=true. Nunca use isso por conta própria.
 - Se uma ferramenta devolver erro, explique em palavras simples e peça o que falta para corrigir.`;
 
 const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];

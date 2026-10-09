@@ -12,7 +12,8 @@ import { DEFINICOES_LOJA, EXECUTAR_LOJA } from "./ferramentas-loja.js";
 /* Brasil não tem mais horário de verão: UTC-3 o ano todo. */
 const hojeSP = (agora = Date.now()) => new Date(agora - 3 * 3600e3).toISOString().slice(0, 10);
 const somarDias = (iso, n) => new Date(Date.parse(iso + "T12:00:00Z") + n * 86400e3).toISOString().slice(0, 10);
-const dataOk = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+const IGNORAR_MINIMO = { type: "boolean", description: "Aceita quantidade abaixo do mínimo do catálogo. Só quando o usuário pedir explicitamente (ex.: \"faz 10 mesmo\", \"pode ser abaixo do mínimo\"); nunca por conta própria." };
+const dataOk = s =>/^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 const idPedido = v => { const s = String(v || "").trim().toUpperCase(); return /^\d+$/.test(s) ? `PED-${s}` : s; };
 const quando = e => `${dataBR(e?.data)}${e?.hora ? ` às ${e.hora}` : ""}`;
 
@@ -91,7 +92,8 @@ const DEFINICOES = [
         taxa_entrega_reais: { type: "number" },
         entrada_pct: { type: "integer", enum: [50, 100], description: "Quanto a cobrança de entrada pede. Padrão 50." },
         tipo: { type: "string", enum: ["pessoa", "empresa"] },
-        obs: { type: "string" }
+        obs: { type: "string" },
+        ignorar_minimo: IGNORAR_MINIMO
       },
       required: ["cliente", "entrega", "itens"]
     }
@@ -138,7 +140,8 @@ const DEFINICOES = [
         taxa_entrega_reais: { type: "number", minimum: 0 },
         entrada_pct: { type: "integer", enum: [50, 100] },
         tipo: { type: "string", enum: ["pessoa", "empresa"] },
-        obs: { type: "string" }
+        obs: { type: "string" },
+        ignorar_minimo: IGNORAR_MINIMO
       },
       required: ["pedido_id"]
     }
@@ -186,8 +189,9 @@ const DEFINICOES = [
 
 // ── Execução ──
 /* Itens com preço sempre do catálogo ativo. Na edição, `item_atual` mantém um item que já está no
-   pedido (com o preço dele), mudando só quantidade, recheios, topo ou obs se vierem. */
-async function montarItens(db, lista, atuais = []) {
+   pedido (com o preço dele), mudando só quantidade, recheios, topo ou obs se vierem.
+   `ignorarMinimo` (só quando o usuário pede explicitamente) deixa passar abaixo do mínimo e anota em `avisos`. */
+async function montarItens(db, lista, atuais = [], { ignorarMinimo = false, avisos = [] } = {}) {
   const { produtos, recheios } = await catalogo(db);
   const porId = new Map(produtos.map(p => [p.id, p]));
   const porNome = new Map(produtos.map(p => [p.nome.toLowerCase(), p]));
@@ -207,7 +211,10 @@ async function montarItens(db, lista, atuais = []) {
     const prod = porId.get(String(it.produto_id)) || porNome.get(String(it.produto_id || "").toLowerCase());
     if (!prod) throw new ErroDominio("invalid-argument", `Item ${i + 1}: produto "${it.produto_id}" não está no catálogo ativo`);
     if (!it.qtd) throw new ErroDominio("invalid-argument", `Item ${i + 1}: falta a quantidade`);
-    if (it.qtd < (prod.qtdMin || 1)) throw new ErroDominio("invalid-argument", `${prod.nome}: mínimo de ${prod.qtdMin} unidades`);
+    if (it.qtd < (prod.qtdMin || 1)) {
+      if (!ignorarMinimo) throw new ErroDominio("invalid-argument", `${prod.nome}: mínimo de ${prod.qtdMin} unidades (só passa se o usuário pedir explicitamente; aí use ignorar_minimo)`);
+      avisos.push(`⚠️ ${prod.nome}: ${it.qtd} un, abaixo do mínimo de ${prod.qtdMin}`);
+    }
     return { nome: prod.nome, qtd: it.qtd, valorUnit: prod.valorUnit, produtoId: prod.id, categoria: prod.categoria, ...extras(it) };
   });
 }
@@ -283,7 +290,8 @@ const EXECUTAR = {
   },
 
   async propor_pedido({ db, propor }, e) {
-    const itens = await montarItens(db, e.itens);
+    const avisos = [];
+    const itens = await montarItens(db, e.itens, [], { ignorarMinimo: e.ignorar_minimo === true, avisos });
     const dados = {
       cliente: e.cliente, tipo: e.tipo, entrega: e.entrega, itens,
       taxaEntrega: Math.round((Number(e.taxa_entrega_reais) || 0) * 100),
@@ -301,7 +309,8 @@ const EXECUTAR = {
       ...(p.taxaEntrega ? [`Taxa de entrega — ${brl(p.taxaEntrega)}`] : []),
       "",
       `*Total ${brl(p.total)}* · entrada ${p.entradaPct}%: ${brl(Math.round(p.total * p.entradaPct / 100))}`,
-      ...(p.obs ? [`Obs: ${p.obs}`] : [])
+      ...(p.obs ? [`Obs: ${p.obs}`] : []),
+      ...avisos
     ].join("\n");
     return propor("criarPedido", dados, resumo);
   },
@@ -340,11 +349,12 @@ const EXECUTAR = {
     const p = await lerPedido(db, e.pedido_id);
     if (p.status === "Cancelado") throw new ErroDominio("failed-precondition", `${p.id} está cancelado`);
     const vaiRetirar = e.entrega?.modo === "retirada";
+    const avisos = [];
     const dados = {
       cliente: { ...p.cliente, ...(e.cliente || {}) },
       tipo: e.tipo ?? p.tipo,
       entrega: { ...p.entrega, ...(e.entrega || {}), ...(vaiRetirar ? { endereco: "" } : {}) },
-      itens: e.itens ? await montarItens(db, e.itens, p.itens) : p.itens,
+      itens: e.itens ? await montarItens(db, e.itens, p.itens, { ignorarMinimo: e.ignorar_minimo === true, avisos }) : p.itens,
       taxaEntrega: e.taxa_entrega_reais != null ? Math.round(Number(e.taxa_entrega_reais) * 100) : vaiRetirar ? 0 : p.taxaEntrega || 0,
       entradaPct: e.entrada_pct ?? p.entradaPct,
       formaPagamento: p.formaPagamento,
@@ -362,6 +372,7 @@ const EXECUTAR = {
     if (n.obs !== (p.obs || "")) linhas.push(`Obs: ${p.obs || "—"} → *${n.obs || "—"}*`);
     if (!linhas.length) throw new ErroDominio("failed-precondition", "Nada mudou nesse pedido");
     if (n.total !== p.total) linhas.push(`Total: ${brl(p.total)} → *${brl(n.total)}* (pago ${brl(p.pago)})`);
+    linhas.push(...avisos);
     return propor("editarPedido", { pedidoId: p.id, ...dados }, [`*Alterar ${p.id} — ${p.cliente?.nome}*`, ...linhas].join("\n"));
   },
 
