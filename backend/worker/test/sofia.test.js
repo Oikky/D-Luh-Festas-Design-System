@@ -92,3 +92,10 @@ test("sugestões: o que o cliente costuma pedir; sem histórico, os mais pedidos
   assert.equal(novo.itens[0].produto, "Coxinha");
   assert.ok(novo.itens.some(i => i.produto === "Pastel Pipoca de Frango"));
 });
+
+test("campos que o GPTMaker obriga: 'nenhuma' na observação e no endereço de retirada valem como vazio", async () => {
+  const r = await pedidoDaSofia(db, base({ obs: "nenhuma", endereco: "-", bairro: "não tem" }), { agora: AGORA });
+  const p = (await db.collection("sis_pedidos").doc(r.id).get()).data();
+  assert.equal(p.obs || "", "");
+  await assert.rejects(pedidoDaSofia(db, base({ modo: "entrega", endereco: "nenhum" }), { agora: AGORA }), /endereço/);
+});

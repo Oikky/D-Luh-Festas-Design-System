@@ -10,6 +10,9 @@ import { PRODUTOS, CATALOGO_SITE } from "./produtos.js";
 import { PEDIDOS } from "./pedidos.js";
 
 const texto = (v, max) => String(v ?? "").trim().slice(0, max);
+/* O GPTMaker obriga todo campo da Intenção: "nenhuma", "-", "não tem"... valem como vazio. */
+const VAZIO = /^(nenhum[a]?|nada|sem|sem obs\.?|sem observa[çc][aã]o|n[aã]o|n[aã]o tem|n\/?a|-+|\.+|vazio|null|undefined)$/i;
+const opcional = (v, max) => { const t = texto(v, max); return VAZIO.test(t) ? "" : t; };
 
 /* "Bolo aro 18" e "bolo de aro 18" batem: sem emoji, acento, caixa e palavras de ligação. */
 const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "com", "e", "o", "a", "os", "as", "un", "und", "unid", "unidade", "unidades"]);
@@ -99,8 +102,8 @@ async function pedidoDaSofia(db, dados, { agora = new Date(), frete = null } = {
   const modoTxt = normalizar(dados?.modo);
   const modo = /entreg/.test(modoTxt) ? "entrega" : /retir|busca|loja/.test(modoTxt) ? "retirada" : "";
   if (!modo) throw new ErroDominio("invalid-argument", "Diga se é entrega ou retirada na loja");
-  const endereco = texto(dados?.endereco, 300);
-  const bairro = texto(dados?.bairro, 80);
+  const endereco = opcional(dados?.endereco, 300);
+  const bairro = opcional(dados?.bairro, 80);
   if (modo === "entrega" && !endereco) throw new ErroDominio("invalid-argument", "Para entrega, falta o endereço");
 
   const lidos = lerItens(dados?.itens);
@@ -131,7 +134,7 @@ async function pedidoDaSofia(db, dados, { agora = new Date(), frete = null } = {
       ...(modo === "entrega" ? { endereco: [endereco, bairro].filter(Boolean).join(" — "), local: { rua: endereco, bairro } } : {})
     },
     itens,
-    obs: texto(dados?.obs, 1000)
+    obs: opcional(dados?.obs, 1000)
   }, { agora, frete, origem: "whatsapp" });
 }
 
