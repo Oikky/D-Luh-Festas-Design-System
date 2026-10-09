@@ -9,6 +9,9 @@ const TABS = [
   { id: "pagamento", label: "Esperando pagamento", filtro: ["Confirmado — Esperando pagamento"] },
   { id: "producao", label: "Em produção", filtro: ["Em produção"] },
   { id: "restante", label: "Esperando restante", filtro: ["Entregue — Esperando restante"] },
+  /* Fiado: entregue, e a loja combinou de receber depois. Só a equipe vê: a Sofia não acha esses
+     pedidos e o site mostra "Entregue, falta pagar o restante". Quitar finaliza sozinho. */
+  { id: "fiado", label: "Fiados", filtro: ["Fiado"] },
   { id: "final", label: "Finalizados", filtro: ["Finalizado"] },
   { id: "cancelado", label: "Cancelados", filtro: ["Cancelado"] }
 ];
@@ -59,6 +62,16 @@ const CONFIRMA = {
     confirmLabel: "Sim, mandar", ok: "Pedido em produção", falhou: "Não deu pra mandar para produção",
     aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Em produção" } : x),
     pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Em produção", motivo: "liberado sem pagamento" } } }),
+  fiado: p => ({ tone: "accent", icon: "notebook-pen", title: "Marcar como fiado?",
+    message: `O pedido vai para Fiados como entregue${p.falta ? `, com ${p.falta} para ${para(p)} pagar depois` : ""}. Quando quitar, ele finaliza sozinho. Clientes e a Sofia não veem a palavra fiado.`,
+    confirmLabel: "Sim, é fiado", ok: "Pedido marcado como fiado", falhou: "Não deu pra marcar como fiado",
+    aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Fiado" } : x),
+    pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Fiado" } } }),
+  tirarFiado: p => ({ tone: "accent", icon: "undo-2", title: "Tirar do fiado?",
+    message: "O pedido volta para Esperando restante. O que já foi pago continua no pedido.",
+    confirmLabel: "Sim, tirar", ok: "Pedido voltou para Esperando restante", falhou: "Não deu pra tirar do fiado",
+    aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Entregue — Esperando restante" } : x),
+    pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Entregue — Esperando restante" } } }),
   cancelarRyd: p => ({ tone: "danger", icon: "truck", title: "Cancelar o entregador?",
     message: "A RYD cancela a corrida (só dá antes de o entregador chegar na loja). O pedido continua como está.", confirmLabel: "Sim, cancelar",
     ok: "Entregador cancelado", falhou: "Não deu pra cancelar o entregador",
@@ -81,6 +94,8 @@ const rydAtiva = p => !!p.ryd && !["finished", "canceled"].includes(p.ryd.status
 const rydCancelavel = p => !!p.ryd && ["pending", "scheduled", "accepted"].includes(p.ryd.status);
 const podeChamarRyd = p => p.modo === "Entrega em endereço" && !!p.endereco && !rydAtiva(p)
   && ["Em produção", "Entregue — Esperando restante"].includes(p.status) && !(p.status === "Entregue — Esperando restante" && p.ryd);
+/* Fiado é para pedido entregue (ou saindo agora) que ainda tem valor em aberto. */
+const podeFiado = p => ["Em produção", "Pronto", "Entregue — Esperando restante"].includes(p.status) && p.pagamento !== "Totalmente pago";
 const textoRyd = p => {
   const r = RYD[p.ryd.status] || { rotulo: p.ryd.status };
   return p.ryd.entregador && ["accepted", "withdraw", "delivering"].includes(p.ryd.status) ? `${r.rotulo}: ${p.ryd.entregador}` : r.rotulo;
@@ -267,6 +282,17 @@ function ApagarComSenha({ p, pendente, onCancel, onConfirm }) {
   </Modal>;
 }
 
+/* Quanto está na rua em fiado e com quantas pessoas, para a aba Fiados. */
+function ResumoFiado({ lista }) {
+  const falta = lista.reduce((s, p) => s + (p._c ? p._c.falta / 100 : valor(p.falta)), 0);
+  const pessoas = new Set(lista.map(p => String(p.tel || "").replace(/\D/g, "") || p.cliente)).size;
+  return <div style={{ marginRight: "auto", display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>
+    <span>Em fiado:</span>
+    <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)", fontVariantNumeric: "tabular-nums" }}>{window.brl(falta)}</span>
+    <span>· {pessoas === 1 ? "1 cliente" : `${pessoas} clientes`}</span>
+  </div>;
+}
+
 function Pedidos({ compact, q }) {
   const [tab, setTab] = React.useState("estoque");
   const [detalhe, setDetalhe] = React.useState(null);
@@ -334,7 +360,8 @@ function Pedidos({ compact, q }) {
 
       <Tabs value={tab} onChange={setTab} items={abas.map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} />
 
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        {tab === "fiado" && lista.length ? <ResumoFiado lista={lista} /> : null}
         {/* Lembrete da entrada para todos desta aba (o mesmo sai sozinho 3 dias antes de cada pedido). */}
         {tab === "pagamento" && lista.length ? <Button size="sm" variant="ghost" icon="bell-ring" onClick={() => setConfirm({
           tipo: "lembrete", p: {}, tone: "chargeEntry", icon: "bell-ring",
@@ -355,6 +382,8 @@ function Pedidos({ compact, q }) {
               ...(podeImprimir(p) ? [{ label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) }]
                 : [{ label: "Mandar para produção", icon: "chef-hat", onClick: () => pede("producao", p) }]),
               ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
+              ...(podeFiado(p) ? [{ label: "Marcar como fiado", icon: "notebook-pen", onClick: () => pede("fiado", p) }] : []),
+              ...(p.status === "Fiado" ? [{ label: "Tirar do fiado", icon: "undo-2", onClick: () => pede("tirarFiado", p) }] : []),
               ...(podeChamarRyd(p) ? [{ label: "Chamar entregador (RYD)", icon: "truck", onClick: () => chamarEntregador(p) }] : []),
               ...(rydCancelavel(p) ? [{ label: "Cancelar entregador", icon: "circle-x", onClick: () => pede("cancelarRyd", p) }] : []),
               { divider: true },
@@ -386,11 +415,11 @@ function Pedidos({ compact, q }) {
                   ? <Button size="sm" style={cresce} tone="delivered" icon="truck" loading={pendente === "entregue-" + p.id}
                       onClick={() => acao("entregue-" + p.id, { ok: p.pagamento === "Totalmente pago" ? "Pedido entregue e finalizado" : "Pedido marcado como entregue", falhou: "Não deu pra marcar como entregue" }, null,
                         { acao: "mudarStatus", dados: { pedidoId: p.id, status: p.pagamento === "Totalmente pago" ? "Finalizado" : "Entregue — Esperando restante" } })}>Marcar entregue</Button>
-                  : p.status === "Entregue — Esperando restante" && p.pagamento === "Totalmente pago"
+                  : ["Entregue — Esperando restante", "Fiado"].includes(p.status) && p.pagamento === "Totalmente pago"
                   ? <Button size="sm" style={cresce} tone="delivered" icon="circle-check" loading={pendente === "finalizar-" + p.id}
                       onClick={() => acao("finalizar-" + p.id, { ok: "Pedido finalizado", falhou: "Não deu pra finalizar o pedido" }, null,
                         { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Finalizado" } })}>Finalizar</Button>
-                  : p.status === "Entregue — Esperando restante"
+                  : ["Entregue — Esperando restante", "Fiado"].includes(p.status)
                   ? <Button size="sm" style={cresce} tone="chargeAll" icon="banknote" onClick={() => pede("restante", p)}>Cobrar restante</Button>
                   : p.status === "Finalizado"
                   ? <Button size="sm" style={cresce} variant="outline" icon="printer" onClick={() => imprimir(p)}>Recibo</Button>

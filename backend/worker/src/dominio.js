@@ -9,9 +9,15 @@ const STATUS = [
   "Em produção",
   "Pronto",
   "Entregue — Esperando restante",
+  "Fiado",
   "Finalizado",
   "Cancelado"
 ];
+
+/* "Fiado": entregue e a loja combinou de receber depois. É só da equipe: clientes (Sofia, site)
+   nunca veem esse nome (FIADO_PARA_CLIENTE). */
+const FIADO = "Fiado";
+const FIADO_PARA_CLIENTE = "Entregue — Esperando restante";
 
 const PAGAMENTO = ["Não pago", "Só entrada", "Totalmente pago"];
 
@@ -72,4 +78,4 @@ class ErroDominio extends Error {
   constructor(codigo, mensagem) { super(mensagem); this.codigo = codigo; }
 }
 
-export { STATUS, PAGAMENTO, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };
+export { FIADO, FIADO_PARA_CLIENTE, STATUS, PAGAMENTO, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };

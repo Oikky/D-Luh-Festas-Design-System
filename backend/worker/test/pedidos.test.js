@@ -123,6 +123,15 @@ test("quitar pedido entregue finaliza; pagamento parcial não mexe no status", a
   assert.deepEqual(ev.at(-1), { ...ev.at(-1), de: "Entregue — Esperando restante", para: "Finalizado", por: "sistema" });
 });
 
+test("fiado: pagamento parcial continua fiado; quitar finaliza", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  await mudarStatus(db, { pedidoId: id, status: "Fiado" }, "ana");
+  const parcial = await registrarPagamento(db, { pedidoId: id, valor: 7000, chave: "fiado-0", meio: "pix" }, "ana");
+  assert.equal(parcial.status, "Fiado");
+  const r = await registrarPagamento(db, { pedidoId: id, valor: 20000, chave: "fiado-1", meio: "dinheiro" }, "ana");
+  assert.equal(r.status, "Finalizado");
+});
+
 test("pagamento não mexe no status em produção", async () => {
   const { id } = await criarPedido(db, base(), "ana");
   await mudarStatus(db, { pedidoId: id, status: "Em produção" }, "ana");

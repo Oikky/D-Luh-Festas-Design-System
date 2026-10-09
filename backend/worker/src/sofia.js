@@ -4,7 +4,7 @@
    (pedidoDoSite: preço, nome e mínimo do catálogo; nasce "Aguardando confirmação"). A equipe confere
    e, ao confirmar, o sistema manda o link de pagamento como já faz. A Sofia não decide nada: só
    entrega o pedido. Erro volta em texto simples para ela explicar ao cliente ou corrigir. */
-import { ErroDominio } from "./dominio.js";
+import { ErroDominio, FIADO } from "./dominio.js";
 import { pedidoDoSite } from "./site.js";
 import { PRODUTOS, CATALOGO_SITE } from "./produtos.js";
 import { PEDIDOS, informarComprovante } from "./pedidos.js";
@@ -195,7 +195,8 @@ function variantesTelefone(tel) {
 }
 
 /* Os pedidos de quem está falando com a Sofia (o telefone vem do GPTMaker, não do que o cliente
-   digita): os 8 mais recentes, com o que já foi pago e o que falta. */
+   digita): os 8 mais recentes, com o que já foi pago e o que falta. Fiado é só da equipe: a Sofia
+   nunca vê esses pedidos. */
 async function pedidosDoCliente(db, telefone) {
   const variantes = variantesTelefone(telefone);
   if (!variantes.length) throw new ErroDominio("invalid-argument", "Telefone do cliente inválido");
@@ -203,6 +204,7 @@ async function pedidosDoCliente(db, telefone) {
   const vistos = new Map();
   for (const p of listas.flat()) vistos.set(p.id, p);
   const pedidos = [...vistos.values()]
+    .filter(p => p.status !== FIADO)
     .sort((a, b) => String(b.entrega?.data || "").localeCompare(String(a.entrega?.data || "")))
     .slice(0, 8)
     .map(p => ({
@@ -224,12 +226,12 @@ function idDoPedido(texto) {
   return `${/ANT/.test(t) ? "ANT" : "PED"}-${Number(n)}`;
 }
 
-/* O pedido, se ele for do telefone de quem está falando com a Sofia. */
+/* O pedido, se ele for do telefone de quem está falando com a Sofia (fiado conta como não achado). */
 async function pedidoDoTelefone(db, telefone, pedido) {
   const id = idDoPedido(pedido);
   const snap = id ? await db.collection(PEDIDOS).doc(id).get() : null;
   const tel = String(snap?.get?.("cliente")?.telefone || "").replace(/\D/g, "");
-  if (!snap?.exists || !variantesTelefone(telefone).includes(tel) && !variantesTelefone(tel).includes(String(telefone).replace(/\D/g, ""))) {
+  if (!snap?.exists || snap.get("status") === FIADO || !variantesTelefone(telefone).includes(tel) && !variantesTelefone(tel).includes(String(telefone).replace(/\D/g, ""))) {
     throw new ErroDominio("not-found", "Não achei esse pedido no telefone deste cliente");
   }
   return snap;

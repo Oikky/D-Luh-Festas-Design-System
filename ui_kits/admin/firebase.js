@@ -28,7 +28,7 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
        ${DIAS} dias; a coleção inteira (~1.400, quase tudo histórico do Coda) só quando precisa:
        busca, abas Finalizados/Cancelados, Clientes e Financeiro. */
     const DIAS = 60;
-    const ABERTOS = ["Aguardando confirmação", "Verificando Estoque", "Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante"];
+    const ABERTOS = ["Aguardando confirmação", "Verificando Estoque", "Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante", "Fiado"];
     const corte = () => new Date(Date.now() - DIAS * 864e5);
     const pedidosRecentes = () => [
       F.query(F.collection(db, "sis_pedidos"), F.where("status", "in", ABERTOS)),

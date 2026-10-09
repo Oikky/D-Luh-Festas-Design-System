@@ -163,7 +163,9 @@ async function avisarClientePagamento(env, db, pedidoId, valor) {
     `Olá, ${p.cliente?.nome}! 🩷`,
     `Recebemos seu pagamento de ${brl(valor)} do pedido ${p.id}.`,
     p.status === "Em produção" ? "Seu pedido já está em produção! 🎂" : null,
-    falta ? `O restante, de ${brl(falta)}, é pago quando o pedido estiver pronto, na ${momento(p)}.` : "Pedido totalmente pago. Obrigada!"
+    !falta ? "Pedido totalmente pago. Obrigada!"
+      : ["Entregue — Esperando restante", "Fiado"].includes(p.status) ? `Ainda falta ${brl(falta)}.`
+      : `O restante, de ${brl(falta)}, é pago quando o pedido estiver pronto, na ${momento(p)}.`
   ].filter(x => x !== null).join("\n"));
 }
 

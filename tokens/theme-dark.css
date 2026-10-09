@@ -23,6 +23,7 @@
 --status-preparo-bg:rgba(192,180,254,.16);--status-preparo-fg:#c4b5fd;
 --status-pronto-bg:rgba(96,165,250,.16);--status-pronto-fg:#93c5fd;
 --status-saiu-bg:rgba(52,211,153,.14);--status-saiu-fg:#6ee7b7;
+--status-fiado-bg:rgba(244,114,182,.15);--status-fiado-fg:#f9a8d4;
 --status-entregue-bg:rgba(255,255,255,.08);--status-entregue-fg:#c7c5cb;
 --status-cancelado-bg:rgba(248,113,113,.14);--status-cancelado-fg:#fca5a5;
 --action-success:#34d399;--action-paid:#34d399;--action-paid-bg:rgba(52,211,153,.12);

@@ -7,6 +7,7 @@ export type DluhStatus =
   | "Em produção"
   | "Pronto"
   | "Entregue — Esperando restante"
+  | "Fiado"
   | "Finalizado"
   | "Cancelado";
 export interface StatusBadgeProps {

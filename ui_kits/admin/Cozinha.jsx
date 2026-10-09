@@ -51,6 +51,7 @@ function Cozinha({ compact }) {
   const trocarDia = d => { if (/^\d{4}-\d{2}-\d{2}$/.test(d || "")) { setDia(d); setFeature(0); } };
   const [imprimirVarios, setImprimirVarios] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
+  const [detalhe, setDetalhe] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   const [som, setSom] = React.useState(true);
@@ -112,7 +113,8 @@ function Cozinha({ compact }) {
       {!online || carga.doCache ? <SemConexao /> : null}
       {seletorDias}
       <FilaTrilho hoje={dia === hoje} fila={fila} atual={atual} p={p} setFeature={setFeature} setConfirm={setConfirm} pendente={pendente} compact={compact} barra={barra} vazia={vazia}
-        onImprimir={x => imprimir([x])} />
+        onImprimir={x => imprimir([x])} onDetalhes={setDetalhe} />
+      {detalhe ? <DetalhesCozinha x={detalhe} hoje={hoje} onClose={() => setDetalhe(null)} onImprimir={() => imprimir([detalhe])} /> : null}
       {confirm ? <ConfirmDialog tone="delivered" icon="check" title="Marcar como feito?"
         message={[confirm.cliente || "Cliente sem nome", [confirm.entrega && confirm.entrega.toLowerCase(), confirm.hora && confirm.hora !== "—" ? "às " + confirm.hora : null].filter(Boolean).join(" ")].filter(Boolean).join(" — ") + ". O pedido sai da fila."}
         cancelLabel="Voltar" confirmLabel="Sim, marcar feito" pending={pendente === "feito-" + confirm.id}
@@ -202,7 +204,7 @@ const Selos = ({ x }) => <div style={{ display: "flex", gap: 6, flexWrap: "wrap"
 /* The order to make now stays pinned on the left, read at arm's length on the counter tablet;
    the rest of the queue is a rail of rows on the right, latest first. Tapping a row brings it
    to the left. On a phone the two stack. */
-function FilaTrilho({ hoje = true, fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia, onImprimir }) {
+function FilaTrilho({ hoje = true, fila, atual, p, setFeature, setConfirm, pendente, compact, barra, vazia, onImprimir, onDetalhes }) {
   const q = quando(p && p.hora);
   return <div style={{ display: "grid", gridTemplateColumns: compact || !p ? "minmax(0,1fr)" : "minmax(0, 5fr) minmax(0, 4fr)", gap: "var(--gap-section)", alignItems: "start" }}>
     {p ? <section aria-label="Fazer agora" style={{
@@ -223,8 +225,9 @@ function FilaTrilho({ hoje = true, fila, atual, p, setFeature, setConfirm, pende
       </div>
       <Itens itens={p.itens} grande />
       <Selos x={p} />
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <Button size="lg" variant="ghost" icon="printer" onClick={() => onImprimir(p)}>Imprimir</Button>
+        <Button size="lg" variant="ghost" icon="file-text" onClick={() => onDetalhes(p)}>Detalhes</Button>
         <Button size="lg" tone="delivered" icon="check" block loading={pendente === "feito-" + p.id} onClick={() => setConfirm(p)} style={{ flex: 1 }}>Feito</Button>
       </div>
     </section> : null}
@@ -249,7 +252,9 @@ function FilaTrilho({ hoje = true, fila, atual, p, setFeature, setConfirm, pende
                 display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{x.itens || "Itens não informados"}</div>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <IconButton icon="printer" label={`Imprimir pedido de ${x.cliente || "cliente sem nome"}`} onClick={e => { e.stopPropagation(); onImprimir(x); }} />
+              <IconButton icon="file-text" label={`Detalhes do pedido de ${x.cliente || "cliente sem nome"}`} onClick={e => { e.stopPropagation(); onDetalhes(x); }} />
+              {/* No celular a impressora sai da linha (fica nos Detalhes): três botões espremiam o nome. */}
+              {compact ? null : <IconButton icon="printer" label={`Imprimir pedido de ${x.cliente || "cliente sem nome"}`} onClick={e => { e.stopPropagation(); onImprimir(x); }} />}
               <Button tone="delivered" icon="check" loading={pendente === "feito-" + x.id} onClick={e => { e.stopPropagation(); setConfirm(x); }}>Feito</Button>
             </div>
           </div>;
@@ -257,6 +262,50 @@ function FilaTrilho({ hoje = true, fila, atual, p, setFeature, setConfirm, pende
       </div> : vazia}
     </section>
   </div>;
+}
+
+/* Detalhes para a cozinha: só leitura e sem dinheiro (cobrar é com o atendimento). Tudo o que vai no
+   papel impresso, com recheio, topo (e a foto dele), observações e para onde vai. */
+function DetalhesCozinha({ x, hoje, onClose, onImprimir }) {
+  const i = x.imp || {};
+  const q = quando(x.hora);
+  const itens = i.itens ? i.itens.map(t => ({ qtd: t.qtd, nome: t.nome, extras: t.extras || [], imagem: t.imagem }))
+    : linhas(x.itens).map(t => ({ ...t, extras: [] }));
+  const rotulo = { fontSize: "var(--fs-caption)", fontWeight: "var(--fw-semibold)", color: "var(--text-muted)", letterSpacing: "var(--ls-caps)", textTransform: "uppercase", marginBottom: 6 };
+  return <Modal width={620} title={x.cliente || "Cliente sem nome"} onClose={onClose}
+    subtitle={[x.id, `${x.data ? nomeDia(x.data < hoje ? hoje : x.data, hoje) : q.dia} às ${q.hora}`].filter(Boolean).join(" · ")}
+    footer={<>
+      <Button variant="ghost" block onClick={onClose}>Voltar</Button>
+      <Button variant="outline" block icon="printer" onClick={onImprimir}>Imprimir</Button>
+    </>}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Selos x={x} />
+        {i.endereco ? <div style={{ display: "flex", gap: 8, fontSize: "var(--fs-body)", color: "var(--text-body)", lineHeight: "var(--lh-snug)" }}>
+          <Icon name="map-pin" size={18} style={{ flex: "0 0 auto", marginTop: 2 }} /> <span style={{ overflowWrap: "anywhere" }}>{i.endereco}</span></div> : null}
+      </div>
+      <div>
+        <div style={rotulo}>Itens</div>
+        {itens.length ? <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column" }}>
+          {itens.map((t, k) => <li key={k} style={{ display: "flex", gap: 12, padding: "10px 0", borderTop: k ? "var(--border-hairline) solid var(--color-border)" : "none" }}>
+            <span style={{ ...num, minWidth: 40, textAlign: "right", flex: "0 0 auto", fontSize: "var(--fs-title)", fontWeight: "var(--fw-bold)", color: "var(--text-accent)" }}>{t.qtd || "–"}</span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", lineHeight: "var(--lh-snug)", overflowWrap: "anywhere" }}>{t.nome}</div>
+              {t.extras.map((e, j) => <div key={j} style={{ fontSize: "var(--fs-body)", color: "var(--text-body)", marginTop: 4, lineHeight: "var(--lh-snug)", overflowWrap: "anywhere" }}>{e}</div>)}
+              {t.imagem ? <a href={t.imagem} target="_blank" rel="noopener" style={{ display: "inline-block", marginTop: 8 }}>
+                <img src={t.imagem} alt={`Foto do topo de ${t.nome}`} style={{ display: "block", maxWidth: 180, maxHeight: 180, borderRadius: "var(--radius-md)", border: "var(--border-hairline) solid var(--color-border)" }} />
+              </a> : null}
+            </div>
+          </li>)}
+        </ul> : <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Itens não informados. Confira o pedido antes de produzir.</div>}
+      </div>
+      {i.obs ? <div>
+        <div style={rotulo}>Observações</div>
+        <div style={{ fontSize: "var(--fs-body)", color: "var(--text-strong)", lineHeight: "var(--lh-normal)", whiteSpace: "pre-wrap", overflowWrap: "anywhere",
+          padding: "12px 14px", borderRadius: "var(--radius-sm)", background: "var(--action-warn-bg)", border: "var(--border-hairline) solid var(--action-warn-line)" }}>{i.obs}</div>
+      </div> : null}
+    </div>
+  </Modal>;
 }
 
 function Clientes() {

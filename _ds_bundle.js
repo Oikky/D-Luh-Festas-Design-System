@@ -523,6 +523,11 @@ const STATUS = {
     key: "saiu",
     short: "Esperando restante"
   },
+  /* Entregue, e a loja combinou de receber depois. Só a equipe vê esse nome. */
+  "Fiado": {
+    key: "fiado",
+    short: "Fiado"
+  },
   "Finalizado": {
     key: "entregue",
     short: "Finalizado"
@@ -4069,6 +4074,7 @@ function Cozinha({
   };
   const [imprimirVarios, setImprimirVarios] = React.useState(false);
   const [confirm, setConfirm] = React.useState(null);
+  const [detalhe, setDetalhe] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   const [som, setSom] = React.useState(true);
@@ -4231,8 +4237,14 @@ function Cozinha({
     compact: compact,
     barra: barra,
     vazia: vazia,
-    onImprimir: x => imprimir([x])
-  }), confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
+    onImprimir: x => imprimir([x]),
+    onDetalhes: setDetalhe
+  }), detalhe ? /*#__PURE__*/React.createElement(DetalhesCozinha, {
+    x: detalhe,
+    hoje: hoje,
+    onClose: () => setDetalhe(null),
+    onImprimir: () => imprimir([detalhe])
+  }) : null, confirm ? /*#__PURE__*/React.createElement(ConfirmDialog, {
     tone: "delivered",
     icon: "check",
     title: "Marcar como feito?",
@@ -4460,7 +4472,8 @@ function FilaTrilho({
   compact,
   barra,
   vazia,
-  onImprimir
+  onImprimir,
+  onDetalhes
 }) {
   const q = quando(p && p.hora);
   return /*#__PURE__*/React.createElement("div", {
@@ -4542,7 +4555,8 @@ function FilaTrilho({
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 8
+      gap: 8,
+      flexWrap: "wrap"
     }
   }, /*#__PURE__*/React.createElement(Button, {
     size: "lg",
@@ -4550,6 +4564,11 @@ function FilaTrilho({
     icon: "printer",
     onClick: () => onImprimir(p)
   }, "Imprimir"), /*#__PURE__*/React.createElement(Button, {
+    size: "lg",
+    variant: "ghost",
+    icon: "file-text",
+    onClick: () => onDetalhes(p)
+  }, "Detalhes"), /*#__PURE__*/React.createElement(Button, {
     size: "lg",
     tone: "delivered",
     icon: "check",
@@ -4642,6 +4661,13 @@ function FilaTrilho({
         alignItems: "center"
       }
     }, /*#__PURE__*/React.createElement(IconButton, {
+      icon: "file-text",
+      label: `Detalhes do pedido de ${x.cliente || "cliente sem nome"}`,
+      onClick: e => {
+        e.stopPropagation();
+        onDetalhes(x);
+      }
+    }), compact ? null : /*#__PURE__*/React.createElement(IconButton, {
       icon: "printer",
       label: `Imprimir pedido de ${x.cliente || "cliente sem nome"}`,
       onClick: e => {
@@ -4658,6 +4684,170 @@ function FilaTrilho({
       }
     }, "Feito")));
   })) : vazia));
+}
+
+/* Detalhes para a cozinha: só leitura e sem dinheiro (cobrar é com o atendimento). Tudo o que vai no
+   papel impresso, com recheio, topo (e a foto dele), observações e para onde vai. */
+function DetalhesCozinha({
+  x,
+  hoje,
+  onClose,
+  onImprimir
+}) {
+  const i = x.imp || {};
+  const q = quando(x.hora);
+  const itens = i.itens ? i.itens.map(t => ({
+    qtd: t.qtd,
+    nome: t.nome,
+    extras: t.extras || [],
+    imagem: t.imagem
+  })) : linhas(x.itens).map(t => ({
+    ...t,
+    extras: []
+  }));
+  const rotulo = {
+    fontSize: "var(--fs-caption)",
+    fontWeight: "var(--fw-semibold)",
+    color: "var(--text-muted)",
+    letterSpacing: "var(--ls-caps)",
+    textTransform: "uppercase",
+    marginBottom: 6
+  };
+  return /*#__PURE__*/React.createElement(Modal, {
+    width: 620,
+    title: x.cliente || "Cliente sem nome",
+    onClose: onClose,
+    subtitle: [x.id, `${x.data ? nomeDia(x.data < hoje ? hoje : x.data, hoje) : q.dia} às ${q.hora}`].filter(Boolean).join(" · "),
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      onClick: onClose
+    }, "Voltar"), /*#__PURE__*/React.createElement(Button, {
+      variant: "outline",
+      block: true,
+      icon: "printer",
+      onClick: onImprimir
+    }, "Imprimir"))
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 18
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(Selos, {
+    x: x
+  }), i.endereco ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      fontSize: "var(--fs-body)",
+      color: "var(--text-body)",
+      lineHeight: "var(--lh-snug)"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "map-pin",
+    size: 18,
+    style: {
+      flex: "0 0 auto",
+      marginTop: 2
+    }
+  }), " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      overflowWrap: "anywhere"
+    }
+  }, i.endereco)) : null), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: rotulo
+  }, "Itens"), itens.length ? /*#__PURE__*/React.createElement("ul", {
+    style: {
+      listStyle: "none",
+      margin: 0,
+      padding: 0,
+      display: "flex",
+      flexDirection: "column"
+    }
+  }, itens.map((t, k) => /*#__PURE__*/React.createElement("li", {
+    key: k,
+    style: {
+      display: "flex",
+      gap: 12,
+      padding: "10px 0",
+      borderTop: k ? "var(--border-hairline) solid var(--color-border)" : "none"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      ...num,
+      minWidth: 40,
+      textAlign: "right",
+      flex: "0 0 auto",
+      fontSize: "var(--fs-title)",
+      fontWeight: "var(--fw-bold)",
+      color: "var(--text-accent)"
+    }
+  }, t.qtd || "–"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0,
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-title)",
+      fontWeight: "var(--fw-semibold)",
+      lineHeight: "var(--lh-snug)",
+      overflowWrap: "anywhere"
+    }
+  }, t.nome), t.extras.map((e, j) => /*#__PURE__*/React.createElement("div", {
+    key: j,
+    style: {
+      fontSize: "var(--fs-body)",
+      color: "var(--text-body)",
+      marginTop: 4,
+      lineHeight: "var(--lh-snug)",
+      overflowWrap: "anywhere"
+    }
+  }, e)), t.imagem ? /*#__PURE__*/React.createElement("a", {
+    href: t.imagem,
+    target: "_blank",
+    rel: "noopener",
+    style: {
+      display: "inline-block",
+      marginTop: 8
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: t.imagem,
+    alt: `Foto do topo de ${t.nome}`,
+    style: {
+      display: "block",
+      maxWidth: 180,
+      maxHeight: 180,
+      borderRadius: "var(--radius-md)",
+      border: "var(--border-hairline) solid var(--color-border)"
+    }
+  })) : null)))) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)"
+    }
+  }, "Itens n\xE3o informados. Confira o pedido antes de produzir.")), i.obs ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: rotulo
+  }, "Observa\xE7\xF5es"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body)",
+      color: "var(--text-strong)",
+      lineHeight: "var(--lh-normal)",
+      whiteSpace: "pre-wrap",
+      overflowWrap: "anywhere",
+      padding: "12px 14px",
+      borderRadius: "var(--radius-sm)",
+      background: "var(--action-warn-bg)",
+      border: "var(--border-hairline) solid var(--action-warn-line)"
+    }
+  }, i.obs)) : null));
 }
 function Clientes() {
   return /*#__PURE__*/React.createElement(Card, {
@@ -5309,6 +5499,13 @@ const TABS = [{
   id: "restante",
   label: "Esperando restante",
   filtro: ["Entregue — Esperando restante"]
+},
+/* Fiado: entregue, e a loja combinou de receber depois. Só a equipe vê: a Sofia não acha esses
+   pedidos e o site mostra "Entregue, falta pagar o restante". Quitar finaliza sozinho. */
+{
+  id: "fiado",
+  label: "Fiados",
+  filtro: ["Fiado"]
 }, {
   id: "final",
   label: "Finalizados",
@@ -5318,12 +5515,15 @@ const TABS = [{
   label: "Cancelados",
   filtro: ["Cancelado"]
 }];
+
+/* Pedido só vai para a impressora a partir de "Em produção": antes disso ainda pode mudar ou não sair. */
+const ANTES_DA_PRODUCAO = ["Aguardando confirmação", "Verificando Estoque", "Confirmado — Esperando pagamento"];
+const podeImprimir = p => !ANTES_DA_PRODUCAO.includes(p.status);
 const valor = s => Number(String(s || "").replace(/[^\d,]/g, "").replace(",", ".")) || 0;
 const REAL = () => window.DLUH_API.modo === "firebase";
 const reais = c => window.brl((c || 0) / 100);
 /* What "Cobrar entrada" will ask for: the order's entry share (50% or 100%) minus what came in. */
 const entradaDe = p => p._c ? reais(Math.max(0, Math.round(p._c.total * p._c.entradaPct / 100) - p._c.pago)) : p.falta;
-const uuid = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
 const para = p => p.cliente || "o cliente";
 const semAcento = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 /* Nome, número do pedido ou telefone; sem diferença de maiúscula e acento, e o telefone casa só pelos dígitos. */
@@ -5402,23 +5602,82 @@ const CONFIRMA = {
       rotulo: "Restante"
     })
   }),
-  pago: p => ({
-    tone: "success",
-    icon: "badge-check",
-    title: p.falta ? `Marcar como pago (${p.falta})?` : "Marcar como pago?",
-    message: `Registra que ${para(p)} pagou o que faltava, fora do link. Nenhuma cobrança é enviada.`,
-    confirmLabel: "Sim, marcar pago",
-    ok: "Pagamento registrado",
-    falhou: "Não deu pra registrar o pagamento",
-    pedido: p._c ? {
-      acao: "registrarPagamentoManual",
+  /* Libera a cozinha sem esperar a entrada: o que falta pagar continua em aberto no pedido. */
+  producao: p => ({
+    tone: "accent",
+    icon: "chef-hat",
+    title: "Mandar para produção?",
+    message: `O pedido vai para Em produção e entra na fila da cozinha, mesmo sem a entrada paga.` + (p.falta ? ` Continua faltando ${p.falta} de ${para(p)}.` : ""),
+    confirmLabel: "Sim, mandar",
+    ok: "Pedido em produção",
+    falhou: "Não deu pra mandar para produção",
+    aplicar: l => l.map(x => x.id === p.id ? {
+      ...x,
+      status: "Em produção"
+    } : x),
+    pedido: {
+      acao: "mudarStatus",
       dados: {
         pedidoId: p.id,
-        valor: p._c.falta,
-        meio: p._c.formaPagamento || "outro",
-        chave: uuid()
+        status: "Em produção",
+        motivo: "liberado sem pagamento"
       }
-    } : undefined
+    }
+  }),
+  fiado: p => ({
+    tone: "accent",
+    icon: "notebook-pen",
+    title: "Marcar como fiado?",
+    message: `O pedido vai para Fiados como entregue${p.falta ? `, com ${p.falta} para ${para(p)} pagar depois` : ""}. Quando quitar, ele finaliza sozinho. Clientes e a Sofia não veem a palavra fiado.`,
+    confirmLabel: "Sim, é fiado",
+    ok: "Pedido marcado como fiado",
+    falhou: "Não deu pra marcar como fiado",
+    aplicar: l => l.map(x => x.id === p.id ? {
+      ...x,
+      status: "Fiado"
+    } : x),
+    pedido: {
+      acao: "mudarStatus",
+      dados: {
+        pedidoId: p.id,
+        status: "Fiado"
+      }
+    }
+  }),
+  tirarFiado: p => ({
+    tone: "accent",
+    icon: "undo-2",
+    title: "Tirar do fiado?",
+    message: "O pedido volta para Esperando restante. O que já foi pago continua no pedido.",
+    confirmLabel: "Sim, tirar",
+    ok: "Pedido voltou para Esperando restante",
+    falhou: "Não deu pra tirar do fiado",
+    aplicar: l => l.map(x => x.id === p.id ? {
+      ...x,
+      status: "Entregue — Esperando restante"
+    } : x),
+    pedido: {
+      acao: "mudarStatus",
+      dados: {
+        pedidoId: p.id,
+        status: "Entregue — Esperando restante"
+      }
+    }
+  }),
+  cancelarRyd: p => ({
+    tone: "danger",
+    icon: "truck",
+    title: "Cancelar o entregador?",
+    message: "A RYD cancela a corrida (só dá antes de o entregador chegar na loja). O pedido continua como está.",
+    confirmLabel: "Sim, cancelar",
+    ok: "Entregador cancelado",
+    falhou: "Não deu pra cancelar o entregador",
+    pedido: {
+      acao: "cancelarEntrega",
+      dados: {
+        pedidoId: p.id
+      }
+    }
   }),
   cancelar: p => ({
     tone: "danger",
@@ -5436,6 +5695,50 @@ const CONFIRMA = {
       }
     }
   })
+};
+
+/* Entregador da RYD: como cada status aparece no cartão. "Cancelar entregador" só vale antes de ele
+   chegar na loja (a RYD recusa depois disso). */
+const RYD = {
+  pending: {
+    rotulo: "Procurando entregador",
+    tone: "warn"
+  },
+  scheduled: {
+    rotulo: "Entregador agendado",
+    tone: "neutral"
+  },
+  accepted: {
+    rotulo: "Entregador a caminho",
+    tone: "accent"
+  },
+  withdraw: {
+    rotulo: "Entregador na loja",
+    tone: "accent"
+  },
+  delivering: {
+    rotulo: "Saiu para entrega",
+    tone: "accent"
+  },
+  finished: {
+    rotulo: "Entrega concluída",
+    tone: "success"
+  },
+  canceled: {
+    rotulo: "Entregador cancelado",
+    tone: "neutral"
+  }
+};
+const rydAtiva = p => !!p.ryd && !["finished", "canceled"].includes(p.ryd.status);
+const rydCancelavel = p => !!p.ryd && ["pending", "scheduled", "accepted"].includes(p.ryd.status);
+const podeChamarRyd = p => p.modo === "Entrega em endereço" && !!p.endereco && !rydAtiva(p) && ["Em produção", "Entregue — Esperando restante"].includes(p.status) && !(p.status === "Entregue — Esperando restante" && p.ryd);
+/* Fiado é para pedido entregue (ou saindo agora) que ainda tem valor em aberto. */
+const podeFiado = p => ["Em produção", "Pronto", "Entregue — Esperando restante"].includes(p.status) && p.pagamento !== "Totalmente pago";
+const textoRyd = p => {
+  const r = RYD[p.ryd.status] || {
+    rotulo: p.ryd.status
+  };
+  return p.ryd.entregador && ["accepted", "withdraw", "delivering"].includes(p.ryd.status) ? `${r.rotulo}: ${p.ryd.entregador}` : r.rotulo;
 };
 
 /* A charge is a link the atendente sends; this is where it lands after it's generated. */
@@ -5685,12 +5988,12 @@ function DetalhesModal({
       variant: "ghost",
       block: true,
       onClick: fechar
-    }, mudou ? "Descartar" : "Fechar"), /*#__PURE__*/React.createElement(Button, {
+    }, mudou ? "Descartar" : "Fechar"), podeImprimir(pedido) ? /*#__PURE__*/React.createElement(Button, {
       variant: "ghost",
       block: true,
       icon: "printer",
       onClick: () => window.imprimirPedido(pedido, produtos) || onToast("O navegador bloqueou a janela de impressão", "danger")
-    }, "Imprimir"), cancelado ? null : /*#__PURE__*/React.createElement(Button, {
+    }, "Imprimir") : null, cancelado ? null : /*#__PURE__*/React.createElement(Button, {
       block: true,
       icon: "save",
       loading: pendente === "salvar",
@@ -5878,6 +6181,32 @@ function ApagarComSenha({
     onChange: e => setSenha(e.target.value)
   }))));
 }
+
+/* Quanto está na rua em fiado e com quantas pessoas, para a aba Fiados. */
+function ResumoFiado({
+  lista
+}) {
+  const falta = lista.reduce((s, p) => s + (p._c ? p._c.falta / 100 : valor(p.falta)), 0);
+  const pessoas = new Set(lista.map(p => String(p.tel || "").replace(/\D/g, "") || p.cliente)).size;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginRight: "auto",
+      display: "flex",
+      alignItems: "baseline",
+      gap: 8,
+      flexWrap: "wrap",
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Em fiado:"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-body-l)",
+      fontWeight: "var(--fw-bold)",
+      color: "var(--text-strong)",
+      fontVariantNumeric: "tabular-nums"
+    }
+  }, window.brl(falta)), /*#__PURE__*/React.createElement("span", null, "\xB7 ", pessoas === 1 ? "1 cliente" : `${pessoas} clientes`));
+}
 function Pedidos({
   compact,
   q
@@ -5917,6 +6246,53 @@ function Pedidos({
     p,
     ...CONFIRMA[tipo](p)
   });
+  /* Primeiro a cotação (não cobra nada), e a pergunta já com o preço e o endereço que a RYD entendeu:
+     o "sim" é que debita o saldo da RYD e chama o entregador. */
+  const chamarEntregador = async p => {
+    const r = await acao("cotar-" + p.id, {
+      falhou: "Não deu pra cotar a entrega"
+    }, null, {
+      acao: "cotarEntrega",
+      dados: {
+        pedidoId: p.id
+      }
+    });
+    if (!r) return;
+    const c = REAL() ? r : {
+      valor: 1140,
+      previewId: "demo",
+      metros: 3027,
+      enderecos: [p.endereco]
+    };
+    const destino = (c.enderecos || []).slice(-1)[0] || p.endereco;
+    setConfirm({
+      tipo: "entregador",
+      p,
+      tone: "delivered",
+      icon: "truck",
+      title: `Chamar entregador por ${reais(c.valor)}?`,
+      message: `A RYD leva até ${destino}${c.metros ? ` (${(c.metros / 1000).toFixed(1).replace(".", ",")} km)` : ""}. Confira o endereço: o valor sai do saldo da RYD assim que confirmar.`,
+      confirmLabel: "Sim, chamar",
+      ok: "Entregador chamado: o status aparece no pedido",
+      falhou: "Não deu pra chamar o entregador",
+      aplicar: l => l.map(x => x.id === p.id ? {
+        ...x,
+        ryd: {
+          status: "pending",
+          entregador: "",
+          valor: c.valor
+        }
+      } : x),
+      pedido: {
+        acao: "confirmarEntrega",
+        dados: {
+          pedidoId: p.id,
+          previewId: c.previewId,
+          valor: c.valor
+        }
+      }
+    });
+  };
   if (carga.estado === "erro" && !carga.dados) return /*#__PURE__*/React.createElement(ErroCarga, {
     erro: carga.erro,
     oque: "os pedidos",
@@ -5983,10 +6359,13 @@ function Pedidos({
     style: {
       display: "flex",
       justifyContent: "flex-end",
+      alignItems: "center",
       gap: 8,
       flexWrap: "wrap"
     }
-  }, tab === "pagamento" && lista.length ? /*#__PURE__*/React.createElement(Button, {
+  }, tab === "fiado" && lista.length ? /*#__PURE__*/React.createElement(ResumoFiado, {
+    lista: lista
+  }) : null, tab === "pagamento" && lista.length ? /*#__PURE__*/React.createElement(Button, {
     size: "sm",
     variant: "ghost",
     icon: "bell-ring",
@@ -6028,10 +6407,6 @@ function Pedidos({
         icon: "copy",
         onClick: () => copiarPedido(p, showToast)
       }, {
-        label: "Marcar como pago",
-        icon: "badge-check",
-        onClick: () => pede("pago", p)
-      }, {
         label: "Notificar alterações",
         icon: "bell-ring",
         onClick: () => acao("notificar-" + p.id, {
@@ -6043,15 +6418,35 @@ function Pedidos({
             pedidoId: p.id
           }
         })
-      }, {
+      }, ...(podeImprimir(p) ? [{
         label: "Imprimir pedido",
         icon: "printer",
         onClick: () => imprimir(p)
-      }, ...(p.status === "Cancelado" ? [] : [{
+      }] : [{
+        label: "Mandar para produção",
+        icon: "chef-hat",
+        onClick: () => pede("producao", p)
+      }]), ...(p.status === "Cancelado" ? [] : [{
         label: p.nota ? "Nota fiscal" : "Emitir nota fiscal",
         icon: "receipt-text",
         onClick: () => setNota(p)
-      }]), {
+      }]), ...(podeFiado(p) ? [{
+        label: "Marcar como fiado",
+        icon: "notebook-pen",
+        onClick: () => pede("fiado", p)
+      }] : []), ...(p.status === "Fiado" ? [{
+        label: "Tirar do fiado",
+        icon: "undo-2",
+        onClick: () => pede("tirarFiado", p)
+      }] : []), ...(podeChamarRyd(p) ? [{
+        label: "Chamar entregador (RYD)",
+        icon: "truck",
+        onClick: () => chamarEntregador(p)
+      }] : []), ...(rydCancelavel(p) ? [{
+        label: "Cancelar entregador",
+        icon: "circle-x",
+        onClick: () => pede("cancelarRyd", p)
+      }] : []), {
         divider: true
       }, {
         label: "Cancelar pedido",
@@ -6086,7 +6481,10 @@ function Pedidos({
       }, "Feito na cozinha") : null, p.nota ? /*#__PURE__*/React.createElement(Badge, {
         tone: "neutral",
         icon: "receipt-text"
-      }, p.nota.tipo, " ", p.nota.numero) : null),
+      }, p.nota.tipo, " ", p.nota.numero) : null, p.ryd ? /*#__PURE__*/React.createElement(Badge, {
+        tone: (RYD[p.ryd.status] || {}).tone || "neutral",
+        icon: "truck"
+      }, textoRyd(p)) : null),
       items: p.itens || [],
       total: p.total,
       paid: p.pago,
@@ -6123,7 +6521,7 @@ function Pedidos({
             status: p.pagamento === "Totalmente pago" ? "Finalizado" : "Entregue — Esperando restante"
           }
         })
-      }, "Marcar entregue") : p.status === "Entregue — Esperando restante" && p.pagamento === "Totalmente pago" ? /*#__PURE__*/React.createElement(Button, {
+      }, "Marcar entregue") : ["Entregue — Esperando restante", "Fiado"].includes(p.status) && p.pagamento === "Totalmente pago" ? /*#__PURE__*/React.createElement(Button, {
         size: "sm",
         style: cresce,
         tone: "delivered",
@@ -6139,7 +6537,7 @@ function Pedidos({
             status: "Finalizado"
           }
         })
-      }, "Finalizar") : p.status === "Entregue — Esperando restante" ? /*#__PURE__*/React.createElement(Button, {
+      }, "Finalizar") : ["Entregue — Esperando restante", "Fiado"].includes(p.status) ? /*#__PURE__*/React.createElement(Button, {
         size: "sm",
         style: cresce,
         tone: "chargeAll",
@@ -7599,7 +7997,7 @@ const curtoK = c => {
 
 /* Everything on this screen is computed from the orders and the payments received; nothing is
    typed in. `pags` are payments in centavos with a local date (api.js → todosPagamentos). */
-const A_RECEBER = ["Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante"];
+const A_RECEBER = ["Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante", "Fiado"];
 function resumoDe(pedidos, pags, hoje) {
   const vivos = pedidos.filter(p => p.status !== "Cancelado");
   const cent = window.clCentavos;
@@ -7860,6 +8258,7 @@ function VisaoGeral({
 }) {
   const ped = useAoVivo("pedidos");
   const pag = useAoVivo("pagamentosRecentes");
+  const bol = useAoVivo("boletosAbertos");
   const [verReceber, setVerReceber] = React.useState(false);
   const erro = ped.estado === "erro" && !ped.dados ? ped : pag.estado === "erro" && !pag.dados ? pag : null;
   const r = React.useMemo(() => ped.dados && pag.dados ? resumoDe(ped.dados, pag.dados, window.DLUH_API.hoje()) : null, [ped.dados, pag.dados]);
@@ -7940,7 +8339,24 @@ function VisaoGeral({
   }, /*#__PURE__*/React.createElement(ChartCard, {
     compact: compact,
     r: r
-  }), /*#__PURE__*/React.createElement(Card, {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      minWidth: 0
+    }
+  }, bol.dados ? /*#__PURE__*/React.createElement(window.BoletosAPagar, {
+    docs: bol.dados,
+    hoje: window.DLUH_API.hoje(),
+    onAbrir: (boleto, n) => onView("financeiro", {
+      boleto,
+      n
+    }),
+    onVerTodos: () => onView("financeiro", {
+      aba: "boletos"
+    })
+  }) : null, /*#__PURE__*/React.createElement(Card, {
     header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: "var(--fs-title)",
@@ -7968,7 +8384,7 @@ function VisaoGeral({
   })) : /*#__PURE__*/React.createElement(EmptyState, {
     icon: "wallet",
     title: "Nenhum pagamento recente"
-  }))), /*#__PURE__*/React.createElement(Card, {
+  })))), /*#__PURE__*/React.createElement(Card, {
     padded: false,
     header: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {

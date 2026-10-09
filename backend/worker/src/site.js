@@ -4,7 +4,7 @@
      POST /site/frete      taxa de entrega para um endereço, pela estimativa da Moblets (frete.js)
    Quem protege: limite por IP (binding LIMITE_SITE no wrangler.jsonc) e, se TURNSTILE_SECRET existir,
    o desafio do Turnstile. O pedido nasce "Aguardando confirmação", como os do admin. */
-import { ErroDominio } from "./dominio.js";
+import { ErroDominio, FIADO, FIADO_PARA_CLIENTE } from "./dominio.js";
 import { criarPedido, PEDIDOS } from "./pedidos.js";
 import { PRODUTOS, RECHEIOS } from "./produtos.js";
 
@@ -126,6 +126,9 @@ function entregadorParaCliente(p) {
   };
 }
 
+/* Fiado é só da equipe: para o cliente o pedido aparece como entregue com restante a pagar. */
+const statusParaCliente = s => s === FIADO ? FIADO_PARA_CLIENTE : s;
+
 /* Devolve só o que o cliente precisa ver; nº ou telefone errados dão a mesma resposta. */
 async function consultarDoSite(db, dados) {
   const p = await pedidoDoCliente(db, dados);
@@ -133,7 +136,7 @@ async function consultarDoSite(db, dados) {
   const entregador = entregadorParaCliente(p);
   return {
     pedido: {
-      id: p.id, status: p.status, pagamento: p.pagamento, pago: p.pago || 0, total: p.total,
+      id: p.id, status: statusParaCliente(p.status), pagamento: p.pagamento, pago: p.pago || 0, total: p.total,
       entradaPct: p.entradaPct || 50, taxaEntrega: p.taxaEntrega || 0,
       cliente: { nome: p.cliente?.nome || "" },
       entrega: p.entrega,
@@ -152,7 +155,7 @@ async function consultarDoSite(db, dados) {
 async function entregaDoSite(db, dados) {
   const p = await pedidoDoCliente(db, dados);
   if (!p) return { erro: "nao-encontrado" };
-  return { status: p.status, entregador: entregadorParaCliente(p) };
+  return { status: statusParaCliente(p.status), entregador: entregadorParaCliente(p) };
 }
 
 async function turnstileOk(env, token, ip) {

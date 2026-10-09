@@ -52,7 +52,7 @@ window.DLUH_API = (() => {
       id: x.id, cliente: x.cliente?.nome || "", tel: x.cliente?.telefone || "", status: x.status,
       dia: e.data ? `${DIA[new Date(e.data + "T12:00:00").getDay()]} ${e.data.slice(8, 10)}/${e.data.slice(5, 7)}` : "", hora: e.hora || "",
       modo: e.modo === "entrega" ? "Entrega" : "Retirada", endereco: e.modo === "entrega" ? e.endereco || "" : "",
-      itens: (x.itens || []).map(i => ({ qtd: i.qtd, nome: i.nome, cat: i.categoria || "",
+      itens: (x.itens || []).map(i => ({ qtd: i.qtd, nome: i.nome, cat: i.categoria || "", imagem: i.topo?.imagem || "",
         extras: [i.recheios && i.recheios.length ? "Recheio: " + i.recheios.join(", ") : null, topoTexto(i.topo), i.obs].filter(Boolean) })),
       obs: x.obs || "", pagamento: x.pagamento || "", total: brl(x.total), falta: falta ? brl(falta) : null
     };

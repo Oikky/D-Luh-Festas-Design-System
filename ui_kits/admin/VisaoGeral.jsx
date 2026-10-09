@@ -7,7 +7,7 @@ const curtoK = c => { const r = c / 100; return r >= 1000 ? (r / 1000).toFixed(1
 
 /* Everything on this screen is computed from the orders and the payments received; nothing is
    typed in. `pags` are payments in centavos with a local date (api.js → todosPagamentos). */
-const A_RECEBER = ["Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante"];
+const A_RECEBER = ["Confirmado — Esperando pagamento", "Em produção", "Pronto", "Entregue — Esperando restante", "Fiado"];
 function resumoDe(pedidos, pags, hoje) {
   const vivos = pedidos.filter(p => p.status !== "Cancelado");
   const cent = window.clCentavos;

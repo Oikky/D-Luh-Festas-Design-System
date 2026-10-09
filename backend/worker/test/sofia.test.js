@@ -121,6 +121,15 @@ test("cancelar: só do próprio telefone e antes da produção; avisa se já tin
   await assert.rejects(conferirParaCancelar(db, { telefone: "5538998124410", pedido: r.id }), /Em produção.*equipe/);
 });
 
+test("fiado: a Sofia não vê o pedido (nem na lista, nem para pagar ou cancelar)", async () => {
+  const r = await pedidoDaSofia(db, base(), { agora: AGORA });
+  await db.collection("sis_pedidos").doc(r.id).set({ status: "Fiado" }, { merge: true });
+  const { pedidos } = await pedidosDoCliente(db, "5538998124410");
+  assert.ok(!pedidos.some(p => p.pedido === r.id || p.status === "Fiado"));
+  await assert.rejects(conferirParaPagar(db, { telefone: "5538998124410", pedido: r.id }), /Não achei/);
+  await assert.rejects(conferirParaCancelar(db, { telefone: "5538998124410", pedido: r.id }), /Não achei/);
+});
+
 test("comprovante: fica 'a conferir' no pedido (também ANT-…); confirmar vira pagamento uma vez só; recusar não lança", async () => {
   const { decidirComprovante } = await import("../src/pedidos.js");
   await db.collection("sis_pedidos").doc("ANT-1070").set({ id: "ANT-1070", cliente: { nome: "Jordana", telefone: "38998124410" }, status: "Entregue — Esperando restante", total: 36700, pago: 18350, pagamento: "Só entrada", itens: [] });

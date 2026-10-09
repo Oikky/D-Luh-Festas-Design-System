@@ -9,6 +9,8 @@ export const STATUS = {
   "Em produção":            { key: "preparo", short: "Em produção" },
   "Pronto":                        { key: "pronto", short: "Pronto" },
   "Entregue — Esperando restante": { key: "saiu", short: "Esperando restante" },
+  /* Entregue, e a loja combinou de receber depois. Só a equipe vê esse nome. */
+  "Fiado":                         { key: "fiado", short: "Fiado" },
   "Finalizado":                    { key: "entregue", short: "Finalizado" },
   "Cancelado":                     { key: "cancelado", short: "Cancelado" }
 };
