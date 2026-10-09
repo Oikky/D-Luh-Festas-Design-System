@@ -1,7 +1,7 @@
 /* API do sistema D'Luh.
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
-     POST /site/pedido, /site/consultar, /site/frete  site dos clientes, sem login (site.js, frete.js)
+     POST /site/pedido, /site/consultar, /site/frete, /site/entrega  site dos clientes, sem login (site.js, frete.js)
      /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante>/<token>  agente Sofia do GPTMaker (sofia.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
@@ -267,6 +267,7 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
     const dados = (await request.json().catch(() => { throw new ErroDominio("invalid-argument", "Corpo não é JSON"); })) || {};
     /* Frete antes do anti-robô: a revisão do pedido pede a taxa sem desafio; o limite por IP segura abuso. */
     if (rota === "frete") return json(await estimarFrete(env, dados.local), 200, cors);
+    if (rota === "entrega") return json(await site.entregaDoSite(banco(env), dados), 200, cors);
     if (!(await site.turnstileOk(env, dados.turnstile, ip))) throw new ErroDominio("permission-denied", "Confirme que você não é um robô");
     const db = banco(env);
     if (rota === "consultar") return json(await site.consultarDoSite(db, dados), 200, cors);
@@ -576,7 +577,7 @@ export default {
     }
 
     const cors = corsDe(request, env);
-    const rotaSite = url.pathname.match(/^\/site\/(pedido|consultar|frete)$/)?.[1];
+    const rotaSite = url.pathname.match(/^\/site\/(pedido|consultar|frete|entrega)$/)?.[1];
     if (rotaSite) return rotaDoSite(request, env, ctx, rotaSite, cors);
     const acao = url.pathname.match(/^\/api\/(\w+)$/)?.[1];
     if (!acao || ![ACOES, ACOES_CLIENTE, ACOES_SISTEMA].some(a => Object.hasOwn(a, acao))) return json({ erro: "Não encontrado" }, 404, cors);

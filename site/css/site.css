@@ -562,6 +562,35 @@ textarea.entrada { min-height: 96px; resize: vertical; }
 .trilha li.feito { background: var(--verde-fundo); color: var(--verde); }
 .trilha li.agora { background: var(--terracota-forte); color: var(--branco); }
 .trilha--cancelado li { opacity: 0.5; }
+/* Entregador da RYD dentro do "Acompanhar pedido". --passo (0 a 3) diz até onde a barra vai. */
+.entregador { display: grid; gap: 16px; padding: 20px; border-radius: var(--r-l); background: var(--branco); box-shadow: var(--sombra); }
+.entregador__quem { display: flex; gap: 16px; align-items: center; }
+.entregador__quem h3 { margin: 0; font-size: 1.125rem; font-weight: 800; line-height: 1.25; text-wrap: balance; }
+.entregador__quem p { margin: 2px 0 0; color: var(--cafe-2); }
+.entregador__foto { flex: none; width: 56px; height: 56px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--rosa); color: var(--terracota-forte); }
+.entregador__foto img { width: 100%; height: 100%; object-fit: cover; }
+.entregador__foto .icone { width: 28px; height: 28px; }
+.entregador__inicial { font-family: var(--titulo); font-weight: 700; font-size: 1.5rem; }
+.entregador--fim .entregador__foto { background: var(--verde-fundo); color: var(--verde); }
+.entregador__barra { position: relative; height: 6px; margin: 10px 12.5% 0; border-radius: 999px; background: var(--linha); }
+.entregador__feito { position: absolute; inset: 0; border-radius: inherit; background: var(--terracota-forte); transform-origin: left; transform: scaleX(calc(var(--passo) / 3)); transition: transform 600ms var(--ease-out); }
+.entregador--fim .entregador__feito { background: var(--verde); }
+/* A motinho fica na ponta da barra e balança de leve: a tela nunca parece parada esperando. */
+.entregador__moto { position: absolute; top: 50%; left: calc(var(--passo) / 3 * 100%); width: 28px; height: 28px; margin: -14px 0 0 -14px; display: grid; place-items: center; border-radius: 50%; background: var(--terracota-forte); color: var(--branco); transition: left 600ms var(--ease-out); animation: moto-anda 1.6s ease-in-out infinite; }
+.entregador__moto .icone { width: 18px; height: 18px; }
+.entregador--fim .entregador__moto { display: none; }
+@keyframes moto-anda { 50% { transform: translateY(-2px) rotate(-4deg); } }
+/* Cada nome fica no meio da sua coluna; a barra vai do meio da 1ª ao meio da 4ª (margem de 12,5%). */
+.entregador__passos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); text-align: center; font-size: 0.8125rem; font-weight: 700; color: var(--cafe-2); }
+.entregador__passos .feito { color: var(--cafe); }
+.entregador__passos .agora { color: var(--terracota-forte); }
+.entregador__vivo { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--cafe-2); }
+.entregador__vivo .ponto { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); }
+.entregador__vivo .ponto::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--verde); animation: ponto-vivo 2s var(--ease-out) infinite; }
+@keyframes ponto-vivo { from { transform: scale(1); opacity: 0.6; } to { transform: scale(2.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .entregador__moto, .entregador__vivo .ponto::after { animation: none; }
+}
 .contas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; border-block: 1px solid var(--linha); }
 .contas div { padding: 14px 16px 14px 0; }
 .contas div + div { padding-left: 16px; border-left: 1px solid var(--linha); }

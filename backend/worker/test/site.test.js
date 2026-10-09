@@ -3,7 +3,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { pedidoDoSite, consultarDoSite, telIguais, hojeBrasilia } from "../src/site.js";
+import { pedidoDoSite, consultarDoSite, entregaDoSite, telIguais, hojeBrasilia } from "../src/site.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
 const PROJETO = "demo-dluh";
@@ -85,6 +85,27 @@ test("consultar só mostra com o telefone certo, e sem o telefone completo", asy
   assert.equal(r.pedido.id, id);
   assert.equal(r.pedido.total, 50 * 75);
   assert.equal(JSON.stringify(r).includes("99812"), false);
+});
+
+test("entregador da RYD: andamento sempre; nome (só o primeiro) e foto depois que alguém aceitou; cancelada some", async () => {
+  const { id } = await pedidoDoSite(db, pedido(), { agora: AGORA });
+  const n = id.replace("PED-", "");
+  const tel = "38998124410";
+  const ref = db.collection("sis_pedidos").doc(id);
+  assert.deepEqual(await entregaDoSite(db, { numero: n, telefone: tel }), { status: "Aguardando confirmação", entregador: null });
+  assert.equal((await consultarDoSite(db, { numero: n, telefone: tel })).pedido.entregador, undefined);
+
+  await ref.set({ ryd: { deliveryId: "7", status: "pending", entregador: null, valor: 800, chamadoPor: "ana@dluh" } }, { merge: true });
+  assert.deepEqual((await entregaDoSite(db, { numero: n, telefone: tel })).entregador, { status: "pending" });
+
+  await ref.set({ ryd: { deliveryId: "7", status: "delivering", entregador: { nome: "João Pereira", foto: "https://x/f.jpg" }, valor: 800 } }, { merge: true });
+  const r = await consultarDoSite(db, { numero: n, telefone: tel });
+  assert.deepEqual(r.pedido.entregador, { status: "delivering", nome: "João", foto: "https://x/f.jpg" });
+  assert.equal(JSON.stringify(r).includes("800"), false, "o custo da RYD não aparece pro cliente");
+
+  await ref.set({ ryd: { deliveryId: "7", status: "canceled", entregador: null } }, { merge: true });
+  assert.equal((await entregaDoSite(db, { numero: n, telefone: tel })).entregador, null);
+  assert.deepEqual(await entregaDoSite(db, { numero: n, telefone: "38 3333-0000" }), { erro: "nao-encontrado" });
 });
 
 test("telefone e data de Brasília", () => {

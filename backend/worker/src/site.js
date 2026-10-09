@@ -105,19 +105,39 @@ function telIguais(a, b) {
   return x.slice(0, 2) === y.slice(0, 2) && x.slice(-8) === y.slice(-8);
 }
 
-/* Devolve só o que o cliente precisa ver; nº ou telefone errados dão a mesma resposta. */
-async function consultarDoSite(db, { numero, telefone }) {
+/* Pedido pelo nº + telefone de quem pediu; nº ou telefone errados dão o mesmo `null`. */
+async function pedidoDoCliente(db, { numero, telefone }) {
   const n = String(numero || "").toUpperCase().replace(/[^\d]/g, "");
-  if (!n) return { erro: "nao-encontrado" };
+  if (!n) return null;
   const snap = await db.collection(PEDIDOS).doc(`PED-${Number(n)}`).get();
-  if (!snap.exists || !telIguais(snap.get("cliente")?.telefone, telefone)) return { erro: "nao-encontrado" };
-  const p = snap.data();
+  if (!snap.exists || !telIguais(snap.get("cliente")?.telefone, telefone)) return null;
+  return snap.data();
+}
+
+/* Entregador da RYD como o cliente vê: andamento, e nome e foto depois que alguém aceitou.
+   Entrega cancelada some (a equipe pode chamar outro entregador). */
+function entregadorParaCliente(p) {
+  const r = p.ryd;
+  if (!r?.deliveryId || !r.status || r.status === "canceled") return null;
+  const aceito = !["pending", "scheduled"].includes(r.status);
+  return {
+    status: r.status,
+    ...(aceito && r.entregador?.nome ? { nome: String(r.entregador.nome).split(/\s+/)[0], foto: r.entregador.foto || null } : {})
+  };
+}
+
+/* Devolve só o que o cliente precisa ver; nº ou telefone errados dão a mesma resposta. */
+async function consultarDoSite(db, dados) {
+  const p = await pedidoDoCliente(db, dados);
+  if (!p) return { erro: "nao-encontrado" };
+  const entregador = entregadorParaCliente(p);
   return {
     pedido: {
       id: p.id, status: p.status, pagamento: p.pagamento, pago: p.pago || 0, total: p.total,
       entradaPct: p.entradaPct || 50, taxaEntrega: p.taxaEntrega || 0,
       cliente: { nome: p.cliente?.nome || "" },
       entrega: p.entrega,
+      ...(entregador ? { entregador } : {}),
       itens: (p.itens || []).map(it => ({
         nome: it.nome, qtd: it.qtd, valorUnit: it.valorUnit,
         ...(it.recheios ? { recheios: it.recheios } : {}),
@@ -125,6 +145,14 @@ async function consultarDoSite(db, { numero, telefone }) {
       }))
     }
   };
+}
+
+/* "Acompanhar pedido" com a tela aberta: a cada 30 s pergunta só pelo pedido e pelo entregador,
+   sem o anti-robô (o limite por IP segura abuso e a resposta não tem endereço nem itens). */
+async function entregaDoSite(db, dados) {
+  const p = await pedidoDoCliente(db, dados);
+  if (!p) return { erro: "nao-encontrado" };
+  return { status: p.status, entregador: entregadorParaCliente(p) };
 }
 
 async function turnstileOk(env, token, ip) {
@@ -145,4 +173,4 @@ async function dentroDoLimite(env, rota, ip) {
   return success;
 }
 
-export { pedidoDoSite, consultarDoSite, telIguais, hojeBrasilia, turnstileOk, dentroDoLimite };
+export { pedidoDoSite, consultarDoSite, entregaDoSite, telIguais, hojeBrasilia, turnstileOk, dentroDoLimite };

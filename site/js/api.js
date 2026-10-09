@@ -1,6 +1,6 @@
 /* API do site: fala com o Worker dluh-api pelas rotas /site/* (o pedido exige login Google).
    O Worker confere tudo de novo e usa os preços do catálogo; aqui só vai o que o cliente escolheu.
-   Mesmas duas funções do api-teste.js (que continua existindo para testar sem mexer no sistema:
+   Mesmas funções do api-teste.js (que continua existindo para testar sem mexer no sistema:
    ?api=teste na URL). */
 (function () {
   "use strict";
@@ -28,8 +28,10 @@
   // O pedido vai com o login Google (login.js); o Worker recusa sem ele.
   const criarPedido = async dados => chamar("pedido", dados, await window.DLuhLogin?.token());
   const consultarPedido = (numero, telefone) => chamar("consultar", { numero, telefone });
+  // Só o status do pedido e o entregador da RYD, para o "Acompanhar pedido" se atualizar sozinho.
+  const acompanharEntrega = (numero, telefone) => chamar("entrega", { numero, telefone });
   // Taxa de entrega para o endereço (estimativa da Moblets, arredondada): { disponivel, taxa, km }.
   const estimarFrete = local => chamar("frete", { local });
 
-  window.DLuhAPI = { criarPedido, consultarPedido, estimarFrete, modo: "producao" };
+  window.DLuhAPI = { criarPedido, consultarPedido, acompanharEntrega, estimarFrete, modo: "producao" };
 })();

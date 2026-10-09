@@ -26,8 +26,16 @@
     "PED-3103": { status: "Em produção", pago: 14000 },
     "PED-3104": { status: "Entregue — Esperando restante", pago: 14000 },
     "PED-3105": { status: "Finalizado", pago: 28000 },
-    "PED-3106": { status: "Cancelado", pago: 0 }
+    "PED-3106": { status: "Cancelado", pago: 0 },
+    "PED-3107": { status: "Pronto", pago: 28000, ryd: true }
   };
+  /* PED-3107: o entregador anda um passo a cada 20 s desde que a página abriu. */
+  const ABRIU = Date.now();
+  function entregadorDemo() {
+    const seq = ["pending", "accepted", "withdraw", "delivering", "finished"];
+    const status = seq[Math.min(Math.floor((Date.now() - ABRIU) / 20000), seq.length - 1)];
+    return status === "pending" ? { status } : { status, nome: "João", foto: "img/entregador-teste.jpg" };
+  }
   function pedidoDemo(id) {
     const d = DEMO[id];
     if (!d) return null;
@@ -40,7 +48,8 @@
         { nome: "Brigadeiro", qtd: 50, valorUnit: 130 },
         { nome: "Bolo aro 18", qtd: 1, valorUnit: 14000, recheios: ["Creme Ninho", "Creme Belga com Morangos"] }
       ],
-      taxaEntrega: 0
+      taxaEntrega: 0,
+      ...(d.ryd ? { entregador: entregadorDemo() } : {})
     };
   }
 
@@ -88,5 +97,10 @@
     return { pedido: p };
   }
 
-  window.DLuhAPI = { criarPedido, consultarPedido, estimarFrete, modo: "teste" };
+  async function acompanharEntrega(id, telefone) {
+    const r = await consultarPedido(id, telefone);
+    return r.erro ? r : { status: r.pedido.status, entregador: r.pedido.entregador || null };
+  }
+
+  window.DLuhAPI = { criarPedido, consultarPedido, acompanharEntrega, estimarFrete, modo: "teste" };
 })();
