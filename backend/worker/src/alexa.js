@@ -9,6 +9,7 @@
       entra na fila. Sem VOICEMONKEY_TOKEN e VOICEMONKEY_DEVICE fica desligado. */
 import { importX509 } from "jose";
 import { PEDIDOS } from "./pedidos.js";
+import { NA_COZINHA } from "./dominio.js";
 import { hojeSP } from "./lembretes.js";
 
 const alexaLigada = env => !!env.ALEXA_SKILL_ID;
@@ -58,7 +59,8 @@ async function requisicaoValida({ corpo, dados, urlCert, assinatura, env, agora 
 // ── A fila e como ela é falada ──
 async function filaDeHoje(db, agora = Date.now()) {
   const hoje = hojeSP(agora);
-  return (await db.collection(PEDIDOS).consultar([["status", "==", "Em produção"]]))
+  const listas = await Promise.all(NA_COZINHA.map(s => db.collection(PEDIDOS).consultar([["status", "==", s]])));
+  return listas.flat()
     .filter(p => p.cozinha !== "feito" && (!p.entrega?.data || p.entrega.data <= hoje))
     .sort((a, b) => `${a.entrega?.data} ${a.entrega?.hora}`.localeCompare(`${b.entrega?.data} ${b.entrega?.hora}`));
 }

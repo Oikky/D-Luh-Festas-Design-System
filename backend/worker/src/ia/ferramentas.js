@@ -3,7 +3,7 @@
    confirma no botão — só aí a ação roda, pelo mesmo caminho das telas. */
 import { PEDIDOS, PAGAMENTOS, normalizar } from "../pedidos.js";
 import { PRODUTOS, RECHEIOS } from "../produtos.js";
-import { STATUS, MEIOS, ErroDominio, validarItens } from "../dominio.js";
+import { NA_COZINHA, STATUS, MEIOS, ErroDominio, validarItens } from "../dominio.js";
 import { brl, dataBR, linhasItens } from "../efeitos.js";
 import { paraLembrar } from "../lembretes.js";
 import { TIPOS_NOTA } from "../notas.js";
@@ -93,7 +93,8 @@ const DEFINICOES = [
         entrada_pct: { type: "integer", enum: [50, 100], description: "Quanto a cobrança de entrada pede. Padrão 50." },
         tipo: { type: "string", enum: ["pessoa", "empresa"] },
         obs: { type: "string" },
-        ignorar_minimo: IGNORAR_MINIMO
+        ignorar_minimo: IGNORAR_MINIMO,
+        fiado: { type: "boolean", description: "true só se o usuário disser que é fiado: o pedido nasce Fiado e vai direto para a cozinha, sem cobrança" }
       },
       required: ["cliente", "entrega", "itens"]
     }
@@ -148,7 +149,7 @@ const DEFINICOES = [
   },
   {
     name: "propor_marcar_feito",
-    description: "Marca que a cozinha terminou um pedido que está Em produção (sai da fila da cozinha; o status não muda).",
+    description: "Marca que a cozinha terminou um pedido que está Em produção ou Fiado (sai da fila da cozinha; o status não muda).",
     input_schema: { type: "object", properties: { pedido_id: { type: "string" } }, required: ["pedido_id"] }
   },
   {
@@ -296,7 +297,7 @@ const EXECUTAR = {
       cliente: e.cliente, tipo: e.tipo, entrega: e.entrega, itens,
       taxaEntrega: Math.round((Number(e.taxa_entrega_reais) || 0) * 100),
       entradaPct: e.entrada_pct === 100 ? 100 : 50,
-      obs: e.obs || "", origem: "admin"
+      obs: e.obs || "", origem: "admin", fiado: e.fiado === true
     };
     const p = normalizar(dados); // mesma validação da gravação: erro aqui volta para o modelo corrigir
 
@@ -308,7 +309,8 @@ const EXECUTAR = {
       ...p.itens.map(linhaItem),
       ...(p.taxaEntrega ? [`Taxa de entrega — ${brl(p.taxaEntrega)}`] : []),
       "",
-      `*Total ${brl(p.total)}* · entrada ${p.entradaPct}%: ${brl(Math.round(p.total * p.entradaPct / 100))}`,
+      e.fiado === true ? `*Total ${brl(p.total)}* · *fiado*: vai direto para a cozinha, sem cobrar entrada`
+        : `*Total ${brl(p.total)}* · entrada ${p.entradaPct}%: ${brl(Math.round(p.total * p.entradaPct / 100))}`,
       ...(p.obs ? [`Obs: ${p.obs}`] : []),
       ...avisos
     ].join("\n");
@@ -378,7 +380,7 @@ const EXECUTAR = {
 
   async propor_marcar_feito({ db, propor }, { pedido_id }) {
     const p = await lerPedido(db, pedido_id);
-    if (p.status !== "Em produção") throw new ErroDominio("failed-precondition", `${p.id} não está em produção (está em "${p.status}")`);
+    if (!NA_COZINHA.includes(p.status)) throw new ErroDominio("failed-precondition", `${p.id} não está em produção (está em "${p.status}")`);
     if (p.cozinha === "feito") throw new ErroDominio("failed-precondition", `${p.id} já está marcado como feito`);
     return propor("marcarFeito", { pedidoId: p.id }, `*${p.id} — ${p.cliente?.nome}*\nMarcar como feito na cozinha (sai da fila).`);
   },

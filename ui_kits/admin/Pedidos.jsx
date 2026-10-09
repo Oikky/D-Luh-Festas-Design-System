@@ -398,7 +398,8 @@ function Pedidos({ compact, q }) {
               badges={<>
                 {p.tipo ? <Badge tone="accent" icon="building-2">{p.tipo}</Badge> : null}
                 {p.falta ? <Badge tone="warn">Falta {p.falta}</Badge> : null}
-                {p.feitoNaCozinha && p.status === "Em produção" ? <Badge tone="success" icon="chef-hat">Feito na cozinha</Badge> : null}
+                {p.feitoNaCozinha && ["Em produção", "Fiado"].includes(p.status) ? <Badge tone="success" icon="chef-hat">Feito na cozinha</Badge> : null}
+                {p.status === "Fiado" && p.feitoNaCozinha === false ? <Badge tone="neutral" icon="chef-hat">Na cozinha</Badge> : null}
                 {p.nota ? <Badge tone="neutral" icon="receipt-text">{p.nota.tipo} {p.nota.numero}</Badge> : null}
                 {p.ryd ? <Badge tone={(RYD[p.ryd.status] || {}).tone || "neutral"} icon="truck">{textoRyd(p)}</Badge> : null}
               </>}

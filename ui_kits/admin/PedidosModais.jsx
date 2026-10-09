@@ -6,11 +6,12 @@ const agora = () => {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-function EntradaToggle({ value, onChange }) {
-  const cheio = value === 100;
+/* Two-sided pill switch: 50% / 100% for the entry, Normal / Fiado for a new order. */
+function EntradaToggle({ value, onChange, opcoes = [50, 100], rotulos = ["50%", "100%"], label = "Cobrar 100% agora" }) {
+  const cheio = value === opcoes[1];
   const lado = { flex: 1, position: "relative", zIndex: 1, textAlign: "center", transition: "color var(--dur-base) var(--ease-standard)" };
   return (
-    <button type="button" role="switch" aria-checked={cheio} aria-label="Cobrar 100% agora" onClick={() => onChange(cheio ? 50 : 100)} style={{
+    <button type="button" role="switch" aria-checked={cheio} aria-label={label} onClick={() => onChange(cheio ? opcoes[0] : opcoes[1])} style={{
       position: "relative", display: "flex", alignItems: "center", width: "100%", height: 40, padding: 3,
       borderRadius: "var(--radius-pill)", border: "var(--border-hairline) solid var(--color-border-strong)",
       background: "var(--color-surface-sunken, var(--color-bg))", cursor: "pointer",
@@ -21,8 +22,8 @@ function EntradaToggle({ value, onChange }) {
         borderRadius: "var(--radius-pill)", background: "var(--color-accent-strong)", boxShadow: "0 1px 3px rgba(40,24,16,.18)",
         transform: cheio ? "translateX(100%)" : "none", transition: "transform var(--dur-move) var(--ease-standard)"
       }} />
-      <span style={{ ...lado, color: cheio ? "var(--text-muted)" : "var(--color-accent-contrast)" }}>50%</span>
-      <span style={{ ...lado, color: cheio ? "var(--color-accent-contrast)" : "var(--text-muted)" }}>100%</span>
+      <span style={{ ...lado, color: cheio ? "var(--text-muted)" : "var(--color-accent-contrast)" }}>{rotulos[0]}</span>
+      <span style={{ ...lado, color: cheio ? "var(--color-accent-contrast)" : "var(--text-muted)" }}>{rotulos[1]}</span>
     </button>
   );
 }
@@ -141,7 +142,7 @@ function PagamentosModal({ lista, onChange, pedido, onClose, onToast, acao, pend
 const PGTOS = ["Pix", "Cartão", "Dinheiro", "Não definido"];
 const reaisDe = s => parseFloat(String(s).replace(",", ".")) || 0;
 const itemVazio = () => ({ nome: "", qtd: 1, preco: "", obs: "", recheios: "", topo: null });
-const novoRascunho = n => ({ uid: Date.now() + n, cliente: "", tel: "", data: "", hora: "", entrega: "Retirada no local", endereco: "", taxa: "", pgto: "Pix", entrada: 50, tipo: "Pessoa física", obs: "", itens: [itemVazio()] });
+const novoRascunho = n => ({ uid: Date.now() + n, cliente: "", tel: "", data: "", hora: "", entrega: "Retirada no local", endereco: "", taxa: "", pgto: "Pix", entrada: 50, fiado: false, tipo: "Pessoa física", obs: "", itens: [itemVazio()] });
 const totalRascunho = r => r.itens.reduce((s, it) => s + (Number(it.qtd) || 0) * reaisDe(it.preco), 0) + (r.entrega === "Entrega em endereço" ? reaisDe(r.taxa) : 0);
 
 /* An existing order as a draft. Real orders carry the raw record in _c; demo rows only have the
@@ -189,7 +190,8 @@ const paraApi = r => ({
     ...(String(it.recheios || "").trim() ? { recheios: String(it.recheios).split(",").map(x => x.trim()).filter(Boolean) } : {}),
     ...(it.topo ? { topo: typeof it.topo === "string" ? it.topo : { tema: it.topo.tema.trim(), ...(it.topo.detalhes ? { detalhes: it.topo.detalhes.trim() } : {}), ...(it.topo.imagem ? { imagem: it.topo.imagem } : {}) } } : {})
   })),
-  obs: r.obs, entradaPct: r.entrada, formaPagamento: MEIO_API[r.pgto], origem: "admin"
+  obs: r.obs, entradaPct: r.entrada, formaPagamento: MEIO_API[r.pgto], origem: "admin",
+  ...(r.fiado ? { fiado: true } : {})
 });
 
 /* Cake topper: theme, details and a reference picture. The picture goes up when chosen; only
@@ -279,7 +281,7 @@ function ItensPedido({ r, set, compact, produtos, erro, acao, onToast, listaId }
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "10px 12px", borderTop: "var(--border-hairline) solid var(--color-border)" }}>
         <PM.Button size="sm" variant="quiet" icon="plus" onClick={() => { set("itens", [...r.itens, itemVazio()]); setAberto(a => [...a, false]); }}>Adicionar item</PM.Button>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-          <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Entrada {r.entrada}% · {brl(totalRascunho(r) * r.entrada / 100)}</span>
+          <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>{r.fiado ? "Fiado · paga depois" : `Entrada ${r.entrada}% · ${brl(totalRascunho(r) * r.entrada / 100)}`}</span>
           <b style={{ fontSize: "var(--fs-subhead)" }}>{brl(totalRascunho(r))}</b>
         </div>
       </div>
@@ -307,7 +309,8 @@ function SugestoesCliente({ r, set, clientes }) {
   );
 }
 
-function CamposPedido({ r, set, erros, clientes }) {
+/* `criando`: só o Pedido manual escolhe fiado (depois, é pelo menu do pedido). */
+function CamposPedido({ r, set, erros, clientes, criando }) {
   const ctl = k => ({ value: r[k], onChange: e => set(k, e.target.value) });
   const entrega = r.entrega === "Entrega em endereço";
   /* Addresses this number already used, offered in the Endereço field. */
@@ -326,7 +329,9 @@ function CamposPedido({ r, set, erros, clientes }) {
       {entrega ? <PM.Field label="Endereço" required error={erros.endereco}><PM.Input placeholder="Rua, número, bairro" invalid={!!erros.endereco} list={doCliente ? listaEnd : undefined} {...ctl("endereco")} /></PM.Field> : null}
       {entrega ? <PM.Field label="Taxa de entrega"><PM.Input type="number" prefix="R$" step="0.01" min="0" placeholder="0,00" {...ctl("taxa")} /></PM.Field> : null}
       <PM.Field label="Pagamento"><PM.Select options={PGTOS} {...ctl("pgto")} /></PM.Field>
-      <PM.Field label="Entrada" hint="Percentual cobrado agora"><EntradaToggle value={r.entrada} onChange={v => set("entrada", v)} /></PM.Field>
+      {criando ? <PM.Field label="Fiado" hint={r.fiado ? "Vai direto para a cozinha, sem cobrança" : "Paga depois, combinado com a loja"}>
+        <EntradaToggle value={!!r.fiado} onChange={v => set("fiado", v)} opcoes={[false, true]} rotulos={["Normal", "Fiado"]} label="Pedido fiado" /></PM.Field> : null}
+      {r.fiado ? null : <PM.Field label="Entrada" hint="Percentual cobrado agora"><EntradaToggle value={r.entrada} onChange={v => set("entrada", v)} /></PM.Field>}
       <PM.Field label="Observações"><PM.Input placeholder="Opcional" {...ctl("obs")} /></PM.Field>
     </div>
   );
@@ -365,10 +370,11 @@ function ManualModal({ compact, onClose, onToast, acao, pendente, produtos, clie
 
   return (<>
     <PM.Modal width={860} title={n > 1 ? "Pedidos manuais" : "Pedido manual"} onClose={fechar}
-      subtitle="Mesmo fluxo do site: o pedido entra em Estoque pendente e segue o ciclo normal — confirmar estoque, cobrança, fila da cozinha."
+      subtitle={r.fiado ? "Fiado: o pedido entra direto na aba Fiados e na fila da cozinha, sem conferir estoque nem cobrar entrada."
+        : "Mesmo fluxo do site: o pedido entra em Estoque pendente e segue o ciclo normal — confirmar estoque, cobrança, fila da cozinha."}
       footer={<>
         <PM.Button variant="ghost" block onClick={fechar}>Cancelar</PM.Button>
-        <PM.Button block icon="check" loading={pendente === "criar-pedido"} onClick={criar}>{n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : "Criar pedido"}</PM.Button>
+        <PM.Button block icon="check" loading={pendente === "criar-pedido"} onClick={criar}>{n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : r.fiado ? "Criar pedido fiado" : "Criar pedido"}</PM.Button>
       </>}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingBottom: 14, marginBottom: 16, borderBottom: "var(--border-hairline) solid var(--color-border)" }}>
         {lista.map((x, i) => {
@@ -394,7 +400,7 @@ function ManualModal({ compact, onClose, onToast, acao, pendente, produtos, clie
         <PM.Button size="sm" variant="quiet" icon="plus" onClick={novo}>Novo pedido</PM.Button>
       </div>
 
-      <CamposPedido r={r} set={set} erros={erros} clientes={clientes} />
+      <CamposPedido r={r} set={set} erros={erros} clientes={clientes} criando />
       <window.ListaProdutos id="dluh-produtos-manual" produtos={produtos} />
       <ItensPedido key={r.uid} r={r} set={set} compact={compact} produtos={produtos} erro={erros.itens} acao={acao} onToast={onToast} listaId="dluh-produtos-manual" />
     </PM.Modal>

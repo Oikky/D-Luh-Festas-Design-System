@@ -2,7 +2,7 @@
    sis_pedidos/{id}/eventos — é o histórico de quem mudou o quê, e quando.
    Recebem o Firestore por parâmetro para os testes rodarem contra o emulador. */
 import { FieldValue } from "./firestore.js";
-import { STATUS, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio } from "./dominio.js";
+import { FIADO, NA_COZINHA, STATUS, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio } from "./dominio.js";
 
 const PEDIDOS = "sis_pedidos";
 const PAGAMENTOS = "sis_pagamentos";
@@ -48,8 +48,11 @@ function normalizar(dados) {
   };
 }
 
-async function criarPedido(db, dados, por) {
+/* `fiado` (só a equipe, pelo admin ou pela assistente): o pedido nasce "Fiado", sem conferir
+   estoque nem cobrar entrada, e já entra na fila da cozinha. */
+async function criarPedido(db, dados, por, { fiado = false } = {}) {
   const { formaPagamento, ...p } = normalizar(dados);
+  const status = fiado ? FIADO : "Aguardando confirmação";
 
   return db.runTransaction(async tx => {
     const contRef = db.doc(CONTADOR);
@@ -66,14 +69,14 @@ async function criarPedido(db, dados, por) {
       ...(formaPagamento ? { formaPagamento } : {}),
       pago: 0,
       pagamento: "Não pago",
-      status: "Aguardando confirmação",
+      status,
       cozinha: "pendente",
       origem: ["site", "whatsapp", "empresas", "admin"].includes(dados.origem) ? dados.origem : "admin",
       criadoEm: agora(),
       atualizadoEm: agora()
     });
-    evento(tx, ref, { tipo: "criado", para: "Aguardando confirmação", por });
-    return { id, total: p.total };
+    evento(tx, ref, { tipo: "criado", para: status, por });
+    return { id, total: p.total, status };
   });
 }
 
@@ -112,7 +115,9 @@ async function mudarStatus(db, { pedidoId, status, motivo }, por) {
     if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
     const de = snap.get("status");
     if (de === status) return { mudou: false, status };
-    tx.update(ref, { status, atualizadoEm: agora() });
+    // Virar fiado depois de entregue não pode jogar o pedido de volta na fila da cozinha.
+    const saiDaFila = status === FIADO && de !== "Em produção" && snap.get("cozinha") !== "feito";
+    tx.update(ref, { status, ...(saiDaFila ? { cozinha: "feito" } : {}), atualizadoEm: agora() });
     evento(tx, ref, { tipo: "status", de, para: status, por, ...(motivo ? { motivo: String(motivo) } : {}) });
     return { mudou: true, status };
   });
@@ -125,7 +130,7 @@ async function marcarFeito(db, { pedidoId }, por) {
   return db.runTransaction(async tx => {
     const snap = await tx.get(ref);
     if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
-    if (snap.get("status") !== "Em produção") throw new ErroDominio("failed-precondition", `Pedido ${pedidoId} não está em produção`);
+    if (!NA_COZINHA.includes(snap.get("status"))) throw new ErroDominio("failed-precondition", `Pedido ${pedidoId} não está em produção`);
     if (snap.get("cozinha") === "feito") return { mudou: false };
     tx.update(ref, { cozinha: "feito", feitoEm: agora(), atualizadoEm: agora() });
     evento(tx, ref, { tipo: "cozinha", para: "feito", por });

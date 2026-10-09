@@ -35,7 +35,7 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
       F.query(F.collection(db, "sis_pedidos"), F.where("entrega.data", ">=", corte().toISOString().slice(0, 10)))
     ];
     const CONSULTAS = {
-      fila: () => F.query(F.collection(db, "sis_pedidos"), F.where("status", "==", "Em produção")),
+      fila: () => F.query(F.collection(db, "sis_pedidos"), F.where("status", "in", ["Em produção", "Fiado"])),
       pedidos: pedidosRecentes,
       agenda: pedidosRecentes,
       pedidosTodos: () => F.collection(db, "sis_pedidos"),

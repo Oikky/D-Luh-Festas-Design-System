@@ -75,6 +75,9 @@ async function telegramNovoPedido(env, db, pedidoId) {
   if (!telegramLigado(env)) return;
   const p = await lerPedido(db, pedidoId);
   if (!p) return;
+  // Fiado já nasce na cozinha: não tem estoque para confirmar.
+  if (p.status === "Fiado") return enviarTelegram(env, "pendentes", `📒 Fiado — já na fila da cozinha
+${textoNovoPedido(p)}`);
   return enviarTelegram(env, "pendentes", textoNovoPedido(p), [{ id: `estoque:${p.id}`, titulo: "✅ Confirmar estoque" }]);
 }
 

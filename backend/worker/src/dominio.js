@@ -18,6 +18,8 @@ const STATUS = [
    nunca veem esse nome (FIADO_PARA_CLIENTE). */
 const FIADO = "Fiado";
 const FIADO_PARA_CLIENTE = "Entregue — Esperando restante";
+/* Status que a cozinha vê (se ainda não marcou feito): fiado criado como fiado vai direto para a fila. */
+const NA_COZINHA = ["Em produção", FIADO];
 
 const PAGAMENTO = ["Não pago", "Só entrada", "Totalmente pago"];
 
@@ -78,4 +80,4 @@ class ErroDominio extends Error {
   constructor(codigo, mensagem) { super(mensagem); this.codigo = codigo; }
 }
 
-export { FIADO, FIADO_PARA_CLIENTE, STATUS, PAGAMENTO, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };
+export { FIADO, FIADO_PARA_CLIENTE, NA_COZINHA, STATUS, PAGAMENTO, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };

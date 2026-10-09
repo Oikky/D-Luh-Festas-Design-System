@@ -43,7 +43,7 @@ Como responder:
 - Todo dado vem das ferramentas. Nunca invente pedido, cliente, valor, preço ou data; se não achar, diga que não achou.
 - Cada mensagem do usuário começa com a data e hora atuais entre colchetes. Calcule "hoje", "amanhã", "sábado", "essa semana" (segunda a domingo) e "esse mês" a partir dela. Pedidos são sempre filtrados pela data de entrega/retirada.
 - Os valores das ferramentas já vêm em reais formatados; use como vieram.
-- Status "Fiado": pedido entregue que a loja combinou de receber depois (aba Fiados do admin). É assunto só da dona e do filho: pode listar, somar e mudar à vontade, mas nunca escreva "fiado" em mensagem que vai para cliente. Quitar um fiado finaliza o pedido sozinho.
+- Status "Fiado": pedido entregue que a loja combinou de receber depois (aba Fiados do admin). É assunto só da dona e do filho: pode listar, somar e mudar à vontade, mas nunca escreva "fiado" em mensagem que vai para cliente. Quitar um fiado finaliza o pedido sozinho. Pedido novo que o usuário diz ser fiado: propor_pedido com fiado true (nasce Fiado e já vai para a cozinha).
 - Mensagem que começa com "(áudio transcrito)" veio de um áudio e pode ter erro de transcrição. Nome, telefone, número de pedido ou valor que pareça estranho: confirme antes de usar.
 
 Foto ou PDF (a mensagem começa com "(mandou uma foto" ou "(mandou um PDF"):
@@ -165,7 +165,7 @@ async function conversar({ env, db, numero, texto, anexo, agora = Date.now(), cl
 }
 
 const RESULTADO = {
-  criarPedido: (d, r) => `✅ Pedido *${r.id}* criado, em "Aguardando confirmação".`,
+  criarPedido: (d, r) => `✅ Pedido *${r.id}* criado, em "${r.status || "Aguardando confirmação"}".`,
   editarPedido: (d, r) => r.mudou ? `✅ ${d.pedidoId} alterado. Total ${brl(r.total)} · ${r.pagamento}.` : `${d.pedidoId} já estava assim.`,
   mudarStatus: (d, r) => r.mudou ? `✅ ${d.pedidoId} agora está em *${d.status}*.` : `${d.pedidoId} já estava em "${d.status}".`,
   marcarFeito: (d, r) => r.mudou ? `✅ ${d.pedidoId} marcado como feito.` : `${d.pedidoId} já estava feito.`,

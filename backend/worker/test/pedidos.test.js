@@ -132,6 +132,23 @@ test("fiado: pagamento parcial continua fiado; quitar finaliza", async () => {
   assert.equal(r.status, "Finalizado");
 });
 
+test("fiado na criação: nasce Fiado e na fila da cozinha; marcar feito funciona", async () => {
+  const { id, status } = await criarPedido(db, base(), "ana", { fiado: true });
+  assert.equal(status, "Fiado");
+  let p = (await db.doc(`sis_pedidos/${id}`).get()).data();
+  assert.deepEqual([p.status, p.cozinha], ["Fiado", "pendente"]);
+  await marcarFeito(db, { pedidoId: id }, "cozinha");
+  p = (await db.doc(`sis_pedidos/${id}`).get()).data();
+  assert.equal(p.cozinha, "feito");
+});
+
+test("virar fiado depois de entregue não volta para a fila da cozinha", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  await mudarStatus(db, { pedidoId: id, status: "Entregue — Esperando restante" }, "ana");
+  await mudarStatus(db, { pedidoId: id, status: "Fiado" }, "ana");
+  assert.equal((await db.doc(`sis_pedidos/${id}`).get()).data().cozinha, "feito");
+});
+
 test("pagamento não mexe no status em produção", async () => {
   const { id } = await criarPedido(db, base(), "ana");
   await mudarStatus(db, { pedidoId: id, status: "Em produção" }, "ana");

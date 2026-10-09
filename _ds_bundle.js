@@ -6475,10 +6475,13 @@ function Pedidos({
         icon: "building-2"
       }, p.tipo) : null, p.falta ? /*#__PURE__*/React.createElement(Badge, {
         tone: "warn"
-      }, "Falta ", p.falta) : null, p.feitoNaCozinha && p.status === "Em produção" ? /*#__PURE__*/React.createElement(Badge, {
+      }, "Falta ", p.falta) : null, p.feitoNaCozinha && ["Em produção", "Fiado"].includes(p.status) ? /*#__PURE__*/React.createElement(Badge, {
         tone: "success",
         icon: "chef-hat"
-      }, "Feito na cozinha") : null, p.nota ? /*#__PURE__*/React.createElement(Badge, {
+      }, "Feito na cozinha") : null, p.status === "Fiado" && p.feitoNaCozinha === false ? /*#__PURE__*/React.createElement(Badge, {
+        tone: "neutral",
+        icon: "chef-hat"
+      }, "Na cozinha") : null, p.nota ? /*#__PURE__*/React.createElement(Badge, {
         tone: "neutral",
         icon: "receipt-text"
       }, p.nota.tipo, " ", p.nota.numero) : null, p.ryd ? /*#__PURE__*/React.createElement(Badge, {
@@ -6659,11 +6662,16 @@ const agora = () => {
     p = x => String(x).padStart(2, "0");
   return `${p(d.getDate())}/${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
+
+/* Two-sided pill switch: 50% / 100% for the entry, Normal / Fiado for a new order. */
 function EntradaToggle({
   value,
-  onChange
+  onChange,
+  opcoes = [50, 100],
+  rotulos = ["50%", "100%"],
+  label = "Cobrar 100% agora"
 }) {
-  const cheio = value === 100;
+  const cheio = value === opcoes[1];
   const lado = {
     flex: 1,
     position: "relative",
@@ -6675,8 +6683,8 @@ function EntradaToggle({
     type: "button",
     role: "switch",
     "aria-checked": cheio,
-    "aria-label": "Cobrar 100% agora",
-    onClick: () => onChange(cheio ? 50 : 100),
+    "aria-label": label,
+    onClick: () => onChange(cheio ? opcoes[0] : opcoes[1]),
     style: {
       position: "relative",
       display: "flex",
@@ -6710,12 +6718,12 @@ function EntradaToggle({
       ...lado,
       color: cheio ? "var(--text-muted)" : "var(--color-accent-contrast)"
     }
-  }, "50%"), /*#__PURE__*/React.createElement("span", {
+  }, rotulos[0]), /*#__PURE__*/React.createElement("span", {
     style: {
       ...lado,
       color: cheio ? "var(--color-accent-contrast)" : "var(--text-muted)"
     }
-  }, "100%"));
+  }, rotulos[1]));
 }
 function Anexo({
   arquivo,
@@ -6767,15 +6775,77 @@ function Anexo({
   }));
 }
 const PG_COLS = "minmax(0,1fr) minmax(0,.8fr) minmax(0,1.4fr) 40px";
+const MODO_REAL = () => window.DLUH_API.modo === "firebase";
+const MEIO_API = {
+  "Pix": "pix",
+  "Dinheiro": "dinheiro",
+  "Cartão": "cartao"
+};
+const novaChave = () => crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+
+/* Apagar um registro de pagamento pede a senha da conta sistema (a mesma de apagar pedido). O
+   valor sai do "pago" do pedido; a senha vai só nessa chamada e nada fica guardado. */
+function SenhaPagamento({
+  p,
+  pendente,
+  onCancel,
+  onConfirm
+}) {
+  const [senha, setSenha] = React.useState("");
+  const [tentou, setTentou] = React.useState(false);
+  const ir = () => {
+    setTentou(true);
+    if (senha) onConfirm(senha);
+  };
+  return /*#__PURE__*/React.createElement(PM.Modal, {
+    width: 420,
+    title: "Apagar registro de pagamento?",
+    onClose: pendente ? null : onCancel,
+    dismissible: false,
+    subtitle: `${brl(p.valor)}${p.meio ? " · " + p.meio : ""}${p.quando ? " · " + p.quando : ""}. O valor sai do que o pedido já recebeu. Não dá pra desfazer.`,
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PM.Button, {
+      variant: "ghost",
+      block: true,
+      disabled: pendente,
+      onClick: onCancel
+    }, "Voltar"), /*#__PURE__*/React.createElement(PM.Button, {
+      tone: "danger",
+      block: true,
+      icon: "trash-2",
+      loading: pendente,
+      onClick: ir
+    }, "Sim, apagar"))
+  }, /*#__PURE__*/React.createElement("form", {
+    onSubmit: e => {
+      e.preventDefault();
+      ir();
+    }
+  }, /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Senha do sistema",
+    required: true,
+    error: tentou && !senha ? "Digite a senha" : undefined,
+    hint: "A senha da conta sistema do Firebase."
+  }, /*#__PURE__*/React.createElement(PM.Input, {
+    type: "password",
+    autoFocus: true,
+    autoComplete: "off",
+    value: senha,
+    invalid: tentou && !senha,
+    onChange: e => setSenha(e.target.value)
+  }))));
+}
 function PagamentosModal({
   lista,
   onChange,
+  pedido,
   onClose,
   onToast,
   acao,
   pendente
 }) {
+  const real = MODO_REAL();
   const [valor, setValor] = React.useState("");
+  const [meio, setMeio] = React.useState(pedido && MEIO_API[pedido.pgto] ? pedido.pgto : "Pix");
   const [arquivo, setArquivo] = React.useState(null);
   const [remover, setRemover] = React.useState(null);
   const [erroValor, setErroValor] = React.useState(null);
@@ -6803,7 +6873,15 @@ function PagamentosModal({
       valor: v,
       arquivo,
       origem: "manual"
-    }]));
+    }]), pedido ? {
+      acao: "registrarPagamentoManual",
+      dados: {
+        pedidoId: pedido.id,
+        valor: Math.round(v * 100),
+        meio: MEIO_API[meio],
+        chave: novaChave()
+      }
+    } : undefined);
     if (ok) {
       setValor("");
       setArquivo(null);
@@ -6865,7 +6943,7 @@ function PagamentosModal({
       fontSize: "var(--fs-tiny)",
       color: "var(--text-muted)"
     }
-  }, p.origem === "site" ? (p.quando ? "Pelo site · " : "") + (p.meio || "Pix") : "Manual")), /*#__PURE__*/React.createElement("span", {
+  }, p.origem === "site" ? (p.quando ? "Pelo site · " : "") + (p.meio || "Pix") : "Manual" + (p.meio ? " · " + p.meio : ""))), /*#__PURE__*/React.createElement("span", {
     style: {
       textAlign: "right",
       fontWeight: "var(--fw-semibold)",
@@ -6883,13 +6961,18 @@ function PagamentosModal({
   }, /*#__PURE__*/React.createElement(PM.Icon, {
     name: "check",
     size: 14
-  }), "Confirmado automaticamente") : /*#__PURE__*/React.createElement(Anexo, {
+  }), "Confirmado automaticamente") : real ? /*#__PURE__*/React.createElement("span", null) : /*#__PURE__*/React.createElement(Anexo, {
     arquivo: p.arquivo,
     onFile: n => onChange(lista.map((x, j) => j === i ? {
       ...x,
       arquivo: n
     } : x))
-  }), p.origem === "site" ? /*#__PURE__*/React.createElement("span", null) : /*#__PURE__*/React.createElement(PM.IconButton, {
+  }), real ? p.id ? /*#__PURE__*/React.createElement(PM.IconButton, {
+    icon: "trash-2",
+    label: "Apagar registro de pagamento",
+    size: 36,
+    onClick: () => setRemover(i)
+  }) : /*#__PURE__*/React.createElement("span", null) : p.origem === "site" ? /*#__PURE__*/React.createElement("span", null) : /*#__PURE__*/React.createElement(PM.IconButton, {
     icon: "trash-2",
     label: "Remover pagamento",
     size: 36,
@@ -6946,7 +7029,13 @@ function PagamentosModal({
       setValor(e.target.value);
       setErroValor(null);
     }
-  })), /*#__PURE__*/React.createElement("div", {
+  })), real ? /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Como pagou"
+  }, /*#__PURE__*/React.createElement(PM.Select, {
+    options: Object.keys(MEIO_API),
+    value: meio,
+    onChange: e => setMeio(e.target.value)
+  })) : /*#__PURE__*/React.createElement("div", {
     style: {
       height: 40,
       marginTop: 21,
@@ -6964,7 +7053,24 @@ function PagamentosModal({
     style: {
       marginTop: 21
     }
-  }, "Registrar"))), remover != null ? /*#__PURE__*/React.createElement(PM.ConfirmDialog, {
+  }, "Registrar"))), remover != null && real ? /*#__PURE__*/React.createElement(SenhaPagamento, {
+    p: lista[remover],
+    pendente: pendente === "apagar-pagamento",
+    onCancel: () => setRemover(null),
+    onConfirm: async senha => {
+      const ok = await acao("apagar-pagamento", {
+        ok: "Registro de pagamento apagado",
+        falhou: "Não deu pra apagar o pagamento"
+      }, null, {
+        acao: "apagarPagamento",
+        dados: {
+          pagamentoId: lista[remover].id,
+          senha
+        }
+      });
+      if (ok) setRemover(null);
+    }
+  }) : null, remover != null && !real ? /*#__PURE__*/React.createElement(PM.ConfirmDialog, {
     tone: "danger",
     icon: "trash-2",
     title: "Remover pagamento?",
@@ -6983,6 +7089,19 @@ function PagamentosModal({
     }
   }) : null);
 }
+
+/* ── The order form: shared by Pedido manual (new) and Detalhes (edit) ── */
+
+const PGTOS = ["Pix", "Cartão", "Dinheiro", "Não definido"];
+const reaisDe = s => parseFloat(String(s).replace(",", ".")) || 0;
+const itemVazio = () => ({
+  nome: "",
+  qtd: 1,
+  preco: "",
+  obs: "",
+  recheios: "",
+  topo: null
+});
 const novoRascunho = n => ({
   uid: Date.now() + n,
   cliente: "",
@@ -6990,37 +7109,619 @@ const novoRascunho = n => ({
   data: "",
   hora: "",
   entrega: "Retirada no local",
+  endereco: "",
+  taxa: "",
   pgto: "Pix",
   entrada: 50,
+  fiado: false,
   tipo: "Pessoa física",
   obs: "",
-  itens: [{
-    nome: "",
-    qtd: 1,
-    preco: ""
-  }]
+  itens: [itemVazio()]
 });
-const totalRascunho = r => r.itens.reduce((s, it) => s + (Number(it.qtd) || 0) * (parseFloat(String(it.preco).replace(",", ".")) || 0), 0);
-const ITEM_COLS = "minmax(0,1fr) 80px 130px 44px";
+const totalRascunho = r => r.itens.reduce((s, it) => s + (Number(it.qtd) || 0) * reaisDe(it.preco), 0) + (r.entrega === "Entrega em endereço" ? reaisDe(r.taxa) : 0);
 
-/* What Criar pedido needs before it can write to Coda: the required fields plus one priced item. */
+/* An existing order as a draft. Real orders carry the raw record in _c; demo rows only have the
+   formatted strings, so prices are read back from them. */
+const MEIO_ROTULO = {
+  pix: "Pix",
+  cartao: "Cartão",
+  dinheiro: "Dinheiro"
+};
+function rascunhoDe(p) {
+  const c = p._c;
+  const itens = c ? c.itens.map(i => ({
+    nome: i.nome,
+    qtd: i.qtd,
+    preco: (i.valorUnit / 100).toFixed(2),
+    produtoId: i.produtoId,
+    categoria: i.categoria,
+    obs: i.obs || "",
+    recheios: (i.recheios || []).join(", "),
+    topo: i.topo || null
+  })) : (p.itens || []).map(i => ({
+    nome: i.name,
+    qtd: i.qty,
+    preco: (reaisDe(String(i.price).replace(/[^\d,]/g, "")) / (i.qty || 1)).toFixed(2),
+    obs: i.note || "",
+    recheios: "",
+    topo: i.topper || null
+  }));
+  return {
+    uid: p.id,
+    cliente: p.cliente || "",
+    tel: p.tel || "",
+    data: p.data || "",
+    hora: p.hora || "",
+    entrega: p.modo === "Entrega em endereço" ? "Entrega em endereço" : "Retirada no local",
+    endereco: p.endereco || "",
+    taxa: c && c.taxaEntrega ? (c.taxaEntrega / 100).toFixed(2) : "",
+    pgto: c ? MEIO_ROTULO[c.formaPagamento] || "Não definido" : p.pgto || "Não definido",
+    entrada: c ? c.entradaPct : 50,
+    tipo: (c ? c.tipo === "empresa" : p.tipo === "Empresa") ? "Empresa" : "Pessoa física",
+    obs: c ? c.obs : p.obs || "",
+    itens: itens.length ? itens : [itemVazio()]
+  };
+}
+
+/* What saving needs before it can write: the required fields plus one priced item. */
 const faltas = r => {
   const f = {};
   if (!r.cliente.trim()) f.cliente = "Preencha o nome do cliente";
-  if (!r.tel.trim()) f.tel = "Preencha o WhatsApp";
+  if (r.tel.replace(/\D/g, "").length < 10) f.tel = r.tel.trim() ? "WhatsApp com DDD, ex.: (38) 99999-9999" : "Preencha o WhatsApp";
   if (!r.data) f.data = "Escolha a data de entrega";
-  if (!r.itens.some(it => it.nome.trim() && parseFloat(String(it.preco).replace(",", ".")) > 0)) f.itens = "Adicione pelo menos um produto com preço";
+  if (r.entrega === "Entrega em endereço" && !r.endereco.trim()) f.endereco = "Preencha o endereço de entrega";
+  if (!r.itens.some(it => it.nome.trim() && reaisDe(it.preco) > 0)) f.itens = "Adicione pelo menos um produto com preço";
+  if (r.itens.some(it => it.topo && typeof it.topo === "object" && !String(it.topo.tema || "").trim())) f.itens = "Preencha o tema do topo, ou tire o topo do item";
   return f;
 };
-const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.itens.some(it => it.nome || it.preco));
+const preenchido = r => !!(r.cliente || r.tel || r.data || r.hora || r.obs || r.endereco || r.itens.some(it => it.nome || it.preco));
+
+/* The draft as the Worker expects it: money in centavos, only priced items. */
+const paraApi = r => ({
+  cliente: {
+    nome: r.cliente.trim(),
+    telefone: r.tel
+  },
+  tipo: r.tipo === "Empresa" ? "empresa" : "pessoa",
+  entrega: {
+    modo: r.entrega === "Entrega em endereço" ? "entrega" : "retirada",
+    data: r.data,
+    hora: r.hora,
+    endereco: r.endereco.trim()
+  },
+  taxaEntrega: r.entrega === "Entrega em endereço" ? Math.round(reaisDe(r.taxa) * 100) : 0,
+  itens: r.itens.filter(it => it.nome.trim() && reaisDe(it.preco) > 0).map(it => ({
+    nome: it.nome.trim(),
+    qtd: Math.max(1, parseInt(it.qtd, 10) || 1),
+    valorUnit: Math.round(reaisDe(it.preco) * 100),
+    ...(it.produtoId ? {
+      produtoId: it.produtoId
+    } : {}),
+    ...(it.categoria ? {
+      categoria: it.categoria
+    } : {}),
+    ...(it.obs && it.obs.trim() ? {
+      obs: it.obs.trim()
+    } : {}),
+    ...(String(it.recheios || "").trim() ? {
+      recheios: String(it.recheios).split(",").map(x => x.trim()).filter(Boolean)
+    } : {}),
+    ...(it.topo ? {
+      topo: typeof it.topo === "string" ? it.topo : {
+        tema: it.topo.tema.trim(),
+        ...(it.topo.detalhes ? {
+          detalhes: it.topo.detalhes.trim()
+        } : {}),
+        ...(it.topo.imagem ? {
+          imagem: it.topo.imagem
+        } : {})
+      }
+    } : {})
+  })),
+  obs: r.obs,
+  entradaPct: r.entrada,
+  formaPagamento: MEIO_API[r.pgto],
+  origem: "admin",
+  ...(r.fiado ? {
+    fiado: true
+  } : {})
+});
+
+/* Cake topper: theme, details and a reference picture. The picture goes up when chosen; only
+   its link travels with the order. */
+function TopoItem({
+  topo,
+  onChange,
+  acao,
+  onToast
+}) {
+  const t = typeof topo === "string" ? {
+    tema: topo
+  } : topo || {
+    tema: ""
+  };
+  const [subindo, setSubindo] = React.useState(false);
+  const set = (k, v) => onChange({
+    ...t,
+    [k]: v
+  });
+  const escolher = async e => {
+    const arq = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!arq) return;
+    setSubindo(true);
+    try {
+      const dataUrl = await window.reduzirImagem(arq);
+      if (!MODO_REAL()) {
+        set("imagem", dataUrl);
+        return;
+      }
+      const r = await acao("topo-imagem", {
+        falhou: "Não deu pra enviar a imagem do topo"
+      }, null, {
+        acao: "enviarImagem",
+        dados: {
+          dataUrl
+        }
+      });
+      if (r && r.url) set("imagem", r.url);
+    } catch (err) {
+      onToast(err.message, "danger");
+    } finally {
+      setSubindo(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+      gap: 8,
+      alignItems: "end"
+    }
+  }, /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Tema do topo"
+  }, /*#__PURE__*/React.createElement(PM.Input, {
+    size: "sm",
+    placeholder: "Ex.: Frozen, \u201CAna 5 anos\u201D",
+    value: t.tema || "",
+    onChange: e => set("tema", e.target.value)
+  })), /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Detalhes"
+  }, /*#__PURE__*/React.createElement(PM.Input, {
+    size: "sm",
+    placeholder: "Cores, nome, idade\u2026",
+    value: t.detalhes || "",
+    onChange: e => set("detalhes", e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      minHeight: 32
+    }
+  }, t.imagem ? /*#__PURE__*/React.createElement("a", {
+    href: t.imagem,
+    target: "_blank",
+    rel: "noopener"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: t.imagem,
+    alt: "Refer\xEAncia do topo",
+    style: {
+      width: 32,
+      height: 32,
+      objectFit: "cover",
+      borderRadius: "var(--radius-xs)",
+      display: "block"
+    }
+  })) : null, /*#__PURE__*/React.createElement("label", {
+    "data-target": true,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      cursor: subindo ? "wait" : "pointer",
+      fontSize: "var(--fs-tiny)",
+      fontWeight: "var(--fw-semibold)",
+      color: "var(--text-accent)"
+    }
+  }, /*#__PURE__*/React.createElement(PM.Icon, {
+    name: subindo ? "loader" : "image-plus",
+    size: 14
+  }), subindo ? "Enviando…" : t.imagem ? "Trocar imagem" : "Imagem de referência", /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    hidden: true,
+    disabled: subindo,
+    onChange: escolher
+  }))));
+}
+const ITEM_COLS = "minmax(0,1fr) 72px 120px 40px 40px";
+function ItensPedido({
+  r,
+  set,
+  compact,
+  produtos,
+  erro,
+  acao,
+  onToast,
+  listaId
+}) {
+  const [aberto, setAberto] = React.useState(() => r.itens.map(it => !!(it.topo || it.obs || it.recheios)));
+  const setItem = (j, patch) => set("itens", r.itens.map((it, i) => i === j ? {
+    ...it,
+    ...patch
+  } : it));
+  /* Typing a catalog name fills price and category; editing the price afterwards is allowed. */
+  const nome = (j, v) => {
+    const p = window.acharProduto(produtos, v);
+    const it = r.itens[j];
+    setItem(j, p ? {
+      nome: p.nome,
+      produtoId: p.id,
+      categoria: p.categoria,
+      preco: (p.valorUnit / 100).toFixed(2),
+      qtd: Math.max(Number(it.qtd) || 1, p.qtdMin || 1)
+    } : {
+      nome: v,
+      produtoId: undefined,
+      categoria: undefined
+    });
+  };
+  const linha = (it, j) => {
+    const bolo = /bolo/i.test(it.categoria || it.nome);
+    const campos = [/*#__PURE__*/React.createElement(PM.Input, {
+      key: "n",
+      size: "sm",
+      "aria-label": "Produto",
+      list: listaId,
+      placeholder: "Ex.: Bolo de chocolate 2kg",
+      value: it.nome,
+      onChange: e => nome(j, e.target.value)
+    }), /*#__PURE__*/React.createElement(PM.Input, {
+      key: "q",
+      size: "sm",
+      "aria-label": "Quantidade",
+      type: "number",
+      min: "1",
+      value: it.qtd,
+      onChange: e => setItem(j, {
+        qtd: e.target.value
+      })
+    }), /*#__PURE__*/React.createElement(PM.Input, {
+      key: "p",
+      size: "sm",
+      "aria-label": "Pre\xE7o unit\xE1rio",
+      type: "number",
+      prefix: "R$",
+      step: "0.01",
+      placeholder: "0,00",
+      value: it.preco,
+      onChange: e => setItem(j, {
+        preco: e.target.value
+      })
+    }), /*#__PURE__*/React.createElement(PM.IconButton, {
+      key: "d",
+      icon: aberto[j] ? "chevron-up" : "chevron-down",
+      label: aberto[j] ? "Esconder detalhes do item" : "Recheio, topo e observação",
+      size: 36,
+      onClick: () => setAberto(a => {
+        const b = [...a];
+        b[j] = !b[j];
+        return b;
+      })
+    }), /*#__PURE__*/React.createElement(PM.IconButton, {
+      key: "x",
+      icon: "trash-2",
+      label: "Remover item",
+      size: 36,
+      disabled: r.itens.length === 1,
+      style: r.itens.length === 1 ? {
+        opacity: "var(--disabled-opacity)",
+        cursor: "not-allowed"
+      } : undefined,
+      onClick: () => {
+        if (r.itens.length > 1) {
+          set("itens", r.itens.filter((_, i) => i !== j));
+          setAberto(a => a.filter((_, i) => i !== j));
+        }
+      }
+    })];
+    return /*#__PURE__*/React.createElement("div", {
+      key: j,
+      style: {
+        padding: compact ? "10px 12px" : "8px 12px",
+        borderTop: j || !compact ? "var(--border-hairline) solid var(--color-border)" : "none"
+      }
+    }, compact ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "64px minmax(0,1fr) 40px 40px",
+        gap: 8,
+        alignItems: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        gridColumn: "1 / -1"
+      }
+    }, campos[0]), campos[1], campos[2], campos[3], campos[4]) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: ITEM_COLS,
+        gap: 8,
+        alignItems: "center"
+      }
+    }, campos), aberto[j] ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        margin: "10px 0 4px",
+        padding: "10px 12px",
+        borderRadius: "var(--radius-sm)",
+        background: "var(--color-surface-2)"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement(PM.Field, {
+      label: "Recheio",
+      hint: "Separe por v\xEDrgula"
+    }, /*#__PURE__*/React.createElement(PM.Input, {
+      size: "sm",
+      placeholder: "Ex.: Ninho com Nutella",
+      value: it.recheios || "",
+      onChange: e => setItem(j, {
+        recheios: e.target.value
+      })
+    })), /*#__PURE__*/React.createElement(PM.Field, {
+      label: "Observa\xE7\xE3o do item"
+    }, /*#__PURE__*/React.createElement(PM.Input, {
+      size: "sm",
+      placeholder: "Opcional",
+      value: it.obs || "",
+      onChange: e => setItem(j, {
+        obs: e.target.value
+      })
+    }))), it.topo ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(TopoItem, {
+      topo: it.topo,
+      onChange: v => setItem(j, {
+        topo: v
+      }),
+      acao: acao,
+      onToast: onToast
+    }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(PM.Button, {
+      size: "sm",
+      variant: "quiet",
+      icon: "x",
+      onClick: () => setItem(j, {
+        topo: null
+      })
+    }, "Tirar topo"))) : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(PM.Button, {
+      size: "sm",
+      variant: "quiet",
+      icon: "plus",
+      onClick: () => setItem(j, {
+        topo: {
+          tema: ""
+        }
+      })
+    }, bolo ? "Adicionar topo do bolo" : "Adicionar topo"))) : null);
+  };
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 18,
+      border: "var(--border-hairline) solid " + (erro ? "var(--action-danger)" : "var(--color-border)"),
+      borderRadius: "var(--radius-sm)",
+      overflow: "hidden"
+    }
+  }, compact ? null : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: ITEM_COLS,
+      gap: 8,
+      padding: "10px 12px",
+      fontSize: "var(--fs-caption)",
+      fontWeight: "var(--fw-semibold)",
+      color: "var(--text-muted)",
+      textTransform: "uppercase",
+      letterSpacing: "var(--ls-label)"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Produto"), /*#__PURE__*/React.createElement("span", null, "Qtd"), /*#__PURE__*/React.createElement("span", null, "Pre\xE7o un."), /*#__PURE__*/React.createElement("span", null), /*#__PURE__*/React.createElement("span", null)), r.itens.map(linha), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      flexWrap: "wrap",
+      gap: 12,
+      padding: "10px 12px",
+      borderTop: "var(--border-hairline) solid var(--color-border)"
+    }
+  }, /*#__PURE__*/React.createElement(PM.Button, {
+    size: "sm",
+    variant: "quiet",
+    icon: "plus",
+    onClick: () => {
+      set("itens", [...r.itens, itemVazio()]);
+      setAberto(a => [...a, false]);
+    }
+  }, "Adicionar item"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "baseline",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-tiny)",
+      color: "var(--text-muted)"
+    }
+  }, r.fiado ? "Fiado · paga depois" : `Entrada ${r.entrada}% · ${brl(totalRascunho(r) * r.entrada / 100)}`), /*#__PURE__*/React.createElement("b", {
+    style: {
+      fontSize: "var(--fs-subhead)"
+    }
+  }, brl(totalRascunho(r)))))), erro ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      fontSize: "var(--fs-tiny)",
+      color: "var(--action-danger)"
+    }
+  }, erro) : null);
+}
+
+/* Known customers matching the name or number being typed. Picking one fills name, number, type
+   and the last delivery address; it disappears once the form already holds that customer. */
+function SugestoesCliente({
+  r,
+  set,
+  clientes
+}) {
+  const achados = window.clientesParecidos(clientes, r.cliente, r.tel).filter(c => !(window.telDigitos(r.tel) === c.tel && r.cliente.trim() === c.nome));
+  if (!achados.length) return null;
+  const usar = c => Object.entries(window.rascunhoDoCliente(c)).forEach(([k, v]) => set(k, v));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      gridColumn: "1 / -1",
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-tiny)",
+      color: "var(--text-muted)"
+    }
+  }, "J\xE1 \xE9 cliente?"), achados.map(c => /*#__PURE__*/React.createElement(PM.FilterPill, {
+    key: c.id,
+    icon: c.empresa ? "building-2" : "user",
+    trailingIcon: null,
+    onClick: () => usar(c)
+  }, c.nome, " \xB7 ", window.fmtTel(c.tel) || "sem número", " \xB7 ", c.n === 1 ? "1 pedido" : c.n + " pedidos")));
+}
+
+/* `criando`: só o Pedido manual escolhe fiado (depois, é pelo menu do pedido). */
+function CamposPedido({
+  r,
+  set,
+  erros,
+  clientes,
+  criando
+}) {
+  const ctl = k => ({
+    value: r[k],
+    onChange: e => set(k, e.target.value)
+  });
+  const entrega = r.entrega === "Entrega em endereço";
+  /* Addresses this number already used, offered in the Endereço field. */
+  const doCliente = clientes && window.telDigitos(r.tel).length >= 10 ? clientes.find(c => c.digitos.includes(window.telDigitos(r.tel))) : null;
+  const listaEnd = "dluh-enderecos-" + String(r.uid).replace(/\W/g, "");
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+      gap: "10px 12px"
+    }
+  }, clientes ? /*#__PURE__*/React.createElement(SugestoesCliente, {
+    r: r,
+    set: set,
+    clientes: clientes
+  }) : null, doCliente && doCliente.enderecos.length ? /*#__PURE__*/React.createElement("datalist", {
+    id: listaEnd
+  }, doCliente.enderecos.map(e => /*#__PURE__*/React.createElement("option", {
+    key: e.valor,
+    value: e.valor
+  }))) : null, /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Cliente",
+    required: true,
+    error: erros.cliente
+  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
+    placeholder: "Nome do cliente",
+    invalid: !!erros.cliente
+  }, ctl("cliente")))), /*#__PURE__*/React.createElement(PM.Field, {
+    label: "WhatsApp",
+    required: true,
+    error: erros.tel
+  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
+    type: "tel",
+    placeholder: "(38) 99999-9999",
+    invalid: !!erros.tel
+  }, ctl("tel")))), /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Tipo de cliente"
+  }, /*#__PURE__*/React.createElement(PM.Select, _extends({
+    options: ["Pessoa física", "Empresa"]
+  }, ctl("tipo")))), /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Data de entrega",
+    required: true,
+    error: erros.data
+  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
+    type: "date",
+    invalid: !!erros.data
+  }, ctl("data")))), /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Hora"
+  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
+    type: "time"
+  }, ctl("hora")))), /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Entrega"
+  }, /*#__PURE__*/React.createElement(PM.Select, _extends({
+    options: ["Retirada no local", "Entrega em endereço"]
+  }, ctl("entrega")))), entrega ? /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Endere\xE7o",
+    required: true,
+    error: erros.endereco
+  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
+    placeholder: "Rua, n\xFAmero, bairro",
+    invalid: !!erros.endereco,
+    list: doCliente ? listaEnd : undefined
+  }, ctl("endereco")))) : null, entrega ? /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Taxa de entrega"
+  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
+    type: "number",
+    prefix: "R$",
+    step: "0.01",
+    min: "0",
+    placeholder: "0,00"
+  }, ctl("taxa")))) : null, /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Pagamento"
+  }, /*#__PURE__*/React.createElement(PM.Select, _extends({
+    options: PGTOS
+  }, ctl("pgto")))), criando ? /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Fiado",
+    hint: r.fiado ? "Vai direto para a cozinha, sem cobrança" : "Paga depois, combinado com a loja"
+  }, /*#__PURE__*/React.createElement(EntradaToggle, {
+    value: !!r.fiado,
+    onChange: v => set("fiado", v),
+    opcoes: [false, true],
+    rotulos: ["Normal", "Fiado"],
+    label: "Pedido fiado"
+  })) : null, r.fiado ? null : /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Entrada",
+    hint: "Percentual cobrado agora"
+  }, /*#__PURE__*/React.createElement(EntradaToggle, {
+    value: r.entrada,
+    onChange: v => set("entrada", v)
+  })), /*#__PURE__*/React.createElement(PM.Field, {
+    label: "Observa\xE7\xF5es"
+  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
+    placeholder: "Opcional"
+  }, ctl("obs")))));
+}
 function ManualModal({
   compact,
   onClose,
   onToast,
   acao,
-  pendente
+  pendente,
+  produtos,
+  clientes,
+  inicial
 }) {
-  const [lista, setLista] = React.useState([novoRascunho(0)]);
+  const [lista, setLista] = React.useState(() => [{
+    ...novoRascunho(0),
+    ...inicial
+  }]);
   const [ativo, setAtivo] = React.useState(0);
   const [tentou, setTentou] = React.useState(false);
   const [sair, setSair] = React.useState(false);
@@ -7029,10 +7730,6 @@ function ManualModal({
     ...x,
     [k]: v
   } : x));
-  const setItem = (j, k, v) => set("itens", r.itens.map((it, i) => i === j ? {
-    ...it,
-    [k]: v
-  } : it));
   const novo = () => {
     setLista(l => [...l, novoRascunho(l.length)]);
     setAtivo(lista.length);
@@ -7042,10 +7739,6 @@ function ManualModal({
     setLista(l => l.filter((_, j) => j !== i));
     setAtivo(a => Math.max(0, a >= i ? a - 1 : a));
   };
-  const ctl = k => ({
-    value: r[k],
-    onChange: e => set(k, e.target.value)
-  });
   const n = lista.length;
   const geral = lista.reduce((s, x) => s + totalRascunho(x), 0);
   const erros = tentou ? faltas(r) : {};
@@ -7058,80 +7751,28 @@ function ManualModal({
       setAtivo(i);
       return;
     }
+    /* One call per draft; each one that is created leaves the list, so a failure halfway never
+       creates the same order twice when the atendente tries again. */
     const ok = await acao("criar-pedido", {
       ok: n > 1 ? `${n} pedidos criados` : "Pedido criado",
       falhou: n > 1 ? "Não deu pra criar os pedidos" : "Não deu pra criar o pedido"
+    }, null, async chamar => {
+      for (const x of lista) {
+        await chamar("criarPedido", paraApi(x));
+        setLista(l => l.length > 1 ? l.filter(y => y.uid !== x.uid) : l);
+        setAtivo(0);
+      }
+      return {
+        ok: true
+      };
     });
     if (ok) onClose();
-  };
-  const item = (it, j) => {
-    const campos = [/*#__PURE__*/React.createElement(PM.Input, {
-      key: "n",
-      size: "sm",
-      "aria-label": "Produto",
-      placeholder: "Ex.: Bolo de chocolate 2kg",
-      value: it.nome,
-      onChange: e => setItem(j, "nome", e.target.value)
-    }), /*#__PURE__*/React.createElement(PM.Input, {
-      key: "q",
-      size: "sm",
-      "aria-label": "Quantidade",
-      type: "number",
-      min: "1",
-      value: it.qtd,
-      onChange: e => setItem(j, "qtd", e.target.value)
-    }), /*#__PURE__*/React.createElement(PM.Input, {
-      key: "p",
-      size: "sm",
-      "aria-label": "Pre\xE7o unit\xE1rio",
-      type: "number",
-      prefix: "R$",
-      step: "0.01",
-      placeholder: "0,00",
-      value: it.preco,
-      onChange: e => setItem(j, "preco", e.target.value)
-    }), /*#__PURE__*/React.createElement(PM.IconButton, {
-      key: "x",
-      icon: "trash-2",
-      label: "Remover item",
-      disabled: r.itens.length === 1,
-      style: r.itens.length === 1 ? {
-        opacity: "var(--disabled-opacity)",
-        cursor: "not-allowed"
-      } : undefined,
-      onClick: () => r.itens.length > 1 && set("itens", r.itens.filter((_, i) => i !== j))
-    })];
-    return compact ? /*#__PURE__*/React.createElement("div", {
-      key: j,
-      style: {
-        display: "grid",
-        gridTemplateColumns: "72px minmax(0,1fr) 44px",
-        gap: 8,
-        alignItems: "center",
-        padding: "10px 12px",
-        borderTop: j ? "var(--border-hairline) solid var(--color-border)" : "none"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        gridColumn: "1 / -1"
-      }
-    }, campos[0]), campos[1], campos[2], campos[3]) : /*#__PURE__*/React.createElement("div", {
-      key: j,
-      style: {
-        display: "grid",
-        gridTemplateColumns: ITEM_COLS,
-        gap: 10,
-        alignItems: "center",
-        padding: "8px 12px",
-        borderTop: "var(--border-hairline) solid var(--color-border)"
-      }
-    }, campos);
   };
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PM.Modal, {
     width: 860,
     title: n > 1 ? "Pedidos manuais" : "Pedido manual",
     onClose: fechar,
-    subtitle: "Mesmo fluxo do site: registra no Coda, notifica o Telegram (Confirmar Estoque) e segue o ciclo normal \u2014 cobran\xE7a, fila da cozinha, avisos no WhatsApp do cliente.",
+    subtitle: r.fiado ? "Fiado: o pedido entra direto na aba Fiados e na fila da cozinha, sem conferir estoque nem cobrar entrada." : "Mesmo fluxo do site: o pedido entra em Estoque pendente e segue o ciclo normal — confirmar estoque, cobrança, fila da cozinha.",
     footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PM.Button, {
       variant: "ghost",
       block: true,
@@ -7141,7 +7782,7 @@ function ManualModal({
       icon: "check",
       loading: pendente === "criar-pedido",
       onClick: criar
-    }, n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : "Criar pedido"))
+    }, n > 1 ? `Criar ${n} pedidos · ${brl(geral)}` : r.fiado ? "Criar pedido fiado" : "Criar pedido"))
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -7222,119 +7863,26 @@ function ManualModal({
     variant: "quiet",
     icon: "plus",
     onClick: novo
-  }, "Novo pedido")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-      gap: "10px 12px"
-    }
-  }, /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Cliente",
-    required: true,
-    error: erros.cliente
-  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    placeholder: "Nome do cliente",
-    invalid: !!erros.cliente
-  }, ctl("cliente")))), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "WhatsApp",
-    required: true,
-    error: erros.tel
-  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    placeholder: "(38) 99999-9999",
-    invalid: !!erros.tel
-  }, ctl("tel")))), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Tipo de cliente"
-  }, /*#__PURE__*/React.createElement(PM.Select, _extends({
-    options: ["Pessoa física", "Empresa", "Festa"]
-  }, ctl("tipo")))), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Data de entrega",
-    required: true,
-    error: erros.data
-  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    type: "date",
-    invalid: !!erros.data
-  }, ctl("data")))), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Hora"
-  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    type: "time"
-  }, ctl("hora")))), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Entrega"
-  }, /*#__PURE__*/React.createElement(PM.Select, _extends({
-    options: ["Retirada no local", "Entrega em endereço"]
-  }, ctl("entrega")))), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Pagamento"
-  }, /*#__PURE__*/React.createElement(PM.Select, _extends({
-    options: ["Pix", "Cartão", "Dinheiro"]
-  }, ctl("pgto")))), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Entrada",
-    hint: "Percentual cobrado agora"
-  }, /*#__PURE__*/React.createElement(EntradaToggle, {
-    value: r.entrada,
-    onChange: v => set("entrada", v)
-  })), /*#__PURE__*/React.createElement(PM.Field, {
-    label: "Observa\xE7\xF5es"
-  }, /*#__PURE__*/React.createElement(PM.Input, _extends({
-    placeholder: "Opcional"
-  }, ctl("obs"))))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 18,
-      border: "var(--border-hairline) solid " + (erros.itens ? "var(--action-danger)" : "var(--color-border)"),
-      borderRadius: "var(--radius-sm)",
-      overflow: "hidden"
-    }
-  }, compact ? null : /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: ITEM_COLS,
-      gap: 10,
-      padding: "10px 12px",
-      fontSize: "var(--fs-caption)",
-      fontWeight: "var(--fw-semibold)",
-      color: "var(--text-muted)",
-      textTransform: "uppercase",
-      letterSpacing: "var(--ls-label)"
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "Produto"), /*#__PURE__*/React.createElement("span", null, "Qtd"), /*#__PURE__*/React.createElement("span", null, "Pre\xE7o un."), /*#__PURE__*/React.createElement("span", null)), r.itens.map(item), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      flexWrap: "wrap",
-      gap: 12,
-      padding: "10px 12px",
-      borderTop: "var(--border-hairline) solid var(--color-border)"
-    }
-  }, /*#__PURE__*/React.createElement(PM.Button, {
-    size: "sm",
-    variant: "quiet",
-    icon: "plus",
-    onClick: () => set("itens", [...r.itens, {
-      nome: "",
-      qtd: 1,
-      preco: ""
-    }])
-  }, "Adicionar item"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "baseline",
-      gap: 12
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: "var(--fs-tiny)",
-      color: "var(--text-muted)"
-    }
-  }, "Entrada ", r.entrada, "% \xB7 ", brl(totalRascunho(r) * r.entrada / 100)), /*#__PURE__*/React.createElement("b", {
-    style: {
-      fontSize: "var(--fs-subhead)"
-    }
-  }, brl(totalRascunho(r)))))), erros.itens ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 6,
-      fontSize: "var(--fs-tiny)",
-      color: "var(--action-danger)"
-    }
-  }, erros.itens) : null), sair ? /*#__PURE__*/React.createElement(PM.ConfirmDialog, {
+  }, "Novo pedido")), /*#__PURE__*/React.createElement(CamposPedido, {
+    r: r,
+    set: set,
+    erros: erros,
+    clientes: clientes,
+    criando: true
+  }), /*#__PURE__*/React.createElement(window.ListaProdutos, {
+    id: "dluh-produtos-manual",
+    produtos: produtos
+  }), /*#__PURE__*/React.createElement(ItensPedido, {
+    key: r.uid,
+    r: r,
+    set: set,
+    compact: compact,
+    produtos: produtos,
+    erro: erros.itens,
+    acao: acao,
+    onToast: onToast,
+    listaId: "dluh-produtos-manual"
+  })), sair ? /*#__PURE__*/React.createElement(PM.ConfirmDialog, {
     tone: "danger",
     icon: "trash-2",
     title: n > 1 ? "Descartar pedidos?" : "Descartar pedido?",
@@ -7352,7 +7900,14 @@ Object.assign(window, {
   ManualModal,
   PagamentosModal,
   EntradaToggle,
-  brl
+  brl,
+  CamposPedido,
+  ItensPedido,
+  rascunhoDe,
+  faltas,
+  preenchido,
+  paraApi,
+  totalRascunho
 });
 })(); } catch (e) { __ds_ns.__errors.push({ path: "ui_kits/admin/PedidosModais.jsx", error: String((e && e.message) || e) }); }
 

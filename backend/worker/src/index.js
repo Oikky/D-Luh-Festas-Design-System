@@ -62,7 +62,7 @@ function banco(env) {
 }
 
 const ACOES = {
-  criarPedido: (db, dados, por) => pedidos.criarPedido(db, dados, por),
+  criarPedido: (db, dados, por) => pedidos.criarPedido(db, dados, por, { fiado: dados?.fiado === true }),
   editarPedido: (db, dados, por) => pedidos.editarPedido(db, dados, por),
   mudarStatus: (db, dados, por) => pedidos.mudarStatus(db, dados, por),
   marcarFeito: (db, dados, por) => pedidos.marcarFeito(db, dados, por),
@@ -209,7 +209,8 @@ const entrouNaFila = r => r.status === "Em produção" && r.de !== "Em produçã
 /* Depois de uma ação dar certo: Agenda e avisos, sem segurar a resposta da tela. */
 const DEPOIS = {
   criarPedido: (env, db, dados, r) => [
-    efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id), efeitos.telegramNovoPedido(env, db, r.id)
+    efeitos.sincronizarAgenda(env, db, r.id), efeitos.avisarLojaNovoPedido(env, db, r.id), efeitos.telegramNovoPedido(env, db, r.id),
+    ...(r.status === "Fiado" ? [alexa.avisarNovoNaFila(env, db, r.id)] : [])
   ],
   editarPedido: (env, db, dados, r) => r.mudou ? [efeitos.sincronizarAgenda(env, db, dados.pedidoId)] : [],
   salvarProduto: (env, db) => [produtos.publicarCatalogo(db)],
