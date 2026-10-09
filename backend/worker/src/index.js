@@ -2,7 +2,7 @@
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /site/pedido, /site/consultar, /site/frete  site dos clientes, sem login (site.js, frete.js)
-     /sofia/<pedido|consultar|pagar>/<token>  agente Sofia do GPTMaker (sofia.js)
+     /sofia/<pedido|consultar|pagar|sugerir>/<token>  agente Sofia do GPTMaker (sofia.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
@@ -279,7 +279,7 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
   }
 }
 
-/* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar>/<SOFIA_TOKEN>.
+/* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar|sugerir>/<SOFIA_TOKEN>.
    Aceita parâmetros na URL e/ou JSON no corpo. Responde sempre 200 com { ok, ... } ou { ok: false,
    erro }: o GPTMaker lê a resposta e explica ao cliente. */
 async function rotaDaSofia(request, env, ctx, rota, token) {
@@ -291,6 +291,7 @@ async function rotaDaSofia(request, env, ctx, rota, token) {
   const db = banco(env);
   try {
     if (rota === "consultar") return json({ ok: true, ...(await sofia.pedidosDoCliente(db, dados.telefone)) });
+    if (rota === "sugerir") return json({ ok: true, ...(await sofia.sugestoes(db, dados.telefone)) });
     if (rota === "pagar") {
       const pedidoId = await sofia.conferirParaPagar(db, dados);
       const tipo = dados.tipo === "entrada" ? "entrada" : "restante";
@@ -492,7 +493,7 @@ export default {
     if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
     if (url.pathname === "/webhook/alexa") return webhookAlexa(request, env, ctx);
-    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar)\/([\w-]+)$/);
+    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir)\/([\w-]+)$/);
     if (sof) return rotaDaSofia(request, env, ctx, sof[1], sof[2]);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
     if (evo) return webhookEvolution(request, env, ctx, evo[1]);

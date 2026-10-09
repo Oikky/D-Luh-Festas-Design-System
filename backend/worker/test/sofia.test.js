@@ -3,7 +3,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { pedidoDaSofia, pedidosDoCliente, conferirParaPagar } from "../src/sofia.js";
+import { pedidoDaSofia, pedidosDoCliente, conferirParaPagar, sugestoes } from "../src/sofia.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
 const PROJETO = "demo-dluh";
@@ -76,4 +76,19 @@ test("consulta acha o pedido com ou sem 55/9 e mostra o que falta; link só para
   assert.equal(await conferirParaPagar(db, { telefone: "5538998124410", pedido: r.id.replace("PED-", "") }), r.id);
   await assert.rejects(conferirParaPagar(db, { telefone: "5538911112222", pedido: r.id }), /Não achei/);
   assert.deepEqual((await pedidosDoCliente(db, "5538911112222")).pedidos, []);
+});
+
+test("sugestões: o que o cliente costuma pedir; sem histórico, os mais pedidos da semana", async () => {
+  await pedidoDaSofia(db, base({ itens: "50 coxinha\n25 pastel frango", data: "10/10/2026" }), { agora: AGORA });
+  await pedidoDaSofia(db, base({ itens: "50 coxinha", data: "11/10/2026" }), { agora: AGORA });
+  await pedidoDaSofia(db, base({ telefone: "5538911112222", itens: "100 pastel pipoca de frango", data: "09/10/2026" }), { agora: AGORA });
+
+  const minhas = await sugestoes(db, "38998124410", { agora: AGORA });
+  assert.equal(minhas.base, "pedidos anteriores do cliente");
+  assert.deepEqual(minhas.itens.map(i => [i.produto, i.quantidade, i.pedidos]), [["Coxinha", 100, 2], ["Pastel frango", 25, 1]]);
+
+  const novo = await sugestoes(db, "5538900000000", { agora: new Date("2026-10-12T15:00:00Z") });
+  assert.equal(novo.base, "mais pedidos da semana");
+  assert.equal(novo.itens[0].produto, "Coxinha");
+  assert.ok(novo.itens.some(i => i.produto === "Pastel Pipoca de Frango"));
 });

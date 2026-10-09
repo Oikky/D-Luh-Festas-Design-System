@@ -184,3 +184,42 @@ async function conferirParaPagar(db, { telefone, pedido }) {
 }
 
 export { pedidosDoCliente, conferirParaPagar, variantesTelefone, reais };
+
+/* Para quem pede "1 cento de salgado" sem dizer quais: o que essa pessoa costuma pedir (soma dos
+   pedidos dela, só itens que ainda estão no cardápio) e, sem histórico, os mais pedidos dos últimos
+   7 dias. A Sofia sugere a partir disso e confirma com o cliente antes de fazer o pedido. */
+async function sugestoes(db, telefone, { agora = new Date() } = {}) {
+  const cat = await db.doc(CATALOGO_SITE).get();
+  const lista = cat.exists && (cat.get("produtos") || []).length ? cat.get("produtos") : await db.collection(PRODUTOS).listar();
+  const produtos = lista.filter(p => p.ativo !== false && p.nome && p.valorUnit > 0).map(p => ({ ...p, _n: normalizar(p.nome) }));
+  const doCardapio = it => produtos.find(p => p.id === it.produtoId) || produtos.find(p => p._n === normalizar(it.nome));
+
+  // Soma por produto do cardápio: [{ produto, categoria, quantidade, pedidos }]
+  const somar = pedidos => {
+    const soma = new Map();
+    for (const p of pedidos) {
+      if (p.status === "Cancelado") continue;
+      for (const it of p.itens || []) {
+        const prod = doCardapio(it);
+        if (!prod) continue;
+        const s = soma.get(prod.id) || { produto: prod.nome.replace(/^[^\p{L}\p{N}]+/u, "").trim(), categoria: prod.categoria || "", quantidade: 0, pedidos: 0 };
+        s.quantidade += Number(it.qtd) || 0;
+        s.pedidos += 1;
+        soma.set(prod.id, s);
+      }
+    }
+    return [...soma.values()].sort((a, b) => b.pedidos - a.pedidos || b.quantidade - a.quantidade);
+  };
+
+  const variantes = variantesTelefone(telefone);
+  const listas = variantes.length ? await Promise.all(variantes.map(v => db.collection(PEDIDOS).consultar([["cliente.telefone", "==", v]]))) : [];
+  const meus = [...new Map(listas.flat().map(p => [p.id, p])).values()];
+  const doCliente = somar(meus).slice(0, 12);
+  if (doCliente.length) return { base: "pedidos anteriores do cliente", itens: doCliente };
+
+  const dia = ms => new Date(ms - 3 * 3600e3).toISOString().slice(0, 10);
+  const semana = await db.collection(PEDIDOS).consultar([["entrega.data", ">=", dia(agora.getTime() - 7 * 864e5)], ["entrega.data", "<=", dia(agora.getTime())]]);
+  return { base: "mais pedidos da semana", itens: somar(semana).slice(0, 12) };
+}
+
+export { sugestoes };
