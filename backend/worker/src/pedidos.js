@@ -164,6 +164,39 @@ async function registrarPagamento(db, { pedidoId, valor, chave, meio, comprovant
   });
 }
 
+/* Comprovante que o cliente mandou (pela Sofia): fica no pedido em `aConferir` e só vira pagamento
+   quando alguém da equipe confirma (decisão da loja, 09/10). `id` identifica o comprovante. */
+async function informarComprovante(db, { pedidoId, valor, meio, telefone, obs }, por) {
+  centavos(valor, "valor");
+  if (valor === 0) throw new ErroDominio("invalid-argument", "Valor do comprovante deve ser maior que zero");
+  const ref = db.collection(PEDIDOS).doc(String(pedidoId || ""));
+  const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
+    if (snap.get("status") === "Cancelado") throw new ErroDominio("failed-precondition", "Esse pedido está cancelado");
+    const item = { id, valor, meio: MEIOS.includes(meio) ? meio : "pix", telefone: String(telefone || ""), obs: String(obs || "").slice(0, 300), por, em: new Date() };
+    tx.update(ref, { aConferir: [...(snap.get("aConferir") || []), item], atualizadoEm: agora() });
+    evento(tx, ref, { tipo: "comprovante", valor, meio: item.meio, por });
+    return { id, pedidoId: snap.id };
+  });
+}
+
+/* A equipe confirma (vira pagamento, com chave fixa para não contar duas vezes) ou recusa. */
+async function decidirComprovante(db, { pedidoId, id, aceito }, por) {
+  const ref = db.collection(PEDIDOS).doc(String(pedidoId || ""));
+  const snap = await ref.get();
+  const item = (snap.exists ? snap.get("aConferir") || [] : []).find(x => x.id === id);
+  if (!item) throw new ErroDominio("not-found", "Esse comprovante já foi resolvido");
+  const pag = aceito ? await registrarPagamento(db, { pedidoId, valor: item.valor, chave: `comprovante-${id}`, meio: item.meio }, por) : null;
+  await db.runTransaction(async tx => {
+    const atual = await tx.get(ref);
+    tx.update(ref, { aConferir: (atual.get("aConferir") || []).filter(x => x.id !== id), atualizadoEm: agora() });
+    if (!aceito) evento(tx, ref, { tipo: "comprovante recusado", valor: item.valor, por });
+  });
+  return { item, pag };
+}
+
 /* Apaga o pedido de vez: o documento, o histórico (eventos) e os pagamentos dele. Quem chama
    (index.js) já conferiu a senha da conta sistema. O backup diário no Drive guarda o que existia. */
 async function apagarPedido(db, { pedidoId }) {
@@ -207,4 +240,4 @@ async function apagarPagamento(db, { pagamentoId }, por) {
   });
 }
 
-export { apagarPagamento, apagarPedido,normalizar, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };
+export { apagarPagamento, apagarPedido, normalizar, informarComprovante, decidirComprovante, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };

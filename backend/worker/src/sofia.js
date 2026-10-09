@@ -7,7 +7,7 @@
 import { ErroDominio } from "./dominio.js";
 import { pedidoDoSite } from "./site.js";
 import { PRODUTOS, CATALOGO_SITE } from "./produtos.js";
-import { PEDIDOS } from "./pedidos.js";
+import { PEDIDOS, informarComprovante } from "./pedidos.js";
 
 const texto = (v, max) => String(v ?? "").trim().slice(0, max);
 /* O GPTMaker obriga todo campo da Intenção: "nenhuma", "-", "não tem"... valem como vazio. */
@@ -216,14 +216,28 @@ async function pedidosDoCliente(db, telefone) {
 
 const reais = c => `R$ ${(Number(c || 0) / 100).toFixed(2).replace(".", ",")}`;
 
-/* Só gera link de pedido que é desse telefone, já confirmado pela equipe e com valor em aberto. */
-async function conferirParaPagar(db, { telefone, pedido }) {
-  const n = String(pedido || "").toUpperCase().replace(/[^\d]/g, "");
-  const snap = n ? await db.collection(PEDIDOS).doc(`PED-${Number(n)}`).get() : null;
-  const tel = String(snap?.get?.("cliente")?.telefone || "");
-  if (!snap?.exists || !variantesTelefone(telefone).includes(tel.replace(/\D/g, "")) && !variantesTelefone(tel).includes(String(telefone).replace(/\D/g, ""))) {
+/* "PED-3069", "ped 3069", "3069" → PED-3069; "ANT-1070", "ANT -1070" → ANT-1070 (pedidos que vieram do Coda). */
+function idDoPedido(texto) {
+  const t = String(texto || "").toUpperCase();
+  const n = t.replace(/[^\d]/g, "");
+  if (!n) return "";
+  return `${/ANT/.test(t) ? "ANT" : "PED"}-${Number(n)}`;
+}
+
+/* O pedido, se ele for do telefone de quem está falando com a Sofia. */
+async function pedidoDoTelefone(db, telefone, pedido) {
+  const id = idDoPedido(pedido);
+  const snap = id ? await db.collection(PEDIDOS).doc(id).get() : null;
+  const tel = String(snap?.get?.("cliente")?.telefone || "").replace(/\D/g, "");
+  if (!snap?.exists || !variantesTelefone(telefone).includes(tel) && !variantesTelefone(tel).includes(String(telefone).replace(/\D/g, ""))) {
     throw new ErroDominio("not-found", "Não achei esse pedido no telefone deste cliente");
   }
+  return snap;
+}
+
+/* Só gera link de pedido que é desse telefone, já confirmado pela equipe e com valor em aberto. */
+async function conferirParaPagar(db, { telefone, pedido }) {
+  const snap = await pedidoDoTelefone(db, telefone, pedido);
   const p = snap.data();
   if (["Aguardando confirmação", "Verificando Estoque"].includes(p.status)) throw new ErroDominio("failed-precondition", "O pedido ainda não foi confirmado pela equipe; o link vem na confirmação");
   if (p.status === "Cancelado") throw new ErroDominio("failed-precondition", "Esse pedido foi cancelado");
@@ -276,12 +290,7 @@ export { sugestoes };
    sem prazo (decisão da loja, 09/10). Se já tinha algo pago, a equipe é avisada para devolver. */
 const CANCELAVEIS = ["Aguardando confirmação", "Verificando Estoque", "Confirmado — Esperando pagamento"];
 async function conferirParaCancelar(db, { telefone, pedido }) {
-  const n = String(pedido || "").toUpperCase().replace(/[^\d]/g, "");
-  const snap = n ? await db.collection(PEDIDOS).doc(`PED-${Number(n)}`).get() : null;
-  const tel = String(snap?.get?.("cliente")?.telefone || "").replace(/\D/g, "");
-  if (!snap?.exists || !variantesTelefone(telefone).includes(tel) && !variantesTelefone(tel).includes(String(telefone).replace(/\D/g, ""))) {
-    throw new ErroDominio("not-found", "Não achei esse pedido no telefone deste cliente");
-  }
+  const snap = await pedidoDoTelefone(db, telefone, pedido);
   const status = snap.get("status");
   if (status === "Cancelado") throw new ErroDominio("failed-precondition", "Esse pedido já está cancelado");
   if (!CANCELAVEIS.includes(status)) throw new ErroDominio("failed-precondition", `O pedido já está "${status}" e não dá mais para cancelar por aqui; passe para a equipe`);
@@ -289,3 +298,30 @@ async function conferirParaCancelar(db, { telefone, pedido }) {
 }
 
 export { conferirParaCancelar, CANCELAVEIS, opcional };
+
+/* "R$ 367,00", "367", "1.234,56", "367.5" → centavos. */
+function lerValor(texto) {
+  let t = String(texto || "").replace(/[^\d.,]/g, "");
+  if (/,\d{1,2}$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");
+  else t = t.replace(/,/g, "");
+  const v = Math.round(Number(t) * 100);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
+/* O cliente mandou comprovante: vai para "a conferir" no pedido (a equipe confirma pelo Telegram).
+   Aceita mesmo se o telefone for outro (quem paga nem sempre é quem pediu), mas avisa a equipe. */
+async function comprovanteDaSofia(db, { telefone, pedido, valor, meio, obs }) {
+  const pedidoId = idDoPedido(pedido);
+  if (!pedidoId) throw new ErroDominio("invalid-argument", "Falta o número do pedido (PED-… ou ANT-…)");
+  const centavos = lerValor(valor);
+  if (!centavos) throw new ErroDominio("invalid-argument", "Falta o valor do comprovante");
+  const snap = await db.collection(PEDIDOS).doc(pedidoId).get();
+  if (!snap.exists) throw new ErroDominio("not-found", `Não achei o pedido ${pedidoId}`);
+  const tel = String(snap.get("cliente")?.telefone || "").replace(/\D/g, "");
+  const outroTelefone = !variantesTelefone(telefone).includes(tel) && !variantesTelefone(tel).includes(String(telefone).replace(/\D/g, ""));
+  const meioTxt = normalizar(meio);
+  const meioOk = /cart/.test(meioTxt) ? "cartao" : /dinheir/.test(meioTxt) ? "dinheiro" : "pix";
+  return { ...(await informarComprovante(db, { pedidoId, valor: centavos, meio: meioOk, telefone, obs: opcional(obs, 300) }, "sofia")), valor: centavos, outroTelefone };
+}
+
+export { idDoPedido, lerValor, comprovanteDaSofia };

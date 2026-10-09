@@ -2,7 +2,7 @@
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /site/pedido, /site/consultar, /site/frete  site dos clientes, sem login (site.js, frete.js)
-     /sofia/<pedido|consultar|pagar|sugerir|cancelar>/<token>  agente Sofia do GPTMaker (sofia.js)
+     /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante>/<token>  agente Sofia do GPTMaker (sofia.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
@@ -279,7 +279,7 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
   }
 }
 
-/* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar|sugerir|cancelar>/<SOFIA_TOKEN>.
+/* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante>/<SOFIA_TOKEN>.
    Aceita parâmetros na URL e/ou JSON no corpo. Responde sempre 200 com { ok, ... } ou { ok: false,
    erro }: o GPTMaker lê a resposta e explica ao cliente. */
 async function rotaDaSofia(request, env, ctx, rota, token) {
@@ -291,6 +291,11 @@ async function rotaDaSofia(request, env, ctx, rota, token) {
   const db = banco(env);
   try {
     if (rota === "consultar") return json({ ok: true, ...(await sofia.pedidosDoCliente(db, dados.telefone)) });
+    if (rota === "comprovante") {
+      const c = await sofia.comprovanteDaSofia(db, dados);
+      depois(ctx, [efeitos.telegramComprovante(env, db, c.pedidoId, { ...c, telefone: dados.telefone, obs: sofia.opcional(dados.obs, 300) })], "comprovanteSofia", c.pedidoId);
+      return json({ ok: true, pedido: c.pedidoId, valor: sofia.reais(c.valor), aConferir: true, proximo: "A equipe confere o pagamento no banco e confirma; não precisa mandar de novo." });
+    }
     if (rota === "cancelar") {
       const { pedidoId, pago } = await sofia.conferirParaCancelar(db, dados);
       const motivo = sofia.opcional(dados.motivo, 300);
@@ -410,6 +415,20 @@ async function webhookEvolution(request, env, ctx, token) {
    assistente e mensagens do tópico IA. Responde 200 na hora; o trabalho segue em waitUntil. */
 const ESPERANDO_ESTOQUE = ["Aguardando confirmação", "Verificando Estoque"];
 
+/* Toque em "✅ Confirmar" / "❌ Recusar" de um comprovante que o cliente mandou pela Sofia. */
+async function decidirComprovantePeloTelegram(env, ctx, db, toque, pedidoId, id, aceito) {
+  const quem = telegram.quemE(toque.de);
+  const por = `telegram:${quem}`;
+  const { item, pag } = await pedidos.decidirComprovante(db, { pedidoId, id, aceito }, por);
+  if (aceito && pag && !pag.duplicado) {
+    depois(ctx, DEPOIS.registrarPagamentoManual(env, db, { pedidoId, valor: item.valor, meio: item.meio }, pag, por), "comprovante", pedidoId);
+  }
+  await telegram.responderToque(env, toque.id, aceito ? "Pagamento registrado" : "Comprovante recusado");
+  return telegram.fecharMensagem(env, toque.mensagem, aceito
+    ? `✅ Confirmado por ${quem}: ${efeitos.brl(item.valor)} lançado no ${pedidoId}${pag?.pagamento ? ` (${pag.pagamento})` : ""}.`
+    : `❌ Recusado por ${quem}. Nada lançado.`);
+}
+
 async function confirmarEstoquePeloTelegram(env, ctx, db, toque, pedidoId, origem) {
   const quem = telegram.quemE(toque.de);
   const p = await efeitos.lerPedido(db, pedidoId);
@@ -443,6 +462,10 @@ async function webhookTelegram(request, env, ctx, url) {
     const [tipo, ...resto] = u.dados.split(":");
     if (tipo === "estoque") {
       ctx.waitUntil(confirmarEstoquePeloTelegram(env, ctx, db, u, resto.join(":"), url.origin)
+        .catch(e => { falhou(e); return telegram.responderToque(env, u.id, e instanceof ErroDominio ? e.message : "Deu erro. Tente pelo admin."); }));
+    } else if (tipo === "comp") {
+      const [pedidoId, id, decisao] = resto;
+      ctx.waitUntil(decidirComprovantePeloTelegram(env, ctx, db, u, pedidoId, id, decisao === "ok")
         .catch(e => { falhou(e); return telegram.responderToque(env, u.id, e instanceof ErroDominio ? e.message : "Deu erro. Tente pelo admin."); }));
     } else if (tipo === "ia" && iaNoTelegram(env)) {
       telegram.responderToque(env, u.id);
@@ -500,7 +523,7 @@ export default {
     if (url.pathname === "/webhook/telegram") return webhookTelegram(request, env, ctx, url);
     if (url.pathname === "/webhook/whatsapp") return webhookWhatsapp(request, env, ctx, url);
     if (url.pathname === "/webhook/alexa") return webhookAlexa(request, env, ctx);
-    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir|cancelar)\/([\w-]+)$/);
+    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir|cancelar|comprovante)\/([\w-]+)$/);
     if (sof) return rotaDaSofia(request, env, ctx, sof[1], sof[2]);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
     if (evo) return webhookEvolution(request, env, ctx, evo[1]);

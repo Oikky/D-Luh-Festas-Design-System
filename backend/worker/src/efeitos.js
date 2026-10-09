@@ -121,6 +121,25 @@ async function telegramCancelado(env, db, pedidoId, motivo) {
   ].join("\n"));
 }
 
+/* Telegram, tópico Pagamentos: comprovante que o cliente mandou pela Sofia, com botões para a
+   equipe confirmar (vira pagamento) ou recusar depois de olhar o banco. */
+async function telegramComprovante(env, db, pedidoId, c) {
+  if (!telegramLigado(env)) return;
+  const p = await lerPedido(db, pedidoId);
+  if (!p) return;
+  const falta = Math.max(0, p.total - p.pago);
+  return enviarTelegram(env, "pagamentos", [
+    `🧾 Comprovante a conferir — ${p.id}`,
+    `${p.cliente?.nome} diz que pagou ${brl(c.valor)} (${MEIO_TEXTO[c.meio] || c.meio}) · falta ${brl(falta)}`,
+    ...(c.outroTelefone ? [`⚠️ Mandado de outro número: ${c.telefone}`] : []),
+    ...(c.obs ? [`Obs.: ${c.obs}`] : []),
+    "Confira no banco antes de confirmar. A imagem está na conversa do GPTMaker."
+  ].join("\n"), [
+    { id: `comp:${p.id}:${c.id}:ok`, titulo: "✅ Confirmar" },
+    { id: `comp:${p.id}:${c.id}:nao`, titulo: "❌ Recusar" }
+  ]);
+}
+
 async function avisarLojaNovoPedido(env, db, pedidoId) {
   if (!whatsappLigado(env) || !env.WHATSAPP_LOJA) return;
   const p = await lerPedido(db, pedidoId);
@@ -211,4 +230,4 @@ async function backup(env, db) {
   return r;
 }
 
-export { brl, dataBR, linhasItens, sincronizarAgenda, telegramCancelado, avisarLojaNovoPedido, telegramNovoPedido, telegramConfirmado, telegramPagamento, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };
+export { brl, dataBR, linhasItens, sincronizarAgenda, telegramCancelado, telegramComprovante, avisarLojaNovoPedido, telegramNovoPedido, telegramConfirmado, telegramPagamento, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };

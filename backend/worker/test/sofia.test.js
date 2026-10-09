@@ -3,7 +3,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { pedidoDaSofia, pedidosDoCliente, conferirParaPagar, conferirParaCancelar, sugestoes } from "../src/sofia.js";
+import { pedidoDaSofia, pedidosDoCliente, conferirParaPagar, conferirParaCancelar, sugestoes, comprovanteDaSofia } from "../src/sofia.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
 const PROJETO = "demo-dluh";
@@ -119,4 +119,29 @@ test("cancelar: só do próprio telefone e antes da produção; avisa se já tin
   assert.deepEqual(await conferirParaCancelar(db, { telefone: "5538998124410", pedido: r.id }), { pedidoId: r.id, pago: 7375 });
   await db.collection("sis_pedidos").doc(r.id).set({ status: "Em produção" }, { merge: true });
   await assert.rejects(conferirParaCancelar(db, { telefone: "5538998124410", pedido: r.id }), /Em produção.*equipe/);
+});
+
+test("comprovante: fica 'a conferir' no pedido (também ANT-…); confirmar vira pagamento uma vez só; recusar não lança", async () => {
+  const { decidirComprovante } = await import("../src/pedidos.js");
+  await db.collection("sis_pedidos").doc("ANT-1070").set({ id: "ANT-1070", cliente: { nome: "Jordana", telefone: "38998124410" }, status: "Entregue — Esperando restante", total: 36700, pago: 18350, pagamento: "Só entrada", itens: [] });
+  const c = await comprovanteDaSofia(db, { telefone: "5538987322363", pedido: "ANT -1070", valor: "R$ 183,50", meio: "pix", obs: "nenhuma" });
+  assert.equal(c.pedidoId, "ANT-1070");
+  assert.equal(c.valor, 18350);
+  assert.equal(c.outroTelefone, true);
+  let p = (await db.collection("sis_pedidos").doc("ANT-1070").get()).data();
+  assert.equal(p.pago, 18350);
+  assert.equal(p.aConferir.length, 1);
+
+  await decidirComprovante(db, { pedidoId: "ANT-1070", id: c.id, aceito: true }, "teste");
+  await assert.rejects(decidirComprovante(db, { pedidoId: "ANT-1070", id: c.id, aceito: true }, "teste"), /já foi resolvido/);
+  p = (await db.collection("sis_pedidos").doc("ANT-1070").get()).data();
+  assert.equal(p.pago, 36700);
+  assert.equal(p.status, "Finalizado");
+  assert.deepEqual(p.aConferir, []);
+
+  const c2 = await comprovanteDaSofia(db, { telefone: "38998124410", pedido: "ANT-1070", valor: "50" });
+  await decidirComprovante(db, { pedidoId: "ANT-1070", id: c2.id, aceito: false }, "teste");
+  p = (await db.collection("sis_pedidos").doc("ANT-1070").get()).data();
+  assert.equal(p.pago, 36700);
+  assert.deepEqual(p.aConferir, []);
 });
