@@ -13,6 +13,7 @@ const navItems = () => {
     { id: "cozinha", label: "Cozinha", icon: "chef-hat", count: d && d.fila.length },
     { id: "produtos", label: "Produtos", icon: "package" },
     { id: "clientes", label: "Clientes", icon: "users" },
+    { id: "atendimentos", label: "Atendimentos", icon: "headset" },
     { id: "financeiro", label: "Financeiro", icon: "wallet" }
   ];
 };

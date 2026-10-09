@@ -104,6 +104,11 @@ window.DLUH = {
     { id: "pg5", pedidoId: "PED-2291", valor: 24000, meio: "Pix", origem: "site", data: "2026-06-10", hora: "11:30" }
   ],
   /* The global search's demo "Pagamentos" group. */
+  atendimentos: [
+    { id: "at1", tipo: "visita", nome: "Camila Rocha", tel: "38999123456", data: "sábado de manhã", pessoas: "80", obs: "Aniversário de 15 anos em dezembro", status: "novo", criadoEm: "2026-06-12T10:42:00" },
+    { id: "at2", tipo: "evento", nome: "Marcos Antunes", tel: "38998765432", data: "20/07", pessoas: "50", obs: "", status: "novo", criadoEm: "2026-06-11T18:05:00" },
+    { id: "at3", tipo: "visita", nome: "Joana Lima", tel: "38991112233", data: "", pessoas: "", obs: "", status: "resolvido", criadoEm: "2026-06-08T09:15:00", resolvidoPor: "luguilar86@gmail.com" }
+  ],
   pagamentos: [
     { icon: "cake-slice", title: "Maria Helena", sub: "Entrada 50% · Pix", value: "+ R$ 240,00", tone: "in" },
     { icon: "credit-card", title: "Rafaela Prates", sub: "Pagamento total · Cartão", value: "+ R$ 352,00", tone: "in" },

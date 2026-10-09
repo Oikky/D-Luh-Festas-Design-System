@@ -100,6 +100,11 @@ window.DLUH_API = (() => {
       .map(p => { const d = ts(p.em); return { id: p.id, pedidoId: p.pedidoId, valor: p.valor || 0, meio: MEIO[p.meio] || p.meio || "", origem: p.por === "infinitepay" ? "site" : "manual",
         data: d ? isoLocal(d) : "", hora: d ? d.toTimeString().slice(0, 5) : "" }; })
       .sort((a, b) => `${b.data} ${b.hora}`.localeCompare(`${a.data} ${a.hora}`)),
+    /* Pedidos de visita ao salão etc. que a Sofia passou para a equipe (sofia-atendimento.js), mais novos primeiro. */
+    atendimentos: docs => docs
+      .map(a => ({ id: a.id, tipo: a.tipo, nome: a.nome || "", tel: a.telefone || "", data: a.data || "", pessoas: a.pessoas || "",
+        obs: a.obs || "", status: a.status || "novo", criadoEm: ts(a.criadoEm) ? ts(a.criadoEm).toISOString() : "", resolvidoPor: a.resolvidoPor || "" }))
+      .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)),
     /* Transações avulsas, boletos e cartões, as stored; Financeiro.jsx shapes them. */
     financeiro: docs => docs,
     boletosAbertos: docs => docs,

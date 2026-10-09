@@ -44,6 +44,7 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
       todosPagamentos: () => F.collection(db, "sis_pagamentos"),
       pagamentosRecentes: () => F.query(F.collection(db, "sis_pagamentos"), F.where("em", ">=", corte())),
       financeiro: () => F.collection(db, "sis_financeiro"),
+      atendimentos: () => F.collection(db, "sis_atendimentos"),
       // Visão geral: só os boletos com parcela em aberto (o pai guarda pago = todas pagas).
       boletosAbertos: () => F.query(F.collection(db, "sis_financeiro"), F.where("tipo", "==", "boleto"), F.where("pago", "==", false)),
       pagamentos: pedidoId => F.query(F.collection(db, "sis_pagamentos"), F.where("pedidoId", "==", pedidoId))

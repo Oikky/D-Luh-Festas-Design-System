@@ -79,3 +79,10 @@ test("financeiro: a equipe lê, só a conta sistema grava", async () => {
   await assertFails(equipe().doc("sis_financeiro/f1").set({ valor: 1 }));
   await assertSucceeds(sistema().doc("sis_financeiro/f1").set({ valor: 1 }));
 });
+
+test("atendimentos da Sofia: a equipe lê, só a conta sistema grava", async () => {
+  await assertSucceeds(equipe().doc("sis_atendimentos/a1").get());
+  await assertFails(cliente("cliente-1").doc("sis_atendimentos/a1").get());
+  await assertFails(equipe().doc("sis_atendimentos/a1").set({ status: "resolvido" }));
+  await assertSucceeds(sistema().doc("sis_atendimentos/a1").set({ status: "novo" }));
+});

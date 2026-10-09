@@ -2,7 +2,7 @@
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /site/pedido, /site/consultar, /site/frete, /site/entrega  site dos clientes, sem login (site.js, frete.js)
-     /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante>/<token>  agente Sofia do GPTMaker (sofia.js)
+     /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento>/<token>  agente Sofia do GPTMaker (sofia.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
      GET/POST /webhook/whatsapp  assistente da equipe no WhatsApp da Meta (ia/assistente.js)
@@ -19,6 +19,7 @@ import * as pedidos from "./pedidos.js";
 import * as infinitepay from "./infinitepay.js";
 import * as sofia from "./sofia.js";
 import * as sofiaHumano from "./sofia-humano.js";
+import * as atendimento from "./sofia-atendimento.js";
 import * as produtos from "./produtos.js";
 import * as financeiro from "./financeiro.js";
 import * as notas from "./notas.js";
@@ -137,6 +138,9 @@ const ACOES = {
   cotarEntrega: (db, dados, por, env) => ryd.cotarEntrega(db, env, dados),
   confirmarEntrega: (db, dados, por, env) => ryd.confirmarEntrega(db, env, dados, por),
   cancelarEntrega: (db, dados, por, env) => ryd.cancelarEntrega(db, env, dados, por),
+
+  /* Tela Atendimentos: marca o pedido de visita/evento como resolvido (ou volta para novo). */
+  marcarAtendimento: (db, dados, por) => atendimento.marcarAtendimento(db, dados, por),
 
   /* "Notificar alterações": manda ao cliente, pelo WhatsApp da loja, o resumo atual do pedido. */
   async avisarCliente(db, { pedidoId }, por, env) {
@@ -290,7 +294,7 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
   }
 }
 
-/* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante>/<SOFIA_TOKEN>.
+/* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento>/<SOFIA_TOKEN>.
    Aceita parâmetros na URL e/ou JSON no corpo. Responde sempre 200 com { ok, ... } ou { ok: false,
    erro }: o GPTMaker lê a resposta e explica ao cliente. */
 async function rotaDaSofia(request, env, ctx, rota, token) {
@@ -315,6 +319,11 @@ async function rotaDaSofia(request, env, ctx, rota, token) {
       return json({ ok: true, pedido: pedidoId, cancelado: true, ...(pago > 0 ? { aviso: `O cliente já tinha pago ${sofia.reais(pago)}: a equipe vai entrar em contato sobre a devolução.` } : {}) });
     }
     if (rota === "sugerir") return json({ ok: true, ...(await sofia.sugestoes(db, dados.telefone)) });
+    if (rota === "atendimento") {
+      const a = await atendimento.registrarAtendimento(db, dados);
+      depois(ctx, [atendimento.avisarAtendimento(env, a)], "atendimentoSofia", a.id);
+      return json({ ok: true, avisado: true, proximo: "A equipe já foi avisada e responde por aqui para combinar." });
+    }
     if (rota === "pagar") {
       const pedidoId = await sofia.conferirParaPagar(db, dados);
       const tipo = dados.tipo === "entrada" ? "entrada" : "restante";
@@ -566,7 +575,7 @@ export default {
         urlWebhook: `${ORIGEM_API}/webhook/ryd/${env.RYD_WEBHOOK_TOKEN}`
       }).then(r => json(r), e => json({ erro: e.message }, 400));
     }
-    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir|cancelar|comprovante)\/([\w-]+)$/);
+    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento)\/([\w-]+)$/);
     if (sof) return rotaDaSofia(request, env, ctx, sof[1], sof[2]);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
     if (evo) return webhookEvolution(request, env, ctx, evo[1]);

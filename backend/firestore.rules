@@ -38,6 +38,11 @@ service cloud.firestore {
     match /sis_config/{doc} {
       allow read, write: if sistema();
     }
+    // Atendimentos que a Sofia passa para a equipe (visita ao salão etc.). A equipe lê; grava pelo Worker.
+    match /sis_atendimentos/{id} {
+      allow read: if equipe() || sistema();
+      allow write: if sistema();
+    }
     // Assistente do WhatsApp: conversas e mensagens já vistas. Só o Worker.
     match /sis_ia/{numero} {
       allow read, write: if sistema();
