@@ -99,3 +99,14 @@ test("campos que o GPTMaker obriga: 'nenhuma' na observação e no endereço de 
   assert.equal(p.obs || "", "");
   await assert.rejects(pedidoDaSofia(db, base({ modo: "entrega", endereco: "nenhum" }), { agora: AGORA }), /endereço/);
 });
+
+test("'à escolha da casa' vira os sabores mais pedidos daquela categoria, respeitando o mínimo", async () => {
+  await db.collection("sis_produtos").doc("empada").set({ nome: "Empada", categoria: "Assado", valorUnit: 80, qtdMin: 25, ativo: true, tiposPacote: [] });
+  await db.collection("sis_produtos").doc("casadinho").set({ nome: "Casadinho", categoria: "Doce", valorUnit: 130, qtdMin: 50, ativo: true, tiposPacote: [] });
+  await pedidoDaSofia(db, base({ telefone: "5538911112222", itens: "75 empada\n25 pastel frango", data: "09/10/2026" }), { agora: AGORA });
+
+  const r = await pedidoDaSofia(db, base({ itens: "100 salgado assado à escolha da casa\n50 casadinho" }), { agora: AGORA });
+  const p = (await db.collection("sis_pedidos").doc(r.id).get()).data();
+  assert.deepEqual(p.itens.map(i => [i.nome, i.qtd]), [["Empada", 50], ["Pastel frango", 50], ["Casadinho", 50]]);
+  assert.match(p.obs, /escolhidos pela loja \(mais pedidos da semana\)/);
+});

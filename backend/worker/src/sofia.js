@@ -115,17 +115,21 @@ async function pedidoDaSofia(db, dados, { agora = new Date(), frete = null } = {
     .filter(p => p.ativo !== false && p.nome && p.valorUnit > 0)
     .map(p => ({ ...p, _n: normalizar(p.nome) }));
   const problemas = [];
-  const itens = lidos.map(it => {
-    if (it.erro) { problemas.push(it.erro); return null; }
-    const achado = acharProduto(it.nome, produtos);
-    if (achado.erro) { problemas.push(achado.erro + (achado.parecidos?.length ? ` (parecidos: ${achado.parecidos.join(", ")})` : "")); return null; }
-    return {
-      produtoId: achado.produto.id, qtd: it.qtd,
-      ...(it.recheios.length ? { recheios: it.recheios } : {}),
-      ...(it.tema ? { topo: { tema: it.tema } } : {})
-    };
-  });
+  let sug = null; // sugestões só são lidas se algum item for "à escolha da casa"
+  const itens = [];
+  for (const it of lidos) {
+    if (it.erro) { problemas.push(it.erro); continue; }
+    const cats = escolhaDaCasa(it.nome);
+    if (cats) {
+      sug = sug || await sugestoes(db, telefone, { agora });
+      const r = dividirEscolha(it.qtd, cats, sug.itens, produtos);
+      if (r.erro) problemas.push(r.erro); else itens.push(...r.itens);
+      continue;
+    }
+    itens.push(itemDoCardapio(it, produtos, problemas));
+  }
   if (problemas.length) throw new ErroDominio("invalid-argument", `Itens com problema: ${problemas.join("; ")}`);
+  const escolhidos = sug ? `Sabores escolhidos pela loja (${sug.base}).` : "";
 
   return pedidoDoSite(db, {
     cliente: { nome, telefone },
@@ -133,9 +137,50 @@ async function pedidoDaSofia(db, dados, { agora = new Date(), frete = null } = {
       modo, data, hora,
       ...(modo === "entrega" ? { endereco: [endereco, bairro].filter(Boolean).join(" — "), local: { rua: endereco, bairro } } : {})
     },
-    itens,
-    obs: opcional(dados?.obs, 1000)
+    itens: itens.filter(Boolean),
+    obs: [opcional(dados?.obs, 1000), escolhidos].filter(Boolean).join(" ")
   }, { agora, frete, origem: "whatsapp" });
+}
+
+function itemDoCardapio(it, produtos, problemas) {
+  const achado = acharProduto(it.nome, produtos);
+  if (achado.erro) { problemas.push(achado.erro + (achado.parecidos?.length ? ` (parecidos: ${achado.parecidos.join(", ")})` : "")); return null; }
+  return {
+    produtoId: achado.produto.id, qtd: it.qtd,
+    ...(it.recheios.length ? { recheios: it.recheios } : {}),
+    ...(it.tema ? { topo: { tema: it.tema } } : {})
+  };
+}
+
+/* "salgado assado à escolha da casa", "1 cento de salgado variado", "doces mais pedidos": devolve as
+   categorias do cardápio a usar, ou null se o item tem sabor dito. */
+const CATEGORIAS = [
+  [/assad/, ["Assado"]], [/frit/, ["Salgado Frito"]], [/especia/, ["Salgado Especial"]],
+  [/gourmet|goumert/, ["Doce Goumert", "Doce Gourmet"]], [/salgad/, ["Salgado Frito", "Assado", "Salgado Especial"]],
+  [/doc|brigadeir/, ["Doce"]]
+];
+function escolhaDaCasa(nome) {
+  const n = normalizar(nome);
+  // Palavras inteiras: "casadinho" é sabor, não "escolha da casa".
+  if (!/\b(escolha|casa|variado|sortido|mais pedido|sugestao|qualquer|misto|mix)\b/.test(n)) return null;
+  const achada = CATEGORIAS.find(([re]) => re.test(n));
+  return achada ? achada[1] : ["Salgado Frito", "Assado", "Salgado Especial"];
+}
+
+/* Divide a quantidade entre os sabores sugeridos daquelas categorias: até 4 sabores, cada um com
+   pelo menos o mínimo do produto; o que sobra vai para o primeiro (o mais pedido). */
+function dividirEscolha(qtd, cats, sugeridos, produtos) {
+  const porId = new Map(produtos.map(p => [p.id, p]));
+  let opcoes = sugeridos.map(s => porId.get(s.id)).filter(p => p && cats.includes(p.categoria));
+  if (!opcoes.length) opcoes = produtos.filter(p => cats.includes(p.categoria));
+  if (!opcoes.length) return { erro: "não há produtos dessa categoria no cardápio" };
+  const minimo = Math.max(...opcoes.slice(0, 4).map(p => p.qtdMin || 1));
+  const n = Math.max(1, Math.min(4, opcoes.length, Math.floor(qtd / minimo)));
+  if (qtd < (opcoes[0].qtdMin || 1)) return { erro: `o mínimo de ${opcoes[0].nome} é ${opcoes[0].qtdMin}` };
+  const base = Math.floor(qtd / n / minimo) * minimo || Math.floor(qtd / n);
+  const itens = opcoes.slice(0, n).map(p => ({ produtoId: p.id, qtd: base }));
+  itens[0].qtd += qtd - base * n;
+  return { itens };
 }
 
 export { pedidoDaSofia, acharProduto, lerItens, lerData, lerHora, normalizar };
@@ -205,7 +250,7 @@ async function sugestoes(db, telefone, { agora = new Date() } = {}) {
       for (const it of p.itens || []) {
         const prod = doCardapio(it);
         if (!prod) continue;
-        const s = soma.get(prod.id) || { produto: prod.nome.replace(/^[^\p{L}\p{N}]+/u, "").trim(), categoria: prod.categoria || "", quantidade: 0, pedidos: 0 };
+        const s = soma.get(prod.id) || { id: prod.id, produto: prod.nome.replace(/^[^\p{L}\p{N}]+/u, "").trim(), categoria: prod.categoria || "", quantidade: 0, pedidos: 0 };
         s.quantidade += Number(it.qtd) || 0;
         s.pedidos += 1;
         soma.set(prod.id, s);
