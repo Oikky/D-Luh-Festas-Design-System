@@ -1,4 +1,4 @@
-/* Landing como um vídeo que anda com a rolagem (GSAP + ScrollTrigger, via cdnjs).
+/* Landing como um vídeo que anda com a rolagem (GSAP + ScrollTrigger + SplitText, em js/vendor).
    Sem GSAP ou com "reduzir movimento" ligado, a página fica estática e completa. */
 (window.DLuhDepoisDoCatalogo || (fn => fn()))(function () {
   "use strict";
@@ -18,6 +18,17 @@
   /* 1. A abertura se afasta: o painel encolhe e o texto sobe. */
   gsap.to(".banner", { scale: 0.92, borderRadius: 48, ease: "none", scrollTrigger: { trigger: ".abertura", start: "top top", end: "bottom top", scrub: true } });
   gsap.to(".banner__texto", { yPercent: -18, opacity: 0.15, ease: "none", scrollTrigger: { trigger: ".abertura", start: "top top", end: "bottom top", scrub: true } });
+
+  /* Títulos das seções: as palavras sobem por trás de uma máscara, uma vez, quando entram na tela. */
+  if (window.SplitText) {
+    gsap.registerPlugin(window.SplitText);
+    const titulos = [...document.querySelectorAll("main .secao .titulo")];
+    const partir = () => titulos.forEach(t => {
+      const sp = window.SplitText.create(t, { type: "lines,words", mask: "lines", linesClass: "titulo__linha" });
+      gsap.from(sp.words, { yPercent: 110, duration: 0.8, stagger: 0.05, ease: "power3.out", scrollTrigger: { trigger: t, start: "top 88%", once: true } });
+    });
+    if (document.fonts) document.fonts.ready.then(partir); else partir();
+  }
 
   /* 2. As categorias sobem uma a uma. */
   gsap.from(".cat-foto", { y: 90, opacity: 0, stagger: 0.12, ease: "power2.out", scrollTrigger: { trigger: "#categorias-foto", start: "top 90%", end: "top 45%", scrub: 0.8 } });
@@ -52,7 +63,7 @@
       const el = k => cenaBolo.querySelector(`[data-bolo="${k}"]`);
       el("marcas").innerHTML = aros.map(() => "<li></li>").join("");
       const marcas = [...el("marcas").children];
-      let atual = -1;
+      let atual = -1, bolo3d = null;
       const mostrar = i => {
         if (i === atual) return;
         atual = i;
@@ -69,7 +80,19 @@
         el("serve").textContent = (p.descricao || "").replace(/!$/, "").replace(/^Serve de/i, "Serve");
         el("preco").textContent = D.brlPlaca(p.valorUnit);
         marcas.forEach((m, k) => m.classList.toggle("ativo", k <= i));
+        if (bolo3d) bolo3d.definir(aro / maior, p.imagem);
       };
+      /* Bolo em 3D (Three.js), baixado só quando a seção chega perto. Sem WebGL, fica o círculo em SVG. */
+      const temWebGL = (() => { try { return !!document.createElement("canvas").getContext("webgl2"); } catch (e) { return false; } })();
+      if (temWebGL) ST.create({
+        trigger: "#bolos-cena", start: "top bottom+=600", once: true,
+        onEnter: () => import("./bolo3d.js?v=24").then(({ criarBolo3D }) => {
+          bolo3d = criarBolo3D(cenaBolo.querySelector(".cena-bolo__prato"));
+          cenaBolo.classList.add("cena-bolo--3d");
+          const { aro, p } = aros[Math.max(0, atual)];
+          bolo3d.definir(aro / maior, p.imagem);
+        }).catch(() => {})
+      });
       mostrar(0);
       ST.create({
         trigger: "#bolos-cena", start: () => `top ${alturaTopo()}px`, end: () => "+=" + aros.length * 150, pin: true, scrub: true,
@@ -78,6 +101,12 @@
       });
     }
   }
+
+  /* Preferidos no celular (sem a vitrine presa): os cards entram em sequência. */
+  mm.add("(max-width: 899px)", () => {
+    ST.batch("#preferidos > li", { start: "top 92%", once: true,
+      onEnter: els => gsap.from(els, { y: 36, opacity: 0, duration: 0.6, stagger: 0.08, ease: "power3.out" }) });
+  });
 
   /* 5. Como pedir: os passos acendem em sequência. */
   gsap.from(".passo", { opacity: 0.2, y: 40, stagger: 0.25, ease: "power2.out", scrollTrigger: { trigger: ".passos", start: "top 85%", end: "top 35%", scrub: 0.8 } });

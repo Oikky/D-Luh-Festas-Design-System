@@ -30,6 +30,12 @@ if not SO_ADMIN:
         copiar(f"site/{f}", f)
     for d in ["css", "js", "img", "midia"]:
         copiar(f"site/{d}", d)
+    # O editor ao vivo do Impeccable injeta um <script> do localhost nas páginas: nunca vai pro ar.
+    for f in ["index.html", "cardapio.html", "pedido.html"]:
+        p = os.path.join(DESTINO, f)
+        s = open(p, encoding="utf8").read()
+        s = re.sub(r"[ \t]*<!-- impeccable-live-start -->.*?<!-- impeccable-live-end -->\n?", "", s, flags=re.S)
+        open(p, "w", encoding="utf8").write(s)
 
 # Admin
 admin = os.path.join(DESTINO, "admin")
