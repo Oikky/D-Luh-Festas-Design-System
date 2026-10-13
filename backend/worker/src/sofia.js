@@ -211,7 +211,7 @@ async function pedidosDoCliente(db, telefone) {
       pedido: p.id, status: p.status, pagamento: p.pagamento,
       entrega: `${p.entrega?.modo === "entrega" ? "entrega" : "retirada"} em ${p.entrega?.data || "?"}${p.entrega?.hora ? ` às ${p.entrega.hora}` : ""}`,
       itens: (p.itens || []).map(it => `${it.qtd} ${it.nome}`).join(", "),
-      total: reais(p.total), pago: reais(p.pago || 0), falta: reais(Math.max(0, (p.total || 0) - (p.pago || 0)))
+      total: reais(p.total), pago: reais(p.pago || 0), ...(p.permuta?.valor ? { em_permuta: reais(p.permuta.valor) } : {}), falta: reais(Math.max(0, (p.total || 0) - (p.pago || 0)))
     }));
   return { pedidos, ...(pedidos.length ? {} : { aviso: "Nenhum pedido com esse telefone" }) };
 }

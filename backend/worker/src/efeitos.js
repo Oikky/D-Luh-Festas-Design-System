@@ -51,7 +51,8 @@ async function sincronizarAgenda(env, db, pedidoId) {
       `${p.id} · ${p.status} · ${p.pagamento}`,
       `WhatsApp: ${p.cliente?.telefone}`,
       "", ...linhasItens(p), "",
-      `Total ${brl(p.total)} · pago ${brl(p.pago)}`,
+      `Total ${brl(p.total)} · pago ${brl(p.pago)}${p.permuta?.valor ? ` (${brl(p.permuta.valor)} em permuta)` : ""}`,
+      p.permuta?.combinado ? `Permuta: ${p.permuta.combinado}` : null,
       p.obs ? `Obs.: ${p.obs}` : null
     ].filter(x => x !== null).join("\n"),
     start: inicio, end: fim
@@ -217,7 +218,7 @@ function resumoParaCliente(p) {
     `Seu pedido ${p.id} na D'Luh Festas foi atualizado:`,
     "", ...linhasItens(p), "",
     `${e.modo === "entrega" ? `Entrega em ${e.endereco}` : "Retirada na loja"} · ${dataBR(e.data)}${e.hora ? ` às ${e.hora}` : ""}`,
-    `Total ${brl(p.total)}${p.pago ? ` · pago ${brl(p.pago)}` : ""}`
+    `Total ${brl(p.total)}${p.pago ? ` · pago ${brl(p.pago)}` : ""}${p.permuta?.valor ? ` (${brl(p.permuta.valor)} em permuta)` : ""}`
   ].join("\n");
 }
 

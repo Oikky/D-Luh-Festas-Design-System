@@ -102,6 +102,7 @@
     const cancelado = s.etapa === -1;
     const total = p.total || 0;
     const pago = p.pago || 0;
+    const permuta = p.permuta || 0; // já somada em pago
     const falta = Math.max(total - pago, 0);
     const entrada = Math.round(total * (p.entradaPct || 50) / 100);
     const faltaEntrada = Math.max(entrada - pago, 0);
@@ -133,7 +134,8 @@
         <div data-entregador>${htmlEntregador(p.entregador)}</div>
         <dl class="contas">
           <div><dt>Total</dt><dd class="num">${D.brl(total)}</dd></div>
-          <div><dt>Pago</dt><dd class="num">${D.brl(pago)}</dd></div>
+          ${permuta ? `<div><dt>Permuta</dt><dd class="num">${D.brl(permuta)}</dd></div>` : ""}
+          ${permuta && pago === permuta ? "" : `<div><dt>Pago</dt><dd class="num">${D.brl(pago - permuta)}</dd></div>`}
           <div class="${falta > 0 && !cancelado ? "falta" : ""}"><dt>Falta</dt><dd class="num">${D.brl(cancelado ? 0 : falta)}</dd></div>
         </dl>
         ${acao}

@@ -22,6 +22,7 @@ window.DLUH = {
       itens: [{ qty: 100, name: "Salgados sortidos", note: null, price: "R$ 150,00" }, { qty: 1, name: "Bolo de pote", note: null, price: "R$ 36,00" }] },
     { id: "PED-2287", data: "2026-06-09", hora: "16:00", modo: "Retirada no local", cliente: "João Vitor", status: "Finalizado", tel: "(38) 99455-1190",
       entrega: "09/06 · 16h", pgto: "Pix", tipo: null, total: "R$ 188,00", pago: "R$ 188,00", falta: null,
+      permuta: { valor: 8800, combinado: "2 stories e 1 post no Instagram (@joaovitor)" },
       itens: [{ qty: 1, name: "Torta salgada grande", note: "Frango com catupiry", price: "R$ 188,00" }] },
     { id: "PED-2270", data: "2026-05-24", hora: "10:00", modo: "Entrega em endereço", endereco: "Rua Belo Horizonte, 88 — Todos os Santos", cliente: "Maria Helena", status: "Finalizado", tel: "(38) 99812-4410",
       entrega: "24/05 · 10h", pgto: "Pix", tipo: null, total: "R$ 210,00", pago: "R$ 210,00", falta: null,

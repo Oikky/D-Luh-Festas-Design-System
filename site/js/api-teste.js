@@ -27,7 +27,8 @@
     "PED-3104": { status: "Entregue — Esperando restante", pago: 14000 },
     "PED-3105": { status: "Finalizado", pago: 28000 },
     "PED-3106": { status: "Cancelado", pago: 0 },
-    "PED-3107": { status: "Pronto", pago: 28000, ryd: true }
+    "PED-3107": { status: "Pronto", pago: 28000, ryd: true },
+    "PED-3108": { status: "Em produção", pago: 18000, permuta: 10000 }
   };
   /* PED-3107: o entregador anda um passo a cada 20 s desde que a página abriu. */
   const ABRIU = Date.now();
@@ -41,6 +42,7 @@
     if (!d) return null;
     return {
       id, status: d.status, pago: d.pago, total: 28000, entradaPct: 50, linkPagamento: d.linkPagamento || null,
+      ...(d.permuta ? { permuta: d.permuta } : {}),
       cliente: { nome: "Cliente de teste", telefone: "38998124410" },
       entrega: { modo: "entrega", data: hojeMais(5), hora: "15:00", endereco: "Rua de teste, 100 — Centro" },
       itens: [

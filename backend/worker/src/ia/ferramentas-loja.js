@@ -251,10 +251,13 @@ const EXECUTAR_LOJA = {
   async resumo_caixa({ db }, { de, ate }) {
     exigirPeriodo(de, ate);
     const ini = new Date(`${de}T03:00:00Z`), fim = new Date(Date.parse(`${ate}T03:00:00Z`) + 86400e3);
-    const [pags, fin] = await Promise.all([
+    let [pags, fin] = await Promise.all([
       db.collection(PAGAMENTOS).consultar([["em", ">=", ini], ["em", "<", fim]]),
       db.collection(FINANCEIRO).listar()
     ]);
+    // Permuta não é dinheiro: fica fora do caixa, mas aparece à parte.
+    const permutas = pags.filter(p => p.meio === "permuta");
+    pags = pags.filter(p => p.meio !== "permuta");
     const porMeio = {};
     for (const p of pags) porMeio[p.meio || "outro"] = (porMeio[p.meio || "outro"] || 0) + p.valor;
     const trans = fin.filter(x => x.tipo === "transacao" && x.data >= de && x.data <= ate);
@@ -268,6 +271,7 @@ const EXECUTAR_LOJA = {
     return {
       periodo: `${dataBR(de)} a ${dataBR(ate)}`,
       entrou_de_pedidos: brl(entPed), pedidos_por_meio: Object.fromEntries(Object.entries(porMeio).map(([m, v]) => [m, brl(v)])),
+      ...(permutas.length ? { permutas_fora_do_caixa: `${brl(soma(permutas))} em ${permutas.length} pedido(s)` } : {}),
       entradas_avulsas: brl(entAv), saidas_avulsas: brl(saiAv), boletos_pagos: brl(saiBol), faturas_de_cartao_pagas: brl(saiCar),
       saldo: brl(entPed + entAv - saiAv - saiBol - saiCar),
       faturas_pagas_lista: faturasPagas.map(f => `${f.desc} ${brl(f.valor)} em ${dataBR(f.pagoEm)}`),

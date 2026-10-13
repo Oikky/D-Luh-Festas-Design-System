@@ -26,6 +26,11 @@ const PAGAMENTO = ["Não pago", "Só entrada", "Totalmente pago"];
 /* Como o dinheiro entrou. "outro" é para quando a tela não sabe (ex.: "Marcar como pago"). */
 const MEIOS = ["pix", "dinheiro", "cartao", "outro"];
 
+/* Permuta: a loja mandou o pedido (ou parte dele) e a pessoa paga com propaganda, divulgação etc.
+   Vira um lançamento em sis_pagamentos com esse meio (um por pedido, chave permuta-PED-n), para o
+   pedido contar como pago, mas NÃO é dinheiro: caixa, gráficos e resumos deixam de fora. */
+const PERMUTA = "permuta";
+
 /* Dinheiro sempre em centavos inteiros (é também o que a InfinitePay usa). */
 function pagamentoDe(totalCentavos, pagoCentavos) {
   if (pagoCentavos <= 0) return "Não pago";
@@ -80,4 +85,4 @@ class ErroDominio extends Error {
   constructor(codigo, mensagem) { super(mensagem); this.codigo = codigo; }
 }
 
-export { FIADO, FIADO_PARA_CLIENTE, NA_COZINHA, STATUS, PAGAMENTO, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };
+export { FIADO, FIADO_PARA_CLIENTE, NA_COZINHA, STATUS, PAGAMENTO, MEIOS, PERMUTA, pagamentoDe, centavos, validarItens, totalDe, ErroDominio };

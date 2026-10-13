@@ -2,7 +2,7 @@
    sis_pedidos/{id}/eventos — é o histórico de quem mudou o quê, e quando.
    Recebem o Firestore por parâmetro para os testes rodarem contra o emulador. */
 import { FieldValue } from "./firestore.js";
-import { FIADO, NA_COZINHA, STATUS, MEIOS, pagamentoDe, centavos, validarItens, totalDe, ErroDominio } from "./dominio.js";
+import { FIADO, NA_COZINHA, STATUS, MEIOS, PERMUTA, pagamentoDe, centavos, validarItens, totalDe, ErroDominio } from "./dominio.js";
 
 const PEDIDOS = "sis_pedidos";
 const PAGAMENTOS = "sis_pagamentos";
@@ -169,6 +169,46 @@ async function registrarPagamento(db, { pedidoId, valor, chave, meio, comprovant
   });
 }
 
+/* Permuta (ver PERMUTA em dominio.js): `valor` é quanto do pedido sai em troca (sem valor = tudo
+   que falta pagar; menos que isso = permuta parcial, o resto a pessoa paga normal). `combinado` é o
+   que a pessoa ficou de fazer. Marcar de novo troca a permuta anterior pelo novo valor. */
+async function marcarPermuta(db, { pedidoId, valor, combinado }, por) {
+  const ref = db.collection(PEDIDOS).doc(String(pedidoId || ""));
+  const pagRef = db.collection(PAGAMENTOS).doc(`permuta-${ref.id}`);
+  const texto = String(combinado || "").trim().slice(0, 500);
+
+  return db.runTransaction(async tx => {
+    const [snap, antiga] = await Promise.all([tx.get(ref), tx.get(pagRef)]);
+    if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
+    if (snap.get("status") === "Cancelado") throw new ErroDominio("failed-precondition", "Pedido cancelado não pode ter permuta");
+    const antes = antiga.exists ? antiga.get("valor") || 0 : 0;
+    const semPermuta = (snap.get("pago") || 0) - antes;
+    const falta = Math.max(0, snap.get("total") - semPermuta);
+    const v = valor == null ? falta : centavos(valor, "valor");
+    if (v === 0) throw new ErroDominio(falta ? "invalid-argument" : "failed-precondition", falta ? "Valor da permuta deve ser maior que zero" : "Esse pedido já está pago");
+    if (v > falta) throw new ErroDominio("invalid-argument", "A permuta não pode passar do que falta pagar");
+
+    const pago = semPermuta + v;
+    const pagamento = pagamentoDe(snap.get("total"), pago);
+    const statusAntes = snap.get("status");
+    const status = statusAntes === "Confirmado — Esperando pagamento" ? "Em produção"
+      : ["Entregue — Esperando restante", "Fiado"].includes(statusAntes) && pagamento === "Totalmente pago" ? "Finalizado"
+      : statusAntes === "Finalizado" && pagamento !== "Totalmente pago" ? "Entregue — Esperando restante"
+      : statusAntes;
+
+    tx.set(pagRef, { pedidoId: snap.id, valor: v, meio: PERMUTA, comprovante: "", por, em: agora() });
+    tx.update(ref, { permuta: { valor: v, combinado: texto }, pago, pagamento, status, atualizadoEm: agora() });
+    evento(tx, ref, { tipo: "permuta", valor: v, combinado: texto, ...(antiga.exists ? { antes } : {}), pagamento, por });
+    if (status !== statusAntes) evento(tx, ref, { tipo: "status", de: statusAntes, para: status, por: "sistema" });
+    return { pedidoId: snap.id, valor: v, pago, pagamento, status, de: statusAntes };
+  });
+}
+
+/* Desfaz a permuta: o valor volta a ser cobrado. */
+function tirarPermuta(db, { pedidoId }, por) {
+  return apagarPagamento(db, { pagamentoId: `permuta-${String(pedidoId || "")}` }, por);
+}
+
 /* Comprovante que o cliente mandou (pela Sofia): fica no pedido em `aConferir` e só vira pagamento
    quando alguém da equipe confirma (decisão da loja, 09/10). `id` identifica o comprovante. */
 async function informarComprovante(db, { pedidoId, valor, meio, telefone, obs }, por) {
@@ -233,16 +273,17 @@ async function apagarPagamento(db, { pagamentoId }, por) {
     const snap = await tx.get(ref);
     tx.delete(pagRef);
     if (!snap.exists) return { apagado: true, pedidoId };
+    const eraPermuta = meio === PERMUTA;
 
     const pago = Math.max(0, (snap.get("pago") || 0) - valor);
     const pagamento = pagamentoDe(snap.get("total"), pago);
     const statusAntes = snap.get("status");
     const status = statusAntes === "Finalizado" && pagamento !== "Totalmente pago" ? "Entregue — Esperando restante" : statusAntes;
-    tx.update(ref, { pago, pagamento, status, atualizadoEm: agora() });
-    evento(tx, ref, { tipo: "pagamento-apagado", valor, meio, pagamentoId: pagRef.id, pagamento, por });
+    tx.update(ref, { pago, pagamento, status, ...(eraPermuta ? { permuta: null } : {}), atualizadoEm: agora() });
+    evento(tx, ref, { tipo: eraPermuta ? "permuta-tirada" : "pagamento-apagado", valor, meio, pagamentoId: pagRef.id, pagamento, por });
     if (status !== statusAntes) evento(tx, ref, { tipo: "status", de: statusAntes, para: status, por: "sistema" });
     return { apagado: true, pedidoId, pago, pagamento, status };
   });
 }
 
-export { apagarPagamento, apagarPedido, normalizar, informarComprovante, decidirComprovante, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };
+export { marcarPermuta, tirarPermuta, apagarPagamento, apagarPedido, normalizar, informarComprovante, decidirComprovante, criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, PEDIDOS, PAGAMENTOS };

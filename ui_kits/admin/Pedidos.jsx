@@ -13,6 +13,9 @@ const TABS = [
      pedidos e o site mostra "Entregue, falta pagar o restante". Quitar finaliza sozinho. */
   { id: "fiado", label: "Fiados", filtro: ["Fiado"] },
   { id: "final", label: "Finalizados", filtro: ["Finalizado"] },
+  /* Permuta: o pedido (ou parte dele) foi pago com propaganda, divulgação etc. Não é status: o
+     pedido segue o fluxo normal e aparece aqui também, em qualquer status menos cancelado. */
+  { id: "permuta", label: "Permutas", so: p => !!p.permuta && p.status !== "Cancelado" },
   { id: "cancelado", label: "Cancelados", filtro: ["Cancelado"] }
 ];
 
@@ -34,6 +37,7 @@ const casa = (p, q) => {
 };
 /* Com texto na busca aparece a aba "Resultados", com o que casou em todos os status. */
 const BUSCA = { id: "busca", label: "Resultados", filtro: null };
+const naAba = (t, p) => t.so ? t.so(p) : !t.filtro || t.filtro.includes(p.status);
 
 /* Every confirmation the order card can open. Money actions name the amount in the question. */
 const quem = p => p.cliente || "O cliente";
@@ -245,7 +249,9 @@ function DetalhesModal({ pedido, onClose, onToast, acao, pendente, compact, prod
         <window.ItensPedido r={r} set={set} compact={compact} produtos={produtos} erro={erros.itens} acao={acao} onToast={onToast} listaId="dluh-produtos-detalhe" />
       </fieldset>
       <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: "var(--border-hairline) solid var(--color-border)" }}>
-        <Field label="Valor recebido"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{window.brl(recebido)}</div></Field>
+        <Field label="Valor recebido"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{window.brl(REAL() && pedido.permuta ? recebido - pedido.permuta.valor / 100 : recebido)}</div></Field>
+        {pedido.permuta ? <Field label="Em permuta" hint={pedido.permuta.combinado || undefined}>
+          <div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)" }}>{reais(pedido.permuta.valor)}</div></Field> : null}
         {window.totalRascunho(r) - recebido > 0.004 ? <Field label="Falta"><div style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", color: "var(--text-accent)" }}>{window.brl(window.totalRascunho(r) - recebido)}</div></Field> : null}
         <div style={{ flex: 1 }} />
         <Button size="sm" variant="outline" icon="list" onClick={() => setVerPgtos(true)}>Pagamentos ({pgtos.length})</Button>
@@ -282,6 +288,66 @@ function ApagarComSenha({ p, pendente, onCancel, onConfirm }) {
   </Modal>;
 }
 
+/* Permuta: quanto do pedido sai em troca (tudo que falta, ou menos: o resto a pessoa paga normal)
+   e o que ela ficou de fazer. Não entra no caixa nem no faturamento; o cliente vê "Permuta" no
+   acompanhamento do pedido. */
+function PermutaModal({ p, onClose, acao, pendente, aoSalvar }) {
+  const atual = p.permuta ? p.permuta.valor : 0;
+  const max = p._c ? p._c.falta + atual : Math.round(valor(p.falta) * 100) + atual;
+  const [v, setV] = React.useState(((atual || max) / 100).toFixed(2));
+  const [combinado, setCombinado] = React.useState(p.permuta ? p.permuta.combinado : "");
+  const [tentou, setTentou] = React.useState(false);
+  const cent = Math.round(parseFloat(String(v).replace(",", ".")) * 100) || 0;
+  const erro = !tentou ? undefined : cent <= 0 ? "Digite um valor maior que zero" : cent > max ? `No máximo ${reais(max)} (o que falta pagar)` : undefined;
+  const resto = Math.max(0, max - cent);
+  const totalCent = p._c ? p._c.total : Math.round(valor(p.total) * 100);
+  const salvar = async () => {
+    setTentou(true);
+    if (cent <= 0 || cent > max) return;
+    const pm = { valor: cent, combinado: combinado.trim() };
+    const ok = await acao("permuta", { ok: atual ? "Permuta atualizada" : "Pedido marcado como permuta", falhou: "Não deu pra salvar a permuta" },
+      REAL() ? null : () => aoSalvar(pm), { acao: "marcarPermuta", dados: { pedidoId: p.id, ...pm } });
+    if (ok) onClose();
+  };
+  const tirar = async () => {
+    const ok = await acao("tirar-permuta", { ok: "Permuta tirada: o valor volta a ser cobrado", falhou: "Não deu pra tirar a permuta" },
+      REAL() ? null : () => aoSalvar(null), { acao: "tirarPermuta", dados: { pedidoId: p.id } });
+    if (ok) onClose();
+  };
+  const ocupado = pendente === "permuta" || pendente === "tirar-permuta";
+  return <Modal width={520} title={atual ? "Permuta" : "Marcar como permuta"} onClose={ocupado ? null : onClose}
+    subtitle={`${p.id} · ${p.cliente || "cliente"} · ${p.total}`}
+    footer={<>
+      {atual ? <Button variant="ghost" tone="danger" block icon="undo-2" loading={pendente === "tirar-permuta"} disabled={ocupado} onClick={tirar}>Tirar permuta</Button>
+        : <Button variant="ghost" block disabled={ocupado} onClick={onClose}>Voltar</Button>}
+      <Button block icon="handshake" loading={pendente === "permuta"} disabled={ocupado} onClick={salvar}>{atual ? "Salvar" : "Marcar permuta"}</Button>
+    </>}>
+    <form onSubmit={e => { e.preventDefault(); salvar(); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <Field label="Valor em permuta" required error={erro}
+        hint={cent > 0 && cent <= max ? (resto ? `Permuta parcial: ${reais(resto)} continua para ${para(p)} pagar.` : cent >= totalCent ? "O pedido todo sai em permuta e fica quitado." : "Com o que já foi pago, o pedido fica quitado.") : `Até ${reais(max)}.`}>
+        <Input type="number" prefix="R$" step="0.01" min="0" inputMode="decimal" value={v} invalid={!!erro} onChange={e => setV(e.target.value)} />
+      </Field>
+      <Field label="O que foi combinado" hint="Ex.: 2 stories e 1 post no Instagram (@perfil). Só a equipe vê este texto.">
+        <Input autoComplete="off" maxLength={500} value={combinado} onChange={e => setCombinado(e.target.value)} />
+      </Field>
+      <div style={{ fontSize: "var(--fs-body-s)", color: "var(--text-muted)", lineHeight: "var(--lh-normal)" }}>
+        Não entra no caixa nem no faturamento. O cliente vê “Permuta” no acompanhamento do pedido.
+      </div>
+    </form>
+  </Modal>;
+}
+
+/* Quanto já saiu em permuta e com quantas pessoas, para a aba Permutas. */
+function ResumoPermuta({ lista }) {
+  const total = lista.reduce((s, p) => s + p.permuta.valor, 0);
+  const pessoas = new Set(lista.map(p => String(p.tel || "").replace(/\D/g, "") || p.cliente)).size;
+  return <div style={{ marginRight: "auto", display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>
+    <span>Em permuta:</span>
+    <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)", fontVariantNumeric: "tabular-nums" }}>{reais(total)}</span>
+    <span>· {pessoas === 1 ? "1 pessoa" : `${pessoas} pessoas`}</span>
+  </div>;
+}
+
 /* Quanto está na rua em fiado e com quantas pessoas, para a aba Fiados. */
 function ResumoFiado({ lista }) {
   const falta = lista.reduce((s, p) => s + (p._c ? p._c.falta / 100 : valor(p.falta)), 0);
@@ -300,10 +366,11 @@ function Pedidos({ compact, q }) {
   const [confirm, setConfirm] = React.useState(null);
   const [apagando, setApagando] = React.useState(null);
   const [nota, setNota] = React.useState(null);
+  const [permuta, setPermuta] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   /* Busca e as abas de pedidos encerrados leem o histórico inteiro; o resto só o recente (firebase.js). */
-  const carga = useAoVivo(q || tab === "final" || tab === "cancelado" || tab === "busca" ? "pedidosTodos" : "pedidos");
+  const carga = useAoVivo(q || tab === "final" || tab === "cancelado" || tab === "busca" || tab === "permuta" ? "pedidosTodos" : "pedidos");
   const catalogo = useAoVivo("produtos");
   const produtos = catalogo.dados || [];
   const [link, setLink] = React.useState(null);
@@ -311,11 +378,11 @@ function Pedidos({ compact, q }) {
 
   const todos = carga.dados || [];
   const abas = q ? [BUSCA, ...TABS] : TABS;
-  const filtro = (abas.find(t => t.id === tab) || TABS[0]).filtro;
-  const lista = todos.filter(p => !filtro || filtro.includes(p.status)).filter(p => casa(p, q));
+  const aba = abas.find(t => t.id === tab) || TABS[0];
+  const lista = todos.filter(p => naAba(aba, p)).filter(p => casa(p, q));
   /* Orders whose Status is not in the Coda single-select would fall between the tabs. They are
      listed on their own, above the tabs, so a typo in Coda is visible instead of lost. */
-  const fora = todos.filter(p => !TABS.some(t => t.filtro.includes(p.status)));
+  const fora = todos.filter(p => !TABS.some(t => t.filtro && t.filtro.includes(p.status)));
   const achouEmOutra = !!q && todos.some(p => casa(p, q));
 
   /* Digitar na busca abre "Resultados" (todos os status); limpar volta para a primeira aba. As
@@ -326,7 +393,7 @@ function Pedidos({ compact, q }) {
   }, [!!q]);
 
   const counts = {};
-  abas.forEach(t => counts[t.id] = todos.filter(p => (!t.filtro || t.filtro.includes(p.status)) && casa(p, q)).length);
+  abas.forEach(t => counts[t.id] = todos.filter(p => naAba(t, p) && casa(p, q)).length);
   const pede = (tipo, p) => setConfirm({ tipo, p, ...CONFIRMA[tipo](p) });
   /* Primeiro a cotação (não cobra nada), e a pergunta já com o preço e o endereço que a RYD entendeu:
      o "sim" é que debita o saldo da RYD e chama o entregador. */
@@ -362,6 +429,7 @@ function Pedidos({ compact, q }) {
 
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {tab === "fiado" && lista.length ? <ResumoFiado lista={lista} /> : null}
+        {tab === "permuta" && lista.length ? <ResumoPermuta lista={lista} /> : null}
         {/* Lembrete da entrada para todos desta aba (o mesmo sai sozinho 3 dias antes de cada pedido). */}
         {tab === "pagamento" && lista.length ? <Button size="sm" variant="ghost" icon="bell-ring" onClick={() => setConfirm({
           tipo: "lembrete", p: {}, tone: "chargeEntry", icon: "bell-ring",
@@ -382,6 +450,8 @@ function Pedidos({ compact, q }) {
               ...(podeImprimir(p) ? [{ label: "Imprimir pedido", icon: "printer", onClick: () => imprimir(p) }]
                 : [{ label: "Mandar para produção", icon: "chef-hat", onClick: () => pede("producao", p) }]),
               ...(p.status === "Cancelado" ? [] : [{ label: p.nota ? "Nota fiscal" : "Emitir nota fiscal", icon: "receipt-text", onClick: () => setNota(p) }]),
+              ...(p.status === "Cancelado" || (!p.permuta && p.pagamento === "Totalmente pago") ? []
+                : [{ label: p.permuta ? "Permuta" : "Marcar como permuta", icon: "handshake", onClick: () => setPermuta(p) }]),
               ...(podeFiado(p) ? [{ label: "Marcar como fiado", icon: "notebook-pen", onClick: () => pede("fiado", p) }] : []),
               ...(p.status === "Fiado" ? [{ label: "Tirar do fiado", icon: "undo-2", onClick: () => pede("tirarFiado", p) }] : []),
               ...(podeChamarRyd(p) ? [{ label: "Chamar entregador (RYD)", icon: "truck", onClick: () => chamarEntregador(p) }] : []),
@@ -397,6 +467,7 @@ function Pedidos({ compact, q }) {
               meta={[p.entrega, p.tel, p.pgto].filter(Boolean)}
               badges={<>
                 {p.tipo ? <Badge tone="accent" icon="building-2">{p.tipo}</Badge> : null}
+                {p.permuta ? <Badge tone="accent" icon="handshake">Permuta {reais(p.permuta.valor)}</Badge> : null}
                 {p.falta ? <Badge tone="warn">Falta {p.falta}</Badge> : null}
                 {p.feitoNaCozinha && ["Em produção", "Fiado"].includes(p.status) ? <Badge tone="success" icon="chef-hat">Feito na cozinha</Badge> : null}
                 {p.status === "Fiado" && p.feitoNaCozinha === false ? <Badge tone="neutral" icon="chef-hat">Na cozinha</Badge> : null}
@@ -437,7 +508,7 @@ function Pedidos({ compact, q }) {
           description="A busca procura pelo nome do cliente, pelo número do pedido (PED-…) e pelo telefone." /></Card>
       ) : (
         <Card padded={false}><EmptyState icon="party-popper" title="Nenhum pedido nesta aba"
-          description="Assim que um pedido entrar nesse status ele aparece aqui automaticamente." /></Card>
+          description={tab === "permuta" ? "Para marcar uma permuta, abra o ☰ do pedido e escolha “Marcar como permuta”." : "Assim que um pedido entrar nesse status ele aparece aqui automaticamente."} /></Card>
       )}
 
       {detalhe ? <DetalhesModal key={detalhe.id} pedido={todos.find(x => x.id === detalhe.id) || detalhe} onClose={() => setDetalhe(null)} onToast={showToast} acao={acao} pendente={pendente} compact={compact} produtos={produtos}
@@ -459,6 +530,8 @@ function Pedidos({ compact, q }) {
             REAL() ? null : () => carga.setDados(l => l.filter(x => x.id !== p.id)), { acao: "apagarPedido", dados: { pedidoId: p.id, senha } });
           if (ok) setApagando(null);
         }} /> : null}
+      {permuta ? <PermutaModal key={"permuta-" + permuta.id} p={todos.find(x => x.id === permuta.id) || permuta} onClose={() => setPermuta(null)} acao={acao} pendente={pendente}
+        aoSalvar={pm => carga.setDados(l => l.map(x => x.id === permuta.id ? { ...x, permuta: pm } : x))} /> : null}
       {nota ? <NotaModal key={"nota-" + nota.id} p={todos.find(x => x.id === nota.id) || nota} onClose={() => setNota(null)} onToast={showToast} acao={acao} pendente={pendente}
         aoSalvar={n => carga.setDados(l => l.map(x => x.id === nota.id ? { ...x, nota: n } : x))} /> : null}
       {link ? <LinkCobranca link={link} onClose={() => setLink(null)} onToast={showToast} /> : null}

@@ -272,7 +272,9 @@ const EXECUTAR = {
     return {
       periodo: `${dataBR(de)} a ${dataBR(ate)}`,
       pedidos: validos.length, cancelados: todos.length - validos.length,
-      faturamento: brl(soma(p => p.total)), recebido: brl(soma(p => p.pago)), a_receber: brl(soma(p => Math.max(0, p.total - p.pago))),
+      // Permuta não é venda nem dinheiro recebido: sai do faturamento e aparece à parte.
+      faturamento: brl(soma(p => p.total - (p.permuta?.valor || 0))), recebido: brl(soma(p => p.pago - (p.permuta?.valor || 0))),
+      em_permuta: brl(soma(p => p.permuta?.valor)), a_receber: brl(soma(p => Math.max(0, p.total - p.pago))),
       por_status: porStatus,
       mais_vendidos: Object.entries(produtos).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([n, q]) => `${q}× ${n}`),
       por_dia: Object.fromEntries(Object.entries(porDia).sort().map(([d, v]) => [dataBR(d), brl(v)]))

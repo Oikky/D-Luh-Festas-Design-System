@@ -591,7 +591,7 @@ textarea.entrada { min-height: 96px; resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   .entregador__moto, .entregador__vivo .ponto::after { animation: none; }
 }
-.contas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; border-block: 1px solid var(--linha); }
+.contas { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; margin: 0; border-block: 1px solid var(--linha); }
 .contas div { padding: 14px 16px 14px 0; }
 .contas div + div { padding-left: 16px; border-left: 1px solid var(--linha); }
 .contas dt { font-size: 0.875rem; color: var(--cafe-2); }
@@ -685,7 +685,7 @@ textarea.entrada { min-height: 96px; resize: vertical; }
   .aro { padding: 16px 10px 14px; }
   .campo--metade, .campo--terco, .campo--largo { grid-column: span 6; }
   .opcoes-modo { grid-template-columns: 1fr; }
-  .contas { grid-template-columns: 1fr; }
+  .contas { grid-auto-flow: row; grid-template-columns: 1fr; }
   .contas div, .contas div + div { padding: 12px 0; border-left: 0; display: flex; justify-content: space-between; align-items: baseline; }
   .contas div + div { border-top: 1px solid var(--linha); }
   .painel__acoes { flex-direction: column-reverse; }

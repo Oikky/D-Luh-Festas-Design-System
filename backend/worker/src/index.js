@@ -88,6 +88,10 @@ const ACOES = {
     return pedidos.registrarPagamento(db, { ...dados, chave: `manual-${dados.chave}` }, por);
   },
 
+  /* Permuta: o pedido (ou parte dele) sai em troca de propaganda etc. Não é dinheiro (dominio.js). */
+  marcarPermuta: (db, dados, por) => pedidos.marcarPermuta(db, dados, por),
+  tirarPermuta: (db, dados, por) => pedidos.tirarPermuta(db, dados, por),
+
   async gerarCobranca(db, { pedidoId, tipo }, por, env, origem) {
     const snap = await db.collection(pedidos.PEDIDOS).doc(String(pedidoId || "")).get();
     if (!snap.exists) throw new ErroDominio("not-found", `Pedido ${pedidoId} não existe`);
@@ -229,6 +233,11 @@ const DEPOIS = {
       lembretes.avisarConfirmado({ env, db, pedidoId: dados.pedidoId, gerarCobranca: gerarEntrada(env, db, por) })
     ] : [])
   ],
+  marcarPermuta: (env, db, dados, r) => [
+    efeitos.sincronizarAgenda(env, db, dados.pedidoId),
+    ...(entrouNaFila(r) ? [alexa.avisarNovoNaFila(env, db, dados.pedidoId)] : [])
+  ],
+  tirarPermuta: (env, db, dados) => [efeitos.sincronizarAgenda(env, db, dados.pedidoId)],
   lembrarEntrada: (env, db, dados, r, por) => [lembretes.enviarLembretes({ env, db, lista: r.lista, por, gerarCobranca: gerarEntrada(env, db, por) })],
   registrarPagamentoManual: (env, db, dados, r, por) => r.duplicado ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId), efeitos.avisarClientePagamento(env, db, dados.pedidoId, dados.valor),

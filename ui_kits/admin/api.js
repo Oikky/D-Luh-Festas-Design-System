@@ -41,7 +41,7 @@ window.DLUH_API = (() => {
   const quando = e => !e ? "—" : e.data === hoje() ? e.hora : `${e.data.slice(8, 10)}/${e.data.slice(5, 7)} · ${e.hora}`;
   const brl = c => "R$ " + ((Number(c) || 0) / 100).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const ts = v => v && typeof v.toDate === "function" ? v.toDate() : v instanceof Date ? v : null;
-  const MEIO = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão", outro: "Outro" };
+  const MEIO = { pix: "Pix", dinheiro: "Dinheiro", cartao: "Cartão", outro: "Outro", permuta: "Permuta" };
   const topoTexto = t => !t ? null : typeof t === "string" ? t : "Topo: " + [t.tema, t.detalhes].filter(Boolean).join(" — ") + (t.imagem ? " · com imagem" : "");
   const resumo = x => (x.itens || []).map(i => `${i.qtd} ${i.nome}`).join(" · ");
   /* What a printed ticket needs (Catalogo.jsx → imprimirPedidos), straight from the record. */
@@ -82,6 +82,8 @@ window.DLUH_API = (() => {
             topper: topoTexto(i.topo) })),
           obs: x.obs || "",
           email: x.cliente?.email || "", uid: x.clienteUid || "",
+          /* Parte do pedido paga em permuta (centavos, já somada em pago) e o que a pessoa ficou de fazer. */
+          permuta: x.permuta && x.permuta.valor ? { valor: x.permuta.valor, combinado: x.permuta.combinado || "" } : null,
           nota: x.nota ? { tipo: x.nota.tipo, numero: x.nota.numero, documento: x.nota.documento || "" } : null,
           /* Entregador da RYD, quando foi chamado (status vem do webhook da RYD). */
           ryd: x.ryd ? { status: x.ryd.status, entregador: x.ryd.entregador?.nome || "", valor: x.ryd.valor || 0 } : null,
@@ -95,8 +97,10 @@ window.DLUH_API = (() => {
       .slice().sort((a, b) => (ts(a.em) || 0) - (ts(b.em) || 0))
       .map(p => ({ quando: ts(p.em) ? ts(p.em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " ·") : null,
         valor: (p.valor || 0) / 100, origem: p.por === "infinitepay" ? "site" : "manual", meio: MEIO[p.meio] || p.meio, arquivo: null, id: p.id })),
-    /* Every payment ever received (Visão geral, Financeiro), in centavos with a local date. */
+    /* Every payment ever received (Visão geral, Financeiro), in centavos with a local date. Permuta
+       is not money, so it stays out of the cash views. */
     todosPagamentos: lista => lista
+      .filter(p => p.meio !== "permuta")
       .map(p => { const d = ts(p.em); return { id: p.id, pedidoId: p.pedidoId, valor: p.valor || 0, meio: MEIO[p.meio] || p.meio || "", origem: p.por === "infinitepay" ? "site" : "manual",
         data: d ? isoLocal(d) : "", hora: d ? d.toTimeString().slice(0, 5) : "" }; })
       .sort((a, b) => `${b.data} ${b.hora}`.localeCompare(`${a.data} ${a.hora}`)),

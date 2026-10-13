@@ -137,6 +137,8 @@ async function consultarDoSite(db, dados) {
   return {
     pedido: {
       id: p.id, status: statusParaCliente(p.status), pagamento: p.pagamento, pago: p.pago || 0, total: p.total,
+      // Parte do pedido paga em permuta (já está somada em pago). O cliente vê a palavra (decisão da loja, 13/10).
+      ...(p.permuta?.valor ? { permuta: p.permuta.valor } : {}),
       entradaPct: p.entradaPct || 50, taxaEntrega: p.taxaEntrega || 0,
       cliente: { nome: p.cliente?.nome || "" },
       entrega: p.entrega,

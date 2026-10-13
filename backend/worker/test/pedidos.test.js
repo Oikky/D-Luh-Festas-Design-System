@@ -5,7 +5,7 @@ import { test, before, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { criarFirestore } from "../src/firestore.js";
-import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, apagarPedido, apagarPagamento } from "../src/pedidos.js";
+import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento, apagarPedido, apagarPagamento, marcarPermuta, tirarPermuta } from "../src/pedidos.js";
 import { salvarProduto, apagarProduto, salvarRecheios, publicarCatalogo } from "../src/produtos.js";
 import { salvarFinanceiro, apagarFinanceiro, pagarBoleto, pagarFatura, faturaDaData, parcelasDaCompra, vencDaFatura } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
@@ -365,6 +365,38 @@ test("apagarPagamento desconta do pedido e reabre o finalizado", async () => {
   const ev = (await eventos(id)).find(e => e.tipo === "pagamento-apagado");
   assert.equal(ev.valor, 20000);
   await assert.rejects(apagarPagamento(db, { pagamentoId: "ap-2" }, "ana"), /não existe/);
+});
+
+test("marcarPermuta: total quita o pedido; parcial deixa o resto; trocar o valor substitui", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  await mudarStatus(db, { pedidoId: id, status: "Confirmado — Esperando pagamento" }, "ana");
+  const r = await marcarPermuta(db, { pedidoId: id, valor: 10000, combinado: " 2 stories @fulana " }, "ana");
+  assert.deepEqual([r.pago, r.pagamento, r.status], [10000, "Só entrada", "Em produção"]);
+  let p = (await db.doc(`sis_pedidos/${id}`).get()).data();
+  assert.deepEqual(p.permuta, { valor: 10000, combinado: "2 stories @fulana" });
+  const pag = (await db.collection("sis_pagamentos").doc(`permuta-${id}`).get()).data();
+  assert.equal(pag.meio, "permuta");
+
+  await registrarPagamento(db, { pedidoId: id, valor: 5000, chave: "pm-1", meio: "pix" }, "ana");
+  await assert.rejects(marcarPermuta(db, { pedidoId: id, valor: 30000 }, "ana"), /passar do que falta/);
+  // Sem valor: a permuta cobre tudo que falta (substitui a de R$ 100).
+  const r2 = await marcarPermuta(db, { pedidoId: id, combinado: "post" }, "ana");
+  assert.deepEqual([r2.valor, r2.pago, r2.pagamento], [22000, 27000, "Totalmente pago"]);
+  await assert.rejects(marcarPermuta(db, { pedidoId: id, valor: 0 }, "ana"), /maior que zero/);
+  assert.ok((await eventos(id)).some(e => e.tipo === "permuta" && e.antes === 10000));
+});
+
+test("marcarPermuta finaliza o entregue; tirarPermuta volta a cobrar", async () => {
+  const { id } = await criarPedido(db, base(), "ana");
+  await mudarStatus(db, { pedidoId: id, status: "Entregue — Esperando restante" }, "ana");
+  assert.equal((await marcarPermuta(db, { pedidoId: id }, "ana")).status, "Finalizado");
+  const t = await tirarPermuta(db, { pedidoId: id }, "ana");
+  assert.deepEqual([t.pago, t.pagamento, t.status], [0, "Não pago", "Entregue — Esperando restante"]);
+  const p = (await db.doc(`sis_pedidos/${id}`).get()).data();
+  assert.equal(p.permuta, null);
+  assert.equal((await db.collection("sis_pagamentos").doc(`permuta-${id}`).get()).exists, false);
+  assert.ok((await eventos(id)).some(e => e.tipo === "permuta-tirada"));
+  await assert.rejects(tirarPermuta(db, { pedidoId: id }, "ana"), /não existe/);
 });
 
 test("publicarCatalogo junta produtos ativos e recheios em sis_catalogo/site", async () => {
