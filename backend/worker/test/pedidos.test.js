@@ -10,6 +10,7 @@ import { salvarProduto, apagarProduto, salvarRecheios, publicarCatalogo } from "
 import { salvarFinanceiro, apagarFinanceiro, pagarBoleto, pagarFatura, faturaDaData, parcelasDaCompra, vencDaFatura } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
 import { registrarNota } from "../src/notas.js";
+import { criarCobrancaJunta, pagarCobrancaJunta, dividir, linkDaCobranca } from "../src/cobrancas.js";
 
 const HOST = `http://${process.env.FIRESTORE_EMULATOR_HOST}`;
 const PROJETO = "demo-dluh";
@@ -429,4 +430,46 @@ test("registrarNota grava tipo, número e CPF/CNPJ; corrigir guarda a anterior n
   const ev = (await eventos(id)).filter(e => e.tipo === "nota");
   assert.equal(ev.length, 2);
   assert.equal(ev[1].antes.numero, "152");
+});
+
+test("dividir: cada pedido leva o que devia; diferença fica no último", () => {
+  const itens = [{ pedidoId: "A", valor: 1000 }, { pedidoId: "B", valor: 500 }];
+  assert.deepEqual(dividir(itens, 1500), itens);
+  assert.deepEqual(dividir(itens, 1200), [{ pedidoId: "A", valor: 1000 }, { pedidoId: "B", valor: 200 }]);
+  assert.deepEqual(dividir(itens, 800), [{ pedidoId: "A", valor: 800 }]);
+  assert.deepEqual(dividir(itens, 1600), [{ pedidoId: "A", valor: 1000 }, { pedidoId: "B", valor: 600 }]);
+});
+
+test("cobrança junta: um link para os fiados; pagar quita e finaliza todos, e repetir não paga de novo", async () => {
+  const a = await criarPedido(db, { ...base(), entrega: { modo: "retirada", data: "2026-10-12", hora: "" } }, "ana", { fiado: true });
+  const b = await criarPedido(db, { ...base(), entrega: { modo: "retirada", data: "2026-10-05", hora: "" } }, "ana", { fiado: true });
+  await registrarPagamento(db, { pedidoId: a.id, valor: 5000, chave: "x1", meio: "pix" }, "ana");
+  const pedidos = [];
+  const r = await criarCobrancaJunta(db, { pedidoIds: [a.id, b.id] }, "ana", async x => { pedidos.push(x); return "https://checkout.test/abc"; });
+  assert.match(r.id, /^COB-/);
+  assert.equal(r.total, 27000 + 22000);
+  assert.deepEqual(r.pedidos.map(x => x.pedidoId), [b.id, a.id]); // mais antigo primeiro
+  assert.equal(pedidos[0].pedidoId, r.id);
+  assert.equal(pedidos[0].valor, r.total);
+  assert.equal(await linkDaCobranca(db, r.id), "https://checkout.test/abc");
+
+  const pg = await pagarCobrancaJunta(db, { cobrancaId: r.id, valor: r.total, transacao: "t1", meio: "pix" }, "infinitepay");
+  assert.deepEqual(pg.partes.map(x => [x.pedidoId, x.valor, x.status]), [[b.id, 27000, "Finalizado"], [a.id, 22000, "Finalizado"]]);
+  for (const id of [a.id, b.id]) {
+    const p = (await db.doc(`sis_pedidos/${id}`).get()).data();
+    assert.deepEqual([p.pago, p.pagamento, p.status], [27000, "Totalmente pago", "Finalizado"]);
+  }
+  assert.equal(await linkDaCobranca(db, r.id), null);
+  const de_novo = await pagarCobrancaJunta(db, { cobrancaId: r.id, valor: r.total, transacao: "t1", meio: "pix" }, "infinitepay");
+  assert.ok(de_novo.partes.every(x => x.duplicado));
+  assert.equal((await db.doc(`sis_pedidos/${a.id}`).get()).get("pago"), 27000);
+});
+
+test("cobrança junta recusa pedidos já pagos ou inexistentes", async () => {
+  const a = await criarPedido(db, base(), "ana");
+  await registrarPagamento(db, { pedidoId: a.id, valor: 27000, chave: "x2", meio: "pix" }, "ana");
+  const link = async () => "https://checkout.test/x";
+  await assert.rejects(criarCobrancaJunta(db, { pedidoIds: [a.id] }, "ana", link), /já estão pagos/);
+  await assert.rejects(criarCobrancaJunta(db, { pedidoIds: ["PED-9999"] }, "ana", link), /não existe/);
+  await assert.rejects(criarCobrancaJunta(db, { pedidoIds: [] }, "ana", link), /Escolha/);
 });

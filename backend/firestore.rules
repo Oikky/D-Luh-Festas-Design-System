@@ -35,6 +35,11 @@ service cloud.firestore {
       allow read: if equipe() || sistema();
       allow write: if sistema();
     }
+    // Cobrança junta (um link para vários pedidos, "Cobrar tudo" dos fiados). Grava pelo Worker.
+    match /sis_cobrancas/{id} {
+      allow read: if equipe() || sistema();
+      allow write: if sistema();
+    }
     match /sis_config/{doc} {
       allow read, write: if sistema();
     }

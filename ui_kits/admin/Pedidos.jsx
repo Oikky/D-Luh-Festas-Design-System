@@ -76,6 +76,11 @@ const CONFIRMA = {
     confirmLabel: "Sim, tirar", ok: "Pedido voltou para Esperando restante", falhou: "Não deu pra tirar do fiado",
     aplicar: l => l.map(x => x.id === p.id ? { ...x, status: "Entregue — Esperando restante" } : x),
     pedido: { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Entregue — Esperando restante" } } }),
+  /* Um link só para tudo que o cliente deve nos fiados; quando ele paga, cada pedido recebe a sua parte. */
+  tudo: p => ({ tone: "chargeAll", icon: "banknote", title: `Cobrar tudo de uma vez: ${reais(p.deve)}?`,
+    message: `Gera um link só com o que falta nos ${p.ids.length} pedidos de ${para(p)} (${p.ids.join(", ")}). Quando pagar, cada pedido recebe a sua parte e os quitados finalizam sozinhos.`,
+    confirmLabel: "Sim, gerar link", ok: "Link de tudo gerado", falhou: "Não deu pra gerar o link",
+    pedido: async chamar => ({ ...(await chamar("cobrarJuntos", { pedidoIds: p.ids })), rotulo: "Total em aberto" }) }),
   cancelarRyd: p => ({ tone: "danger", icon: "truck", title: "Cancelar o entregador?",
     message: "A RYD cancela a corrida (só dá antes de o entregador chegar na loja). O pedido continua como está.", confirmLabel: "Sim, cancelar",
     ok: "Entregador cancelado", falhou: "Não deu pra cancelar o entregador",
@@ -108,7 +113,8 @@ const textoRyd = p => {
 /* A charge is a link the atendente sends; this is where it lands after it's generated. */
 function LinkCobranca({ link, onClose, onToast }) {
   const fone = String(link.tel || "").replace(/\D/g, "");
-  const msg = `Olá, ${link.cliente || ""}! 🩷\n\nSeu pedido ${link.pedidoId} na D'Luh Festas — ${link.rotulo.toLowerCase()} de ${reais(link.valor)}.\nPague pelo link: ${link.url}`;
+  const varios = String(link.pedidoId).includes(",");
+  const msg = `Olá, ${link.cliente || ""}! 🩷\n\n${varios ? "Seus pedidos" : "Seu pedido"} ${link.pedidoId} na D'Luh Festas — ${link.rotulo.toLowerCase()} de ${reais(link.valor)}.\nPague pelo link: ${link.url}`;
   const copiar = () => navigator.clipboard.writeText(link.url).then(() => onToast("Link copiado"), () => onToast("Não deu pra copiar: selecione o link e copie", "danger"));
   return <Modal width={520} title="Link de pagamento pronto" onClose={onClose}
     subtitle={`${link.rotulo} de ${reais(link.valor)} · ${link.pedidoId} · ${link.cliente || "cliente"}`}
@@ -436,6 +442,7 @@ function FiadoCliente({ c, compact, onClose, onToast, pede, pendente, acao, onDe
   const copiar = () => navigator.clipboard.writeText(texto).then(() => onToast("Relatório copiado"), () => onToast("Não deu pra copiar o relatório", "danger"));
   const n = c.pedidos.length;
   const cresce = compact ? { flex: "1 1 auto" } : undefined;
+  const abertos = c.pedidos.filter(p => centavos(p, "falta") > 0);
   return <Modal width={640} title={c.nome} onClose={onClose}
     subtitle={`${n} ${n === 1 ? "pedido" : "pedidos"} em aberto desde ${dataBR(c.desde)}${c.tel ? " · " + window.fmtTel(c.tel) : ""}`}
     footer={<>
@@ -447,6 +454,9 @@ function FiadoCliente({ c, compact, onClose, onToast, pede, pendente, acao, onDe
     <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderRadius: "var(--radius-sm)", background: "var(--color-accent-soft)", border: "var(--border-hairline) solid var(--color-accent)" }}>
       <span style={{ fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Deve no total</span>
       <span style={{ fontSize: "var(--fs-h3, 22px)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)", fontVariantNumeric: "tabular-nums" }}>{reais(c.deve)}</span>
+      <span style={{ flex: 1 }} />
+      {abertos.length > 1 ? <Button size="sm" style={{ ...cresce, alignSelf: "center" }} tone="chargeAll" icon="banknote"
+        onClick={() => pede("tudo", { id: abertos.map(p => p.id).join(", "), ids: abertos.map(p => p.id), deve: c.deve, cliente: c.nome, tel: c.tel })}>Cobrar tudo</Button> : null}
     </div>
     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
       {c.pedidos.map(p => {

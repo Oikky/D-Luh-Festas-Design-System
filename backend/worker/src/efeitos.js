@@ -173,6 +173,19 @@ async function avisarClientePagamento(env, db, pedidoId, valor) {
   ].filter(x => x !== null).join("\n"));
 }
 
+/* Um link pagou vários pedidos (cobrança junta): uma mensagem só, não uma por pedido. */
+async function avisarClientePagamentoJunto(env, db, cliente, valor, partes) {
+  if (!whatsappLigado(env)) return;
+  const ps = await Promise.all(partes.map(x => lerPedido(db, x.pedidoId)));
+  const falta = ps.filter(Boolean).reduce((s, p) => s + Math.max(0, p.total - p.pago), 0);
+  const ids = partes.map(x => x.pedidoId);
+  return enviarTexto(env, cliente.telefone, [
+    `Olá, ${cliente.nome}! 🩷`,
+    `Recebemos seu pagamento de ${brl(valor)} ${ids.length === 1 ? "do pedido" : "dos pedidos"} ${ids.join(", ")}.`,
+    falta ? `Ainda falta ${brl(falta)}.` : "Está tudo pago. Obrigada!"
+  ].join("\n"));
+}
+
 const momento = p => p.entrega?.modo === "entrega" ? "entrega" : "retirada";
 
 /* Status virou "Pronto": avisa o cliente e lembra o restante, se houver. */
@@ -236,4 +249,4 @@ async function backup(env, db) {
   return r;
 }
 
-export { brl, dataBR, linhasItens, sincronizarAgenda, telegramCancelado, telegramComprovante, avisarLojaNovoPedido, telegramNovoPedido, telegramConfirmado, telegramPagamento, avisarClientePagamento, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };
+export { brl, dataBR, linhasItens, sincronizarAgenda, telegramCancelado, telegramComprovante, avisarLojaNovoPedido, telegramNovoPedido, telegramConfirmado, telegramPagamento, avisarClientePagamento, avisarClientePagamentoJunto, avisarClientePronto, avisarClienteRecebido, resumoParaCliente, backup, falhou, lerPedido };

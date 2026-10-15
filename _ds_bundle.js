@@ -5672,6 +5672,22 @@ const CONFIRMA = {
       }
     }
   }),
+  /* Um link só para tudo que o cliente deve nos fiados; quando ele paga, cada pedido recebe a sua parte. */
+  tudo: p => ({
+    tone: "chargeAll",
+    icon: "banknote",
+    title: `Cobrar tudo de uma vez: ${reais(p.deve)}?`,
+    message: `Gera um link só com o que falta nos ${p.ids.length} pedidos de ${para(p)} (${p.ids.join(", ")}). Quando pagar, cada pedido recebe a sua parte e os quitados finalizam sozinhos.`,
+    confirmLabel: "Sim, gerar link",
+    ok: "Link de tudo gerado",
+    falhou: "Não deu pra gerar o link",
+    pedido: async chamar => ({
+      ...(await chamar("cobrarJuntos", {
+        pedidoIds: p.ids
+      })),
+      rotulo: "Total em aberto"
+    })
+  }),
   cancelarRyd: p => ({
     tone: "danger",
     icon: "truck",
@@ -5756,7 +5772,8 @@ function LinkCobranca({
   onToast
 }) {
   const fone = String(link.tel || "").replace(/\D/g, "");
-  const msg = `Olá, ${link.cliente || ""}! 🩷\n\nSeu pedido ${link.pedidoId} na D'Luh Festas — ${link.rotulo.toLowerCase()} de ${reais(link.valor)}.\nPague pelo link: ${link.url}`;
+  const varios = String(link.pedidoId).includes(",");
+  const msg = `Olá, ${link.cliente || ""}! 🩷\n\n${varios ? "Seus pedidos" : "Seu pedido"} ${link.pedidoId} na D'Luh Festas — ${link.rotulo.toLowerCase()} de ${reais(link.valor)}.\nPague pelo link: ${link.url}`;
   const copiar = () => navigator.clipboard.writeText(link.url).then(() => onToast("Link copiado"), () => onToast("Não deu pra copiar: selecione o link e copie", "danger"));
   return /*#__PURE__*/React.createElement(Modal, {
     width: 520,
@@ -6496,6 +6513,7 @@ function FiadoCliente({
   const cresce = compact ? {
     flex: "1 1 auto"
   } : undefined;
+  const abertos = c.pedidos.filter(p => centavos(p, "falta") > 0);
   return /*#__PURE__*/React.createElement(Modal, {
     width: 640,
     title: c.nome,
@@ -6540,7 +6558,26 @@ function FiadoCliente({
       color: "var(--text-strong)",
       fontVariantNumeric: "tabular-nums"
     }
-  }, reais(c.deve))), /*#__PURE__*/React.createElement("div", {
+  }, reais(c.deve)), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1
+    }
+  }), abertos.length > 1 ? /*#__PURE__*/React.createElement(Button, {
+    size: "sm",
+    style: {
+      ...cresce,
+      alignSelf: "center"
+    },
+    tone: "chargeAll",
+    icon: "banknote",
+    onClick: () => pede("tudo", {
+      id: abertos.map(p => p.id).join(", "),
+      ids: abertos.map(p => p.id),
+      deve: c.deve,
+      cliente: c.nome,
+      tel: c.tel
+    })
+  }, "Cobrar tudo") : null), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",

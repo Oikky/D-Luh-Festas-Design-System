@@ -24,6 +24,7 @@ import * as atendimento from "./sofia-atendimento.js";
 import * as produtos from "./produtos.js";
 import * as financeiro from "./financeiro.js";
 import * as notas from "./notas.js";
+import * as cobrancas from "./cobrancas.js";
 import { enviarImagem } from "./google.js";
 import { whatsappLigado, enviarTexto } from "./whatsapp.js";
 import * as efeitos from "./efeitos.js";
@@ -113,6 +114,12 @@ const ACOES = {
     return { url: linkCurto(snap.id), completo: url, valor };
   },
 
+  /* "Cobrar tudo" dos fiados: um link só para o que falta em vários pedidos (cobrancas.js). */
+  cobrarJuntos: (db, { pedidoIds }, por, env, origem) => cobrancas.criarCobrancaJunta(db, { pedidoIds }, por,
+    ({ pedidoId, valor, descricao, cliente }) => infinitepay.criarLink({
+      handle: env.INFINITEPAY_HANDLE, pedidoId, valor, descricao, cliente, webhookUrl: `${origem}/webhook/infinitepay`
+    })).then(r => ({ ...r, url: linkCurto(r.id), valor: r.total })),
+
   salvarProduto: (db, dados, por) => produtos.salvarProduto(db, dados, por),
   apagarProduto: (db, dados) => produtos.apagarProduto(db, dados),
   salvarRecheios: (db, dados, por) => produtos.salvarRecheios(db, dados, por),
@@ -198,6 +205,10 @@ const linkCurto = pedidoId => `${ORIGEM_API}/pagar/${encodeURIComponent(pedidoId
 async function pagar(pedidoId, env) {
   const acompanhar = `https://www.dluhfestas.com/pedido?n=${encodeURIComponent(pedidoId)}`;
   const db = banco(env);
+  if (cobrancas.ehCobrancaJunta(pedidoId)) {
+    const url = await cobrancas.linkDaCobranca(db, pedidoId);
+    return url ? Response.redirect(url, 302) : new Response("Esse pagamento já foi feito. Obrigada! 🩷", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
   const p = await efeitos.lerPedido(db, pedidoId);
   if (!p || p.status === "Cancelado" || (p.total || 0) - (p.pago || 0) <= 0) return Response.redirect(acompanhar, 302);
   const eventos = await db.collection(pedidos.PEDIDOS).doc(p.id).collection("eventos").listar();
@@ -364,6 +375,16 @@ async function webhookInfinitepay(request, env, ctx) {
     const conf = await infinitepay.conferirPagamento({ handle: env.INFINITEPAY_HANDLE, order_nsu, transaction_nsu, slug: invoice_slug });
     if (!conf.pago) return tentarDeNovo("pagamento não confirmado no payment_check");
     const db = banco(env);
+    if (cobrancas.ehCobrancaJunta(order_nsu)) {
+      const j = await cobrancas.pagarCobrancaJunta(db, { cobrancaId: order_nsu, valor: conf.valor, transacao: transaction_nsu, meio: conf.meio, comprovante: receipt_url }, "infinitepay");
+      const novas = j.partes.filter(x => !x.duplicado);
+      if (novas.length) depois(ctx, [
+        ...novas.flatMap(x => [efeitos.sincronizarAgenda(env, db, x.pedidoId), efeitos.telegramPagamento(env, db, x.pedidoId, x.valor, conf.meio, "infinitepay"),
+          ...(entrouNaFila(x) ? [alexa.avisarNovoNaFila(env, db, x.pedidoId)] : [])]),
+        efeitos.avisarClientePagamentoJunto(env, db, j.cliente, novas.reduce((s, x) => s + x.valor, 0), novas)
+      ], "webhook", order_nsu);
+      return ok(novas.length ? null : "já registrado");
+    }
     const r = await pedidos.registrarPagamento(db, {
       pedidoId: order_nsu, valor: conf.valor, chave: `ip-${transaction_nsu}`, meio: conf.meio, comprovante: receipt_url
     }, "infinitepay");
