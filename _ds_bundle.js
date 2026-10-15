@@ -5510,6 +5510,13 @@ const TABS = [{
   id: "final",
   label: "Finalizados",
   filtro: ["Finalizado"]
+},
+/* Permuta: o pedido (ou parte dele) foi pago com propaganda, divulgação etc. Não é status: o
+   pedido segue o fluxo normal e aparece aqui também, em qualquer status menos cancelado. */
+{
+  id: "permuta",
+  label: "Permutas",
+  so: p => !!p.permuta && p.status !== "Cancelado"
 }, {
   id: "cancelado",
   label: "Cancelados",
@@ -5538,6 +5545,7 @@ const BUSCA = {
   label: "Resultados",
   filtro: null
 };
+const naAba = (t, p) => t.so ? t.so(p) : !t.filtro || t.filtro.includes(p.status);
 
 /* Every confirmation the order card can open. Money actions name the amount in the question. */
 const quem = p => p.cliente || "O cliente";
@@ -6063,7 +6071,15 @@ function DetalhesModal({
       fontSize: "var(--fs-body-l)",
       fontWeight: "var(--fw-bold)"
     }
-  }, window.brl(recebido))), window.totalRascunho(r) - recebido > 0.004 ? /*#__PURE__*/React.createElement(Field, {
+  }, window.brl(REAL() && pedido.permuta ? recebido - pedido.permuta.valor / 100 : recebido))), pedido.permuta ? /*#__PURE__*/React.createElement(Field, {
+    label: "Em permuta",
+    hint: pedido.permuta.combinado || undefined
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body-l)",
+      fontWeight: "var(--fw-bold)"
+    }
+  }, reais(pedido.permuta.valor))) : null, window.totalRascunho(r) - recebido > 0.004 ? /*#__PURE__*/React.createElement(Field, {
     label: "Falta"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -6182,12 +6198,155 @@ function ApagarComSenha({
   }))));
 }
 
-/* Quanto está na rua em fiado e com quantas pessoas, para a aba Fiados. */
-function ResumoFiado({
+/* Permuta: quanto do pedido sai em troca (tudo que falta, ou menos: o resto a pessoa paga normal)
+   e o que ela ficou de fazer. Não entra no caixa nem no faturamento; o cliente vê "Permuta" no
+   acompanhamento do pedido. */
+function PermutaModal({
+  p,
+  onClose,
+  acao,
+  pendente,
+  aoSalvar
+}) {
+  const atual = p.permuta ? p.permuta.valor : 0;
+  const max = p._c ? p._c.falta + atual : Math.round(valor(p.falta) * 100) + atual;
+  const [v, setV] = React.useState(((atual || max) / 100).toFixed(2));
+  const [combinado, setCombinado] = React.useState(p.permuta ? p.permuta.combinado : "");
+  const [tentou, setTentou] = React.useState(false);
+  const cent = Math.round(parseFloat(String(v).replace(",", ".")) * 100) || 0;
+  const erro = !tentou ? undefined : cent <= 0 ? "Digite um valor maior que zero" : cent > max ? `No máximo ${reais(max)} (o que falta pagar)` : undefined;
+  const resto = Math.max(0, max - cent);
+  const totalCent = p._c ? p._c.total : Math.round(valor(p.total) * 100);
+  const salvar = async () => {
+    setTentou(true);
+    if (cent <= 0 || cent > max) return;
+    const pm = {
+      valor: cent,
+      combinado: combinado.trim()
+    };
+    const ok = await acao("permuta", {
+      ok: atual ? "Permuta atualizada" : "Pedido marcado como permuta",
+      falhou: "Não deu pra salvar a permuta"
+    }, REAL() ? null : () => aoSalvar(pm), {
+      acao: "marcarPermuta",
+      dados: {
+        pedidoId: p.id,
+        ...pm
+      }
+    });
+    if (ok) onClose();
+  };
+  const tirar = async () => {
+    const ok = await acao("tirar-permuta", {
+      ok: "Permuta tirada: o valor volta a ser cobrado",
+      falhou: "Não deu pra tirar a permuta"
+    }, REAL() ? null : () => aoSalvar(null), {
+      acao: "tirarPermuta",
+      dados: {
+        pedidoId: p.id
+      }
+    });
+    if (ok) onClose();
+  };
+  const ocupado = pendente === "permuta" || pendente === "tirar-permuta";
+  return /*#__PURE__*/React.createElement(Modal, {
+    width: 520,
+    title: atual ? "Permuta" : "Marcar como permuta",
+    onClose: ocupado ? null : onClose,
+    subtitle: `${p.id} · ${p.cliente || "cliente"} · ${p.total}`,
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, atual ? /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      tone: "danger",
+      block: true,
+      icon: "undo-2",
+      loading: pendente === "tirar-permuta",
+      disabled: ocupado,
+      onClick: tirar
+    }, "Tirar permuta") : /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      disabled: ocupado,
+      onClick: onClose
+    }, "Voltar"), /*#__PURE__*/React.createElement(Button, {
+      block: true,
+      icon: "handshake",
+      loading: pendente === "permuta",
+      disabled: ocupado,
+      onClick: salvar
+    }, atual ? "Salvar" : "Marcar permuta"))
+  }, /*#__PURE__*/React.createElement("form", {
+    onSubmit: e => {
+      e.preventDefault();
+      salvar();
+    },
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Valor em permuta",
+    required: true,
+    error: erro,
+    hint: cent > 0 && cent <= max ? resto ? `Permuta parcial: ${reais(resto)} continua para ${para(p)} pagar.` : cent >= totalCent ? "O pedido todo sai em permuta e fica quitado." : "Com o que já foi pago, o pedido fica quitado." : `Até ${reais(max)}.`
+  }, /*#__PURE__*/React.createElement(Input, {
+    type: "number",
+    prefix: "R$",
+    step: "0.01",
+    min: "0",
+    inputMode: "decimal",
+    value: v,
+    invalid: !!erro,
+    onChange: e => setV(e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "O que foi combinado",
+    hint: "Ex.: 2 stories e 1 post no Instagram (@perfil). S\xF3 a equipe v\xEA este texto."
+  }, /*#__PURE__*/React.createElement(Input, {
+    autoComplete: "off",
+    maxLength: 500,
+    value: combinado,
+    onChange: e => setCombinado(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)",
+      lineHeight: "var(--lh-normal)"
+    }
+  }, "N\xE3o entra no caixa nem no faturamento. O cliente v\xEA \u201CPermuta\u201D no acompanhamento do pedido.")));
+}
+
+/* Quanto já saiu em permuta e com quantas pessoas, para a aba Permutas. */
+function ResumoPermuta({
   lista
 }) {
-  const falta = lista.reduce((s, p) => s + (p._c ? p._c.falta / 100 : valor(p.falta)), 0);
+  const total = lista.reduce((s, p) => s + p.permuta.valor, 0);
   const pessoas = new Set(lista.map(p => String(p.tel || "").replace(/\D/g, "") || p.cliente)).size;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginRight: "auto",
+      display: "flex",
+      alignItems: "baseline",
+      gap: 8,
+      flexWrap: "wrap",
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Em permuta:"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-body-l)",
+      fontWeight: "var(--fw-bold)",
+      color: "var(--text-strong)",
+      fontVariantNumeric: "tabular-nums"
+    }
+  }, reais(total)), /*#__PURE__*/React.createElement("span", null, "\xB7 ", pessoas === 1 ? "1 pessoa" : `${pessoas} pessoas`));
+}
+
+/* Quanto está na rua em fiado e com quantas pessoas, para a aba Fiados. */
+function ResumoFiado({
+  lista,
+  pessoas
+}) {
+  const falta = lista.reduce((s, p) => s + (p._c ? p._c.falta / 100 : valor(p.falta)), 0);
   return /*#__PURE__*/React.createElement("div", {
     style: {
       marginRight: "auto",
@@ -6207,6 +6366,312 @@ function ResumoFiado({
     }
   }, window.brl(falta)), /*#__PURE__*/React.createElement("span", null, "\xB7 ", pessoas === 1 ? "1 cliente" : `${pessoas} clientes`));
 }
+
+/* ── Fiados por cliente: a aba lista quem deve (como os boletos), e cada cliente abre os pedidos
+   dele com o relatório do que pegou, quando e quanto falta. Os pedidos da mesma pessoa se juntam
+   como na tela Clientes (telefone, login ou e-mail). ── */
+const centavos = (p, campo) => p._c ? p._c[campo] || 0 : Math.round(valor(p[campo]) * 100);
+const dataBR = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "sem data";
+const diaMes = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "sem data";
+const itensDe = p => p._c ? p._c.itens.map(i => ({
+  qtd: i.qtd,
+  nome: i.nome,
+  valor: reais(i.qtd * i.valorUnit)
+})) : (p.itens || []).map(i => ({
+  qtd: i.qty,
+  nome: i.name,
+  valor: i.price
+}));
+function fiadosPorCliente(lista) {
+  return window.clientesDe(lista).map(c => {
+    const pedidos = c.pedidos.slice().sort((a, b) => `${a.data} ${a.hora}`.localeCompare(`${b.data} ${b.hora}`));
+    return {
+      ...c,
+      pedidos,
+      deve: pedidos.reduce((s, p) => s + centavos(p, "falta"), 0),
+      desde: pedidos[0].data || ""
+    };
+  }).sort((a, b) => (a.desde || "9").localeCompare(b.desde || "9") || b.deve - a.deve);
+}
+
+/* O texto vai para o cliente: nada da palavra fiado (a mesma regra da Sofia e do site). */
+function textoRelatorio(c) {
+  const linhas = [`Olá, ${c.nome}! 🩷`, "", "Segue o resumo do que está em aberto com a D'Luh Festas:", ""];
+  c.pedidos.forEach(p => {
+    linhas.push(`📅 ${dataBR(p.data)} · ${p.id}`);
+    itensDe(p).forEach(i => linhas.push(`  ${i.qtd}× ${i.nome}${i.valor ? ` — ${i.valor}` : ""}`));
+    const pago = centavos(p, "pago");
+    linhas.push(`  Total ${reais(centavos(p, "total"))}${pago ? ` · pago ${reais(pago)}` : ""} · falta ${reais(centavos(p, "falta"))}`, "");
+  });
+  linhas.push(`*Total em aberto: ${reais(c.deve)}*`);
+  return linhas.join("\n");
+}
+const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, x => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;"
+})[x]);
+/* Sai na mesma impressora dos pedidos (80 mm), de um frame escondido. */
+function imprimirRelatorio(c) {
+  const agora = new Date().toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Em aberto · ${escH(c.nome)}</title><style>
+    @page{margin:0}*{box-sizing:border-box}
+    body{margin:0;padding:3mm 3mm 6mm;width:80mm;color:#000;font:13.5px/1.3 system-ui,"Segoe UI",Arial,sans-serif}
+    .topo{display:flex;justify-content:space-between;font-size:12px}
+    .nome{font-size:20px;font-weight:800;line-height:1.1;margin:4px 0 2px;overflow-wrap:anywhere}
+    h2{display:flex;justify-content:space-between;font-size:13px;font-weight:800;border-bottom:1.5px dashed #000;margin:10px 0 4px;padding-bottom:2px}
+    .i{display:flex;gap:6px;margin:2px 0}.q{font-weight:800;min-width:30px;text-align:right}.v{margin-left:auto;white-space:nowrap}
+    .s{font-size:12.5px;margin-top:3px;text-align:right}
+    .tot{border:2px solid #000;font-weight:800;font-size:16px;text-align:center;padding:5px;margin-top:12px}
+    .rod{font-size:11px;text-align:center;margin-top:8px}
+  </style></head><body>
+    <div class="topo"><b>Em aberto</b><span>D'Luh Festas</span></div>
+    <div class="nome">${escH(c.nome)}</div>${c.tel ? `<div>${escH(window.fmtTel(c.tel))}</div>` : ""}
+    ${c.pedidos.map(p => `<h2><span>${escH(dataBR(p.data))}</span><span>${escH(p.id)}</span></h2>` + itensDe(p).map(i => `<div class="i"><span class="q">${escH(i.qtd)}</span><span>${escH(i.nome)}</span><span class="v">${escH(i.valor || "")}</span></div>`).join("") + `<div class="s">Total ${escH(reais(centavos(p, "total")))}${centavos(p, "pago") ? ` · pago ${escH(reais(centavos(p, "pago")))}` : ""} · <b>falta ${escH(reais(centavos(p, "falta")))}</b></div>`).join("")}
+    <div class="tot">Total em aberto: ${escH(reais(c.deve))}</div>
+    <div class="rod">${c.pedidos.length === 1 ? "1 pedido" : c.pedidos.length + " pedidos"} · impresso ${escH(agora)}</div>
+  </body></html>`;
+  const f = document.createElement("iframe");
+  f.setAttribute("aria-hidden", "true");
+  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  f.onload = () => {
+    try {
+      f.contentWindow.focus();
+      f.contentWindow.print();
+    } finally {
+      setTimeout(() => f.remove(), 300);
+    }
+  };
+  f.srcdoc = html;
+  document.body.appendChild(f);
+}
+function ListaFiados({
+  clientes,
+  compact,
+  onAbrir
+}) {
+  return /*#__PURE__*/React.createElement(Card, {
+    bodyStyle: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 6
+    }
+  }, clientes.map(c => {
+    const n = c.pedidos.length;
+    const sub = [`${n} ${n === 1 ? "pedido" : "pedidos"}`, `desde ${diaMes(c.desde)}`, compact ? null : c.tel ? window.fmtTel(c.tel) : null].filter(Boolean).join(" · ");
+    return /*#__PURE__*/React.createElement(ListRow, {
+      key: c.id,
+      avatar: compact ? null : (c.nome || "?").trim().charAt(0).toUpperCase(),
+      title: c.nome,
+      subtitle: sub,
+      value: reais(c.deve),
+      valueSub: "em aberto",
+      onClick: () => onAbrir(c.id)
+    });
+  }));
+}
+
+/* O cliente aberto: o relatório no topo (copiar, WhatsApp, imprimir) e cada pedido com as ações dele. */
+function FiadoCliente({
+  c,
+  compact,
+  onClose,
+  onToast,
+  pede,
+  pendente,
+  acao,
+  onDetalhes
+}) {
+  const fone = window.telDigitos(c.tel);
+  const texto = textoRelatorio(c);
+  const copiar = () => navigator.clipboard.writeText(texto).then(() => onToast("Relatório copiado"), () => onToast("Não deu pra copiar o relatório", "danger"));
+  const n = c.pedidos.length;
+  const cresce = compact ? {
+    flex: "1 1 auto"
+  } : undefined;
+  return /*#__PURE__*/React.createElement(Modal, {
+    width: 640,
+    title: c.nome,
+    onClose: onClose,
+    subtitle: `${n} ${n === 1 ? "pedido" : "pedidos"} em aberto desde ${dataBR(c.desde)}${c.tel ? " · " + window.fmtTel(c.tel) : ""}`,
+    footer: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      icon: "printer",
+      onClick: () => imprimirRelatorio(c)
+    }, "Imprimir"), /*#__PURE__*/React.createElement(Button, {
+      variant: "ghost",
+      block: true,
+      icon: "copy",
+      onClick: copiar
+    }, "Copiar"), /*#__PURE__*/React.createElement(Button, {
+      block: true,
+      icon: "message-circle",
+      disabled: fone.length < 10,
+      onClick: () => window.open(`https://wa.me/55${fone}?text=${encodeURIComponent(texto)}`, "_blank", "noopener")
+    }, compact ? "WhatsApp" : "Enviar no WhatsApp"))
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "baseline",
+      gap: 10,
+      flexWrap: "wrap",
+      padding: "12px 14px",
+      borderRadius: "var(--radius-sm)",
+      background: "var(--color-accent-soft)",
+      border: "var(--border-hairline) solid var(--color-accent)"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-body-s)",
+      color: "var(--text-muted)"
+    }
+  }, "Deve no total"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: "var(--fs-h3, 22px)",
+      fontWeight: "var(--fw-bold)",
+      color: "var(--text-strong)",
+      fontVariantNumeric: "tabular-nums"
+    }
+  }, reais(c.deve))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+      marginTop: 14
+    }
+  }, c.pedidos.map(p => {
+    const quitado = p.pagamento === "Totalmente pago";
+    const pago = centavos(p, "pago");
+    return /*#__PURE__*/React.createElement("div", {
+      key: p.id,
+      style: {
+        padding: "11px 12px",
+        borderRadius: "var(--radius-sm)",
+        background: "var(--color-surface-2)",
+        border: "var(--border-hairline) solid var(--color-border-soft)"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "baseline",
+        gap: 10,
+        flexWrap: "wrap"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: "var(--fw-semibold)",
+        color: "var(--text-strong)"
+      }
+    }, dataBR(p.data)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: "var(--fs-tiny)",
+        color: "var(--text-accent)",
+        fontWeight: "var(--fw-semibold)",
+        letterSpacing: "var(--ls-caps)"
+      }
+    }, p.id), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: "var(--fw-bold)",
+        color: "var(--text-strong)",
+        whiteSpace: "nowrap",
+        fontVariantNumeric: "tabular-nums"
+      }
+    }, quitado ? "Quitado" : `falta ${reais(centavos(p, "falta"))}`)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 6,
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        fontSize: "var(--fs-body-s)",
+        color: "var(--text-body)"
+      }
+    }, itensDe(p).map((i, k) => /*#__PURE__*/React.createElement("div", {
+      key: k,
+      style: {
+        display: "flex",
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: "var(--fw-semibold)",
+        minWidth: 34,
+        textAlign: "right",
+        fontVariantNumeric: "tabular-nums"
+      }
+    }, i.qtd, "\xD7"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, i.nome), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "var(--text-muted)",
+        whiteSpace: "nowrap"
+      }
+    }, i.valor)))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 6,
+        fontSize: "var(--fs-tiny)",
+        color: "var(--text-muted)"
+      }
+    }, "Total ", reais(centavos(p, "total")), pago ? ` · pago ${reais(pago)}` : ""), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        marginTop: 10
+      }
+    }, /*#__PURE__*/React.createElement(Button, {
+      size: "sm",
+      variant: "ghost",
+      icon: "file-text",
+      onClick: () => onDetalhes(p)
+    }, "Detalhes"), /*#__PURE__*/React.createElement(Button, {
+      size: "sm",
+      variant: "ghost",
+      icon: "undo-2",
+      onClick: () => pede("tirarFiado", p)
+    }, "Tirar do fiado"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        flex: 1
+      }
+    }), quitado ? /*#__PURE__*/React.createElement(Button, {
+      size: "sm",
+      style: cresce,
+      tone: "delivered",
+      icon: "circle-check",
+      loading: pendente === "finalizar-" + p.id,
+      onClick: () => acao("finalizar-" + p.id, {
+        ok: "Pedido finalizado",
+        falhou: "Não deu pra finalizar o pedido"
+      }, null, {
+        acao: "mudarStatus",
+        dados: {
+          pedidoId: p.id,
+          status: "Finalizado"
+        }
+      })
+    }, "Finalizar") : /*#__PURE__*/React.createElement(Button, {
+      size: "sm",
+      style: cresce,
+      tone: "chargeAll",
+      icon: "banknote",
+      onClick: () => pede("restante", p)
+    }, "Cobrar restante")));
+  })));
+}
 function Pedidos({
   compact,
   q
@@ -6217,21 +6682,23 @@ function Pedidos({
   const [confirm, setConfirm] = React.useState(null);
   const [apagando, setApagando] = React.useState(null);
   const [nota, setNota] = React.useState(null);
+  const [permuta, setPermuta] = React.useState(null);
+  const [fiadoDe, setFiadoDe] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   /* Busca e as abas de pedidos encerrados leem o histórico inteiro; o resto só o recente (firebase.js). */
-  const carga = useAoVivo(q || tab === "final" || tab === "cancelado" || tab === "busca" ? "pedidosTodos" : "pedidos");
+  const carga = useAoVivo(q || tab === "final" || tab === "cancelado" || tab === "busca" || tab === "permuta" ? "pedidosTodos" : "pedidos");
   const catalogo = useAoVivo("produtos");
   const produtos = catalogo.dados || [];
   const [link, setLink] = React.useState(null);
   const imprimir = p => window.imprimirPedido(p, produtos) || showToast("O navegador bloqueou a janela de impressão", "danger");
   const todos = carga.dados || [];
   const abas = q ? [BUSCA, ...TABS] : TABS;
-  const filtro = (abas.find(t => t.id === tab) || TABS[0]).filtro;
-  const lista = todos.filter(p => !filtro || filtro.includes(p.status)).filter(p => casa(p, q));
+  const aba = abas.find(t => t.id === tab) || TABS[0];
+  const lista = todos.filter(p => naAba(aba, p)).filter(p => casa(p, q));
   /* Orders whose Status is not in the Coda single-select would fall between the tabs. They are
      listed on their own, above the tabs, so a typo in Coda is visible instead of lost. */
-  const fora = todos.filter(p => !TABS.some(t => t.filtro.includes(p.status)));
+  const fora = todos.filter(p => !TABS.some(t => t.filtro && t.filtro.includes(p.status)));
   const achouEmOutra = !!q && todos.some(p => casa(p, q));
 
   /* Digitar na busca abre "Resultados" (todos os status); limpar volta para a primeira aba. As
@@ -6239,8 +6706,10 @@ function Pedidos({
   React.useEffect(() => {
     if (q) setTab("busca");else setTab(t => t === "busca" ? "estoque" : t);
   }, [!!q]);
+  const fiados = tab === "fiado" ? fiadosPorCliente(lista) : [];
+  const fiadoAberto = fiadoDe && fiados.find(c => c.id === fiadoDe);
   const counts = {};
-  abas.forEach(t => counts[t.id] = todos.filter(p => (!t.filtro || t.filtro.includes(p.status)) && casa(p, q)).length);
+  abas.forEach(t => counts[t.id] = todos.filter(p => naAba(t, p) && casa(p, q)).length);
   const pede = (tipo, p) => setConfirm({
     tipo,
     p,
@@ -6364,6 +6833,9 @@ function Pedidos({
       flexWrap: "wrap"
     }
   }, tab === "fiado" && lista.length ? /*#__PURE__*/React.createElement(ResumoFiado, {
+    lista: lista,
+    pessoas: fiados.length
+  }) : null, tab === "permuta" && lista.length ? /*#__PURE__*/React.createElement(ResumoPermuta, {
     lista: lista
   }) : null, tab === "pagamento" && lista.length ? /*#__PURE__*/React.createElement(Button, {
     size: "sm",
@@ -6390,7 +6862,11 @@ function Pedidos({
     size: "sm",
     icon: "plus",
     onClick: () => setManual(true)
-  }, "Pedido manual")), lista.length ? /*#__PURE__*/React.createElement("div", {
+  }, "Pedido manual")), tab === "fiado" && fiados.length ? /*#__PURE__*/React.createElement(ListaFiados, {
+    clientes: fiados,
+    compact: compact,
+    onAbrir: setFiadoDe
+  }) : lista.length ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -6430,6 +6906,10 @@ function Pedidos({
         label: p.nota ? "Nota fiscal" : "Emitir nota fiscal",
         icon: "receipt-text",
         onClick: () => setNota(p)
+      }]), ...(p.status === "Cancelado" || !p.permuta && p.pagamento === "Totalmente pago" ? [] : [{
+        label: p.permuta ? "Permuta" : "Marcar como permuta",
+        icon: "handshake",
+        onClick: () => setPermuta(p)
       }]), ...(podeFiado(p) ? [{
         label: "Marcar como fiado",
         icon: "notebook-pen",
@@ -6473,7 +6953,10 @@ function Pedidos({
       badges: /*#__PURE__*/React.createElement(React.Fragment, null, p.tipo ? /*#__PURE__*/React.createElement(Badge, {
         tone: "accent",
         icon: "building-2"
-      }, p.tipo) : null, p.falta ? /*#__PURE__*/React.createElement(Badge, {
+      }, p.tipo) : null, p.permuta ? /*#__PURE__*/React.createElement(Badge, {
+        tone: "accent",
+        icon: "handshake"
+      }, "Permuta ", reais(p.permuta.valor)) : null, p.falta ? /*#__PURE__*/React.createElement(Badge, {
         tone: "warn"
       }, "Falta ", p.falta) : null, p.feitoNaCozinha && ["Em produção", "Fiado"].includes(p.status) ? /*#__PURE__*/React.createElement(Badge, {
         tone: "success",
@@ -6569,8 +7052,17 @@ function Pedidos({
   }, /*#__PURE__*/React.createElement(EmptyState, {
     icon: "party-popper",
     title: "Nenhum pedido nesta aba",
-    description: "Assim que um pedido entrar nesse status ele aparece aqui automaticamente."
-  })), detalhe ? /*#__PURE__*/React.createElement(DetalhesModal, {
+    description: tab === "permuta" ? "Para marcar uma permuta, abra o ☰ do pedido e escolha “Marcar como permuta”." : "Assim que um pedido entrar nesse status ele aparece aqui automaticamente."
+  })), fiadoAberto ? /*#__PURE__*/React.createElement(FiadoCliente, {
+    c: fiadoAberto,
+    compact: compact,
+    onClose: () => setFiadoDe(null),
+    onToast: showToast,
+    pede: pede,
+    pendente: pendente,
+    acao: acao,
+    onDetalhes: setDetalhe
+  }) : null, detalhe ? /*#__PURE__*/React.createElement(DetalhesModal, {
     key: detalhe.id,
     pedido: todos.find(x => x.id === detalhe.id) || detalhe,
     onClose: () => setDetalhe(null),
@@ -6629,6 +7121,16 @@ function Pedidos({
       });
       if (ok) setApagando(null);
     }
+  }) : null, permuta ? /*#__PURE__*/React.createElement(PermutaModal, {
+    key: "permuta-" + permuta.id,
+    p: todos.find(x => x.id === permuta.id) || permuta,
+    onClose: () => setPermuta(null),
+    acao: acao,
+    pendente: pendente,
+    aoSalvar: pm => carga.setDados(l => l.map(x => x.id === permuta.id ? {
+      ...x,
+      permuta: pm
+    } : x))
   }) : null, nota ? /*#__PURE__*/React.createElement(NotaModal, {
     key: "nota-" + nota.id,
     p: todos.find(x => x.id === nota.id) || nota,

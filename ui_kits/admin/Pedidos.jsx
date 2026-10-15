@@ -349,14 +349,140 @@ function ResumoPermuta({ lista }) {
 }
 
 /* Quanto está na rua em fiado e com quantas pessoas, para a aba Fiados. */
-function ResumoFiado({ lista }) {
+function ResumoFiado({ lista, pessoas }) {
   const falta = lista.reduce((s, p) => s + (p._c ? p._c.falta / 100 : valor(p.falta)), 0);
-  const pessoas = new Set(lista.map(p => String(p.tel || "").replace(/\D/g, "") || p.cliente)).size;
   return <div style={{ marginRight: "auto", display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>
     <span>Em fiado:</span>
     <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)", fontVariantNumeric: "tabular-nums" }}>{window.brl(falta)}</span>
     <span>· {pessoas === 1 ? "1 cliente" : `${pessoas} clientes`}</span>
   </div>;
+}
+
+/* ── Fiados por cliente: a aba lista quem deve (como os boletos), e cada cliente abre os pedidos
+   dele com o relatório do que pegou, quando e quanto falta. Os pedidos da mesma pessoa se juntam
+   como na tela Clientes (telefone, login ou e-mail). ── */
+const centavos = (p, campo) => p._c ? p._c[campo] || 0 : Math.round(valor(p[campo]) * 100);
+const dataBR = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "sem data";
+const diaMes = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "sem data";
+const itensDe = p => p._c ? p._c.itens.map(i => ({ qtd: i.qtd, nome: i.nome, valor: reais(i.qtd * i.valorUnit) }))
+  : (p.itens || []).map(i => ({ qtd: i.qty, nome: i.name, valor: i.price }));
+
+function fiadosPorCliente(lista) {
+  return window.clientesDe(lista).map(c => {
+    const pedidos = c.pedidos.slice().sort((a, b) => `${a.data} ${a.hora}`.localeCompare(`${b.data} ${b.hora}`));
+    return { ...c, pedidos, deve: pedidos.reduce((s, p) => s + centavos(p, "falta"), 0), desde: pedidos[0].data || "" };
+  }).sort((a, b) => (a.desde || "9").localeCompare(b.desde || "9") || b.deve - a.deve);
+}
+
+/* O texto vai para o cliente: nada da palavra fiado (a mesma regra da Sofia e do site). */
+function textoRelatorio(c) {
+  const linhas = [`Olá, ${c.nome}! 🩷`, "", "Segue o resumo do que está em aberto com a D'Luh Festas:", ""];
+  c.pedidos.forEach(p => {
+    linhas.push(`📅 ${dataBR(p.data)} · ${p.id}`);
+    itensDe(p).forEach(i => linhas.push(`  ${i.qtd}× ${i.nome}${i.valor ? ` — ${i.valor}` : ""}`));
+    const pago = centavos(p, "pago");
+    linhas.push(`  Total ${reais(centavos(p, "total"))}${pago ? ` · pago ${reais(pago)}` : ""} · falta ${reais(centavos(p, "falta"))}`, "");
+  });
+  linhas.push(`*Total em aberto: ${reais(c.deve)}*`);
+  return linhas.join("\n");
+}
+
+const escH = s => String(s == null ? "" : s).replace(/[&<>"]/g, x => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[x]);
+/* Sai na mesma impressora dos pedidos (80 mm), de um frame escondido. */
+function imprimirRelatorio(c) {
+  const agora = new Date().toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Em aberto · ${escH(c.nome)}</title><style>
+    @page{margin:0}*{box-sizing:border-box}
+    body{margin:0;padding:3mm 3mm 6mm;width:80mm;color:#000;font:13.5px/1.3 system-ui,"Segoe UI",Arial,sans-serif}
+    .topo{display:flex;justify-content:space-between;font-size:12px}
+    .nome{font-size:20px;font-weight:800;line-height:1.1;margin:4px 0 2px;overflow-wrap:anywhere}
+    h2{display:flex;justify-content:space-between;font-size:13px;font-weight:800;border-bottom:1.5px dashed #000;margin:10px 0 4px;padding-bottom:2px}
+    .i{display:flex;gap:6px;margin:2px 0}.q{font-weight:800;min-width:30px;text-align:right}.v{margin-left:auto;white-space:nowrap}
+    .s{font-size:12.5px;margin-top:3px;text-align:right}
+    .tot{border:2px solid #000;font-weight:800;font-size:16px;text-align:center;padding:5px;margin-top:12px}
+    .rod{font-size:11px;text-align:center;margin-top:8px}
+  </style></head><body>
+    <div class="topo"><b>Em aberto</b><span>D'Luh Festas</span></div>
+    <div class="nome">${escH(c.nome)}</div>${c.tel ? `<div>${escH(window.fmtTel(c.tel))}</div>` : ""}
+    ${c.pedidos.map(p => `<h2><span>${escH(dataBR(p.data))}</span><span>${escH(p.id)}</span></h2>`
+      + itensDe(p).map(i => `<div class="i"><span class="q">${escH(i.qtd)}</span><span>${escH(i.nome)}</span><span class="v">${escH(i.valor || "")}</span></div>`).join("")
+      + `<div class="s">Total ${escH(reais(centavos(p, "total")))}${centavos(p, "pago") ? ` · pago ${escH(reais(centavos(p, "pago")))}` : ""} · <b>falta ${escH(reais(centavos(p, "falta")))}</b></div>`).join("")}
+    <div class="tot">Total em aberto: ${escH(reais(c.deve))}</div>
+    <div class="rod">${c.pedidos.length === 1 ? "1 pedido" : c.pedidos.length + " pedidos"} · impresso ${escH(agora)}</div>
+  </body></html>`;
+  const f = document.createElement("iframe");
+  f.setAttribute("aria-hidden", "true");
+  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  f.onload = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } finally { setTimeout(() => f.remove(), 300); } };
+  f.srcdoc = html;
+  document.body.appendChild(f);
+}
+
+function ListaFiados({ clientes, compact, onAbrir }) {
+  return <Card bodyStyle={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    {clientes.map(c => {
+      const n = c.pedidos.length;
+      const sub = [`${n} ${n === 1 ? "pedido" : "pedidos"}`, `desde ${diaMes(c.desde)}`, compact ? null : c.tel ? window.fmtTel(c.tel) : null].filter(Boolean).join(" · ");
+      return <ListRow key={c.id} avatar={compact ? null : (c.nome || "?").trim().charAt(0).toUpperCase()} title={c.nome} subtitle={sub}
+        value={reais(c.deve)} valueSub="em aberto" onClick={() => onAbrir(c.id)} />;
+    })}
+  </Card>;
+}
+
+/* O cliente aberto: o relatório no topo (copiar, WhatsApp, imprimir) e cada pedido com as ações dele. */
+function FiadoCliente({ c, compact, onClose, onToast, pede, pendente, acao, onDetalhes }) {
+  const fone = window.telDigitos(c.tel);
+  const texto = textoRelatorio(c);
+  const copiar = () => navigator.clipboard.writeText(texto).then(() => onToast("Relatório copiado"), () => onToast("Não deu pra copiar o relatório", "danger"));
+  const n = c.pedidos.length;
+  const cresce = compact ? { flex: "1 1 auto" } : undefined;
+  return <Modal width={640} title={c.nome} onClose={onClose}
+    subtitle={`${n} ${n === 1 ? "pedido" : "pedidos"} em aberto desde ${dataBR(c.desde)}${c.tel ? " · " + window.fmtTel(c.tel) : ""}`}
+    footer={<>
+      <Button variant="ghost" block icon="printer" onClick={() => imprimirRelatorio(c)}>Imprimir</Button>
+      <Button variant="ghost" block icon="copy" onClick={copiar}>Copiar</Button>
+      <Button block icon="message-circle" disabled={fone.length < 10}
+        onClick={() => window.open(`https://wa.me/55${fone}?text=${encodeURIComponent(texto)}`, "_blank", "noopener")}>{compact ? "WhatsApp" : "Enviar no WhatsApp"}</Button>
+    </>}>
+    <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderRadius: "var(--radius-sm)", background: "var(--color-accent-soft)", border: "var(--border-hairline) solid var(--color-accent)" }}>
+      <span style={{ fontSize: "var(--fs-body-s)", color: "var(--text-muted)" }}>Deve no total</span>
+      <span style={{ fontSize: "var(--fs-h3, 22px)", fontWeight: "var(--fw-bold)", color: "var(--text-strong)", fontVariantNumeric: "tabular-nums" }}>{reais(c.deve)}</span>
+    </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+      {c.pedidos.map(p => {
+        const quitado = p.pagamento === "Totalmente pago";
+        const pago = centavos(p, "pago");
+        return <div key={p.id} style={{ padding: "11px 12px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-2)", border: "var(--border-hairline) solid var(--color-border-soft)" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{dataBR(p.data)}</span>
+            <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-accent)", fontWeight: "var(--fw-semibold)", letterSpacing: "var(--ls-caps)" }}>{p.id}</span>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontWeight: "var(--fw-bold)", color: "var(--text-strong)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{quitado ? "Quitado" : `falta ${reais(centavos(p, "falta"))}`}</span>
+          </div>
+          <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2, fontSize: "var(--fs-body-s)", color: "var(--text-body)" }}>
+            {itensDe(p).map((i, k) => <div key={k} style={{ display: "flex", gap: 8 }}>
+              <span style={{ fontWeight: "var(--fw-semibold)", minWidth: 34, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{i.qtd}×</span>
+              <span style={{ flex: 1, minWidth: 0 }}>{i.nome}</span>
+              <span style={{ color: "var(--text-muted)", whiteSpace: "nowrap" }}>{i.valor}</span>
+            </div>)}
+          </div>
+          <div style={{ marginTop: 6, fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>
+            Total {reais(centavos(p, "total"))}{pago ? ` · pago ${reais(pago)}` : ""}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <Button size="sm" variant="ghost" icon="file-text" onClick={() => onDetalhes(p)}>Detalhes</Button>
+            <Button size="sm" variant="ghost" icon="undo-2" onClick={() => pede("tirarFiado", p)}>Tirar do fiado</Button>
+            <span style={{ flex: 1 }} />
+            {quitado
+              ? <Button size="sm" style={cresce} tone="delivered" icon="circle-check" loading={pendente === "finalizar-" + p.id}
+                  onClick={() => acao("finalizar-" + p.id, { ok: "Pedido finalizado", falhou: "Não deu pra finalizar o pedido" }, null,
+                    { acao: "mudarStatus", dados: { pedidoId: p.id, status: "Finalizado" } })}>Finalizar</Button>
+              : <Button size="sm" style={cresce} tone="chargeAll" icon="banknote" onClick={() => pede("restante", p)}>Cobrar restante</Button>}
+          </div>
+        </div>;
+      })}
+    </div>
+  </Modal>;
 }
 
 function Pedidos({ compact, q }) {
@@ -367,6 +493,7 @@ function Pedidos({ compact, q }) {
   const [apagando, setApagando] = React.useState(null);
   const [nota, setNota] = React.useState(null);
   const [permuta, setPermuta] = React.useState(null);
+  const [fiadoDe, setFiadoDe] = React.useState(null);
   const [toastNode, showToast] = useToast();
   const [acao, pendente] = useAcao(showToast);
   /* Busca e as abas de pedidos encerrados leem o histórico inteiro; o resto só o recente (firebase.js). */
@@ -392,6 +519,8 @@ function Pedidos({ compact, q }) {
     else setTab(t => t === "busca" ? "estoque" : t);
   }, [!!q]);
 
+  const fiados = tab === "fiado" ? fiadosPorCliente(lista) : [];
+  const fiadoAberto = fiadoDe && fiados.find(c => c.id === fiadoDe);
   const counts = {};
   abas.forEach(t => counts[t.id] = todos.filter(p => naAba(t, p) && casa(p, q)).length);
   const pede = (tipo, p) => setConfirm({ tipo, p, ...CONFIRMA[tipo](p) });
@@ -428,7 +557,7 @@ function Pedidos({ compact, q }) {
       <Tabs value={tab} onChange={setTab} items={abas.map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} />
 
       <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        {tab === "fiado" && lista.length ? <ResumoFiado lista={lista} /> : null}
+        {tab === "fiado" && lista.length ? <ResumoFiado lista={lista} pessoas={fiados.length} /> : null}
         {tab === "permuta" && lista.length ? <ResumoPermuta lista={lista} /> : null}
         {/* Lembrete da entrada para todos desta aba (o mesmo sai sozinho 3 dias antes de cada pedido). */}
         {tab === "pagamento" && lista.length ? <Button size="sm" variant="ghost" icon="bell-ring" onClick={() => setConfirm({
@@ -441,7 +570,8 @@ function Pedidos({ compact, q }) {
         <Button size="sm" icon="plus" onClick={() => setManual(true)}>Pedido manual</Button>
       </div>
 
-      {lista.length ? (
+      {tab === "fiado" && fiados.length ? <ListaFiados clientes={fiados} compact={compact} onAbrir={setFiadoDe} />
+      : lista.length ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
           {lista.map(p => {
             const menu = <DropdownMenu trigger={<IconButton icon="menu" label="Mais ações" />} items={[
@@ -511,6 +641,7 @@ function Pedidos({ compact, q }) {
           description={tab === "permuta" ? "Para marcar uma permuta, abra o ☰ do pedido e escolha “Marcar como permuta”." : "Assim que um pedido entrar nesse status ele aparece aqui automaticamente."} /></Card>
       )}
 
+      {fiadoAberto ? <FiadoCliente c={fiadoAberto} compact={compact} onClose={() => setFiadoDe(null)} onToast={showToast} pede={pede} pendente={pendente} acao={acao} onDetalhes={setDetalhe} /> : null}
       {detalhe ? <DetalhesModal key={detalhe.id} pedido={todos.find(x => x.id === detalhe.id) || detalhe} onClose={() => setDetalhe(null)} onToast={showToast} acao={acao} pendente={pendente} compact={compact} produtos={produtos}
         onNota={() => setNota(todos.find(x => x.id === detalhe.id) || detalhe)} /> : null}
       {manual ? <ManualModal compact={compact} onClose={() => setManual(false)} onToast={showToast} acao={acao} pendente={pendente} produtos={produtos} clientes={window.clientesDe(todos)} /> : null}
