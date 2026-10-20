@@ -1,0 +1,36 @@
+.ctm-salao .folha{position:relative;width:210mm;height:297mm;background:#fff;overflow:hidden;box-shadow:0 3px 16px rgba(0,0,0,.22);margin:0 0 8mm}
+.ctm-salao .folha .timbrado{position:absolute;left:0;top:0;width:210mm;height:297mm;z-index:0;display:block;max-width:none}
+.ctm-salao .folha .numero{position:absolute;right:6mm;bottom:2.5mm;z-index:2;font:7pt Arial,sans-serif;color:#8a8078}
+.ctm-salao .conteudo{position:absolute;left:16.7mm;top:32.4mm;width:168mm;z-index:1;font:9pt/1.74 Arial,Helvetica,sans-serif;color:#000;text-align:justify;letter-spacing:normal;word-spacing:normal;text-transform:none}
+.ctm-salao .conteudo p{margin:0 0 10pt}
+.ctm-salao .conteudo h1{font:bold 12pt/1.72 Arial,Helvetica,sans-serif;text-align:center;margin:0 0 28pt;letter-spacing:normal;color:#000}
+.ctm-salao .conteudo .clausula{margin:0 0 10pt}
+.ctm-salao .conteudo .assinaturas{display:flex;margin-top:40pt}
+.ctm-salao .conteudo .assinaturas .col{width:50%;text-align:center;font-size:11pt;line-height:1.15}
+.ctm-salao .conteudo .assinaturas .traco{white-space:nowrap}
+.ctm-salao .conteudo .assinaturas .nome{font-size:9pt;font-weight:bold;margin-top:9pt}
+.ctm-salao .conteudo .data-local{margin:0 0 10pt}
+.ctm-salao .conteudo .vazio{background:#ffe9a8;border-radius:2px;padding:0 2px;color:#7a5b00}
+.ctm-salao .conteudo .quebra{display:block;height:0;overflow:hidden;font-size:0;line-height:0}
+.ctm-editando{font:9pt/1.74 Arial,Helvetica,sans-serif;color:#000;text-align:justify;background:#fff;width:210mm;max-width:100%;box-sizing:border-box;padding:32.4mm 25.4mm 26mm 16.7mm;min-height:150mm;box-shadow:0 3px 16px rgba(0,0,0,.22);margin:0 auto;outline:none}
+.ctm-editando:focus{outline:2px solid #C0725A;outline-offset:2px}
+.ctm-editando p{margin:0 0 10pt}
+.ctm-editando h1{font:bold 12pt/1.72 Arial,Helvetica,sans-serif;text-align:center;margin:0 0 28pt;color:#000}
+.ctm-editando .assinaturas{display:flex;margin-top:40pt}
+.ctm-editando .assinaturas .col{width:50%;text-align:center;font-size:11pt;line-height:1.15}
+.ctm-editando .assinaturas .nome{font-size:9pt;font-weight:bold;margin-top:9pt}
+.ctm-editando .quebra{display:block;border-top:1px dashed #c9b9a6;margin:14pt 0;height:0;position:relative}
+.ctm-editando .vazio{background:#ffe9a8;border-radius:2px;padding:0 2px;color:#7a5b00}
+.ctm-buffet{background:#fff;padding:40px 44px;max-width:800px;margin:0 auto;font-family:Georgia,"Times New Roman",serif;color:#111;font-size:12px;line-height:1.34;text-align:left}
+.ctm-buffet .logo{margin:0 -44px 12px;overflow:hidden}
+.ctm-buffet .logo img{display:block;width:100%;max-width:none;height:auto}
+.ctm-buffet h2{text-align:center;font-size:15px;margin:0 0 14px;text-transform:uppercase;font-family:inherit;font-weight:bold;color:#111;letter-spacing:normal;line-height:inherit}
+.ctm-buffet .cl{margin:0 0 8px}
+.ctm-buffet .cl h3{font-size:12px;margin:0 0 2px;font-family:inherit;font-weight:bold;color:#111;letter-spacing:normal;line-height:inherit}
+.ctm-buffet .cl p{margin:0;white-space:pre-wrap;text-align:justify}
+.ctm-buffet .sig{margin-top:22px}
+.ctm-buffet .sig .place{text-align:center;margin-bottom:24px}
+.ctm-buffet .sig .place .line{display:block;width:55%;margin:0 auto 4px;border-top:1px solid #111}
+.ctm-buffet .sig .srow{display:flex;align-items:flex-end;gap:8px;margin-bottom:16px}
+.ctm-buffet .sig .srow .fill{flex:1;border-bottom:1px solid #111;height:1px}
+@media(max-width:640px){.ctm-buffet{padding:24px}.ctm-buffet .logo{margin:0 -24px 14px}}

@@ -415,23 +415,9 @@ function AtHistorico({ a, onAnotar, pendente }) {
 }
 
 /* O contrato da festa: o mesmo editor de Financeiro → Contratos, mas gravado no servidor junto
-   com a festa. Ao criar, já vem preenchido com o que a ficha tem. */
-function atContratoInicial(a) {
-  const modelos = [window.DLUH_CONTRATOS.buffet, window.DLUH_CONTRATOS.salao];
-  const f = a.festa || {}, tel = window.telDigitos(a.tel);
-  const dados = window.ctPadrao(modelos);
-  const reais = f.valor ? String(f.valor / 100) : "";
-  Object.assign(dados.buffet, { contratante_nome: a.nome, evento_tipo: f.tipoEvento, data_evento: f.data, local_evento: f.local || "Salão D' Roma Festas",
-    inicio: f.inicio, fim: f.fim, convidados: f.convidados ? String(f.convidados) : "", valor_total: reais });
-  Object.assign(dados.salao, { salao_nome: (f.servicos || []).includes("salao") || !f.local ? "D' Roma Festas" : "", nome: a.nome, telefone: tel ? window.fmtTel(tel) : "", tipo_festa: f.tipoEvento ? "de " + f.tipoEvento.toLowerCase() : "",
-    data_evento: f.data, hora_inicio: f.inicio, valor_total: reais });
-  for (const m of Object.keys(dados)) for (const k of Object.keys(dados[m])) if (dados[m][k] == null) delete dados[m][k];
-  return { tipo: (f.servicos || []).includes("buffet") ? "buffet" : "salao", dados, status: "Rascunho" };
-}
-
-function AtContratoFesta({ a, compact, onBack, onToast, escrever }) {
-  const modelos = [window.DLUH_CONTRATOS.buffet, window.DLUH_CONTRATOS.salao];
-  const [c, setC] = React.useState(() => a.contrato ? { tipo: a.contrato.tipo, dados: { ...window.ctPadrao(modelos), ...a.contrato.dados }, status: a.contrato.status } : atContratoInicial(a));
+   com a festa. Ao criar, já vem preenchido com o que a ficha tem (ctDaFesta, em Contratos.jsx). */
+function AtContratoFesta({ a, pago, compact, onBack, onToast, escrever }) {
+  const [c, setC] = React.useState(() => a.contrato ? window.ctMesclar(a.contrato) : window.ctDaFesta(a, pago));
   const [estado, setEstado] = React.useState(a.contrato ? "salvo" : "novo");
   const [quando, setQuando] = React.useState(a.contrato && a.contrato.atualizadoEm ? atQuando(a.contrato.atualizadoEm) : "");
   const timer = React.useRef(null), ultimo = React.useRef(c);
@@ -452,7 +438,7 @@ function AtContratoFesta({ a, compact, onBack, onToast, escrever }) {
   const salvoTexto = estado === "erro" ? null : estado === "salvando" || estado === "novo" ? "Salvando…" : "Salvo" + (quando ? " · " + quando : "");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-8)" }}>
-      <window.ContratoEditor contrato={{ ...c, atualizado: quando }} modelos={modelos} compact={compact} onChange={mudar} onBack={sair} onToast={onToast}
+      <window.ContratoEditor contrato={{ ...c, atualizado: quando }} compact={compact} onChange={mudar} onBack={sair} onToast={onToast}
         voltar={atPrimeiro(a.nome) === "Sem nome" ? "Ficha" : "Festa de " + atPrimeiro(a.nome)} salvoTexto={salvoTexto}
         erroSalvar={estado === "erro" ? "Não salvou. Confira a internet; a próxima mudança tenta de novo." : null} />
     </div>
@@ -488,7 +474,7 @@ function AtFicha({ a, todos, fin, pedidos, hoje, compact, onBack, acao, pendente
   const apagarPag = x => acao("at:apagar:" + x.id, { ok: "Pagamento apagado", falhou: "Não deu para apagar" },
     () => { finCarga.setDados(l => (l || []).filter(y => y.id !== x.id)); setModal(null); }, { acao: "apagarFinanceiro", dados: { id: x.id } });
 
-  if (contrato) return <AtContratoFesta a={a} compact={compact} onToast={showToast} onBack={() => setContrato(false)}
+  if (contrato) return <AtContratoFesta a={a} pago={atPago(fin, a.id)} compact={compact} onToast={showToast} onBack={() => setContrato(false)}
     escrever={async c => {
       const r = await window.DLUH_API.escrever("at:contrato", { acao: "salvarContratoFesta", dados: { id: a.id, contrato: c } });
       atualizar({ contrato: { ...c, atualizadoEm: agoraIso() } });

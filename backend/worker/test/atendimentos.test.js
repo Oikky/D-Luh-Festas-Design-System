@@ -80,6 +80,11 @@ test("anotação, contrato e pagamento da festa no Financeiro", async () => {
   await salvarContratoFesta(db, { id, contrato: { tipo: "salao", dados: { salao: { nome: "Carla" } }, status: "Finalizado" } }, "eu@x", agora);
   await assert.rejects(salvarContratoFesta(db, { id, contrato: { tipo: "salao", dados: {}, status: "Finalizado" } }, "eu@x"), /finalizado/);
   await assert.rejects(salvarContratoFesta(db, { id, contrato: { tipo: "outro" } }, "eu@x"), /Modelo/);
+  const { id: id2 } = await salvarAtendimento(db, { nome: "Dora" }, "eu@x", agora);
+  await salvarContratoFesta(db, { id: id2, contrato: { tipo: "buffet", dados: {}, clausulas: [{ id: "c1", titulo: "CLÁUSULA 1ª", texto: "Outro texto {{data_evento}}" }], status: "Rascunho" } }, "eu@x", agora);
+  assert.equal(db.cols.sis_atendimentos[id2].contrato.clausulas[0].texto, "Outro texto {{data_evento}}");
+  await salvarContratoFesta(db, { id: id2, contrato: { tipo: "salao", dados: {}, htmlProprio: "<h1>X</h1>", status: "Rascunho" } }, "eu@x", agora);
+  assert.equal(db.cols.sis_atendimentos[id2].contrato.htmlProprio, "<h1>X</h1>");
 
   const p = await pagarFesta(db, { id, valor: 50000, meio: "Pix", data: "2026-10-20" }, "eu@x");
   const t = db.cols.sis_financeiro[p.id];

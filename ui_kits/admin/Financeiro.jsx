@@ -213,7 +213,7 @@ function Financeiro({ compact, onQ, onView, alvo }) {
       <FN.Tabs value={tab} onChange={setTab} items={FIN_TABS.map(x => ({ id: x.id, label: x.label,
         count: x.id === "contratos" ? undefined : x.id === "boletos" ? listas.boletos.length : (listas[x.id] || []).length }))} />
 
-      {tab === "contratos" ? <window.Contratos compact={compact} /> : <>
+      {tab === "contratos" ? <window.Contratos compact={compact} onView={onView} /> : <>
         <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
           {tab === "transacoes" ? <>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>

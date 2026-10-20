@@ -145,7 +145,9 @@ async function anotarAtendimento(db, { id, texto: t }, por, agora = new Date()) 
   });
 }
 
-/* O contrato da festa (modelos de contratos-data.js do admin): o que foi preenchido, campo a campo. */
+/* O contrato da festa (contratos-motor.js do admin, cópia dos geradores da loja): o que foi
+   preenchido, campo a campo; no salão, o texto escrito à mão (htmlProprio); no buffet, as
+   cláusulas com o texto mudado. */
 async function salvarContratoFesta(db, { id, contrato }, por, agora = new Date()) {
   if (!contrato || !MODELOS_CONTRATO.includes(contrato.tipo)) throw new ErroDominio("invalid-argument", "Modelo de contrato deve ser buffet ou salao");
   const dados = {};
@@ -159,7 +161,13 @@ async function salvarContratoFesta(db, { id, contrato }, por, agora = new Date()
       dados[m][k] = texto(v, 600, "Campo do contrato");
     }
   }
-  if (JSON.stringify(dados).length > 40000) throw new ErroDominio("invalid-argument", "Contrato grande demais");
+  const htmlProprio = contrato.htmlProprio == null ? null : texto(contrato.htmlProprio, 60000, "Texto do contrato");
+  let clausulas = null;
+  if (contrato.clausulas != null) {
+    if (!Array.isArray(contrato.clausulas) || contrato.clausulas.length > 60) throw new ErroDominio("invalid-argument", "Cláusulas do contrato inválidas");
+    clausulas = contrato.clausulas.map(c => ({ id: texto(c?.id, 20, "Cláusula"), titulo: texto(c?.titulo, 200, "Título da cláusula"), texto: texto(c?.texto, 5000, "Texto da cláusula") }));
+  }
+  if (JSON.stringify([dados, htmlProprio, clausulas]).length > 120000) throw new ErroDominio("invalid-argument", "Contrato grande demais");
   const ref = db.collection(ATENDIMENTOS).doc(String(id || ""));
   return db.runTransaction(async tx => {
     const snap = await tx.get(ref);
@@ -167,7 +175,8 @@ async function salvarContratoFesta(db, { id, contrato }, por, agora = new Date()
     const antes = snap.get("contrato");
     if (antes?.status === "Finalizado" && contrato.status !== "Rascunho") throw new ErroDominio("failed-precondition", "O contrato já foi finalizado");
     const status = contrato.status === "Finalizado" ? "Finalizado" : "Rascunho";
-    tx.update(ref, { contrato: { tipo: contrato.tipo, dados, status, por, atualizadoEm: agora }, atualizadoEm: agora });
+    tx.update(ref, { contrato: { tipo: contrato.tipo, dados, status, htmlProprio: htmlProprio || null, clausulas, extensoManual: contrato.extensoManual === true,
+      por, atualizadoEm: agora }, atualizadoEm: agora });
     return { id: ref.id, status };
   });
 }
