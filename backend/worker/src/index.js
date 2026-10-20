@@ -326,6 +326,11 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
   }
 }
 
+/* Sofia fica quieta com equipe, lista de bloqueio e robô em loop (sofia-humano.js); avisa no Telegram. */
+const segurarConversas = env => sofiaHumano.segurarConversas(env, banco(env), {
+  avisar: texto => telegram.telegramLigado(env) ? telegram.enviar(env, "pendentes", texto) : Promise.resolve()
+}).catch(e => console.error(JSON.stringify({ msg: "segurar conversas da Sofia falhou", erro: String(e) })));
+
 /* Sofia (agente do GPTMaker no WhatsApp da loja): /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento>/<SOFIA_TOKEN>.
    Aceita parâmetros na URL e/ou JSON no corpo. Responde sempre 200 com { ok, ... } ou { ok: false,
    erro }: o GPTMaker lê a resposta e explica ao cliente. */
@@ -337,7 +342,7 @@ async function rotaDaSofia(request, env, ctx, rota, token) {
   const dados = { ...Object.fromEntries(url.searchParams), ...(corpo && typeof corpo === "object" ? corpo : {}) };
   // Webhook do GPTMaker (início de atendimento / mensagem nova): segura as conversas da equipe.
   if (rota === "webhook") {
-    ctx.waitUntil(sofiaHumano.segurarEquipe(env).catch(e => console.error(JSON.stringify({ msg: "segurar equipe falhou", erro: String(e) }))));
+    ctx.waitUntil(segurarConversas(env));
     return json({ ok: true });
   }
   const db = banco(env);
@@ -666,7 +671,7 @@ export default {
     const db = banco(env);
     if (evento.cron === CRON_COZINHA) {
       ctx.waitUntil(alexa.lembrarProximos(env, db).catch(e => console.error(JSON.stringify({ msg: "lembrete da cozinha falhou", erro: String(e) }))));
-      ctx.waitUntil(sofiaHumano.segurarEquipe(env).catch(e => console.error(JSON.stringify({ msg: "segurar equipe falhou", erro: String(e) }))));
+      ctx.waitUntil(segurarConversas(env));
       ctx.waitUntil(sofiaHumano.voltarParaSofia(env, db).catch(e => console.error(JSON.stringify({ msg: "volta da Sofia falhou", erro: String(e) }))));
       ctx.waitUntil(ryd.sincronizarEntregas(db, env).catch(e => console.error(JSON.stringify({ msg: "sincronização da RYD falhou", erro: String(e) }))));
       return;

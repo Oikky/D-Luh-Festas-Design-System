@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia, segurarEquipe } from "../src/sofia-humano.js";
+import { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia, segurarConversas } from "../src/sofia-humano.js";
 
 const H = 60 * 60 * 1000;
 const agora = Date.parse("2026-10-09T15:00:00Z");
@@ -67,12 +67,30 @@ test("sem token do GPTMaker não faz nada", async () => {
   assert.deepEqual(await voltarParaSofia({}, banco(), { fetchFn: () => { throw new Error("não devia chamar"); } }), []);
 });
 
-test("conversa da equipe vai para humano e nunca volta para a Sofia", async () => {
+test("equipe e lista de bloqueio vão para humano e nunca voltam para a Sofia", async () => {
   const { fetchFn, chamadas } = gptmaker(
-    [chat("553899540665", { humanTalk: false }), chat("553897457788", { humanTalk: false }), chat("5538991234567", { humanTalk: false }), chat("5538999540665")],
-    { [`${CANAL}-5538999540665`]: [assumiu(agora - 5 * H)] });
-  assert.deepEqual(await segurarEquipe(env, { fetchFn }), ["553899540665", "553897457788"]);
+    [chat("553899540665", { humanTalk: false }), chat("553897457788", { humanTalk: false }), chat("551148619361", { humanTalk: false }),
+     chat("5538991234567", { humanTalk: false }), chat("5538999540665"), chat("5511948619361")],
+    { [`${CANAL}-5538999540665`]: [assumiu(agora - 5 * H)], [`${CANAL}-5511948619361`]: [assumiu(agora - 5 * H)] });
+  const db = banco({ "sofia-bloqueio": { numeros: ["+55 11 4861-9361"] } });
+  assert.deepEqual(await segurarConversas(env, db, { agora, fetchFn }), ["553899540665", "553897457788", "551148619361"]);
   assert.ok(chamadas.includes(`PUT /chat/${CANAL}-553899540665/start-human`));
-  assert.ok(!chamadas.some(c => c.includes("5538991234567/start-human")));
-  assert.deepEqual(await voltarParaSofia(env, banco(), { agora, fetchFn }), []);
+  assert.ok(!chamadas.some(c => c.includes("5538991234567/")));
+  assert.deepEqual(await voltarParaSofia(env, db, { agora, fetchFn }), []);
+});
+
+test("robô em loop: muitas respostas da Sofia em 10 min vai para humano e avisa", async () => {
+  const M = 60 * 1000;
+  const respostas = n => Array.from({ length: n }, (_, i) => ({ role: "assistant", time: agora - i * 20 * 1000 }));
+  const { fetchFn, chamadas } = gptmaker(
+    [chat("5511900000001", { humanTalk: false, time: agora, name: "Neon" }), chat("5538900000002", { humanTalk: false, time: agora }),
+     chat("5538900000003", { humanTalk: false, time: agora - 60 * M })],
+    { [`${CANAL}-5511900000001`]: respostas(25), [`${CANAL}-5538900000002`]: respostas(12),
+      [`${CANAL}-5538900000003`]: respostas(30) });
+  const avisos = [];
+  const r = await segurarConversas(env, banco(), { agora, fetchFn, avisar: async t => avisos.push(t) });
+  assert.deepEqual(r, ["5511900000001"]);
+  assert.equal(avisos.length, 1);
+  assert.match(avisos[0], /Neon/);
+  assert.ok(!chamadas.some(c => c.includes("5538900000003/messages")), "conversa parada nem é lida");
 });
