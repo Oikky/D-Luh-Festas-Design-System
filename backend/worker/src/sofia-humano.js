@@ -10,6 +10,10 @@
 const API = "https://api.gptmaker.ai/v2";
 const ESPERA = 2 * 60 * 60 * 1000;
 const docNosso = (db, telefone) => db.collection("sis_ia").doc(`humano-${telefone}`);
+// Usuário e dona: a conversa deles com a loja fica sempre com humano (a Sofia não responde a equipe).
+// Compara os 8 últimos dígitos, porque o GPTMaker às vezes guarda o número sem o 9.
+const EQUIPE = ["99540665", "97457788"];
+const ehEquipe = tel => EQUIPE.includes(String(tel).replace(/\D/g, "").slice(-8));
 
 /* Mensagem que a loja mandou para um cliente (não grupo/status): o telefone e, em conta nova do
    WhatsApp, também o "…@lid" — o GPTMaker usa um ou outro no fim do id da conversa. */
@@ -47,6 +51,7 @@ async function voltarParaSofia(env, db, { agora = Date.now(), fetchFn = fetch } 
       .filter(m => m.conversationNotificationType === "START_INTERACTION_HUMAN" || (m.userId && m.role !== "system"))
       .map(m => Number(m.time) || 0));
     const tel = String(c.id).slice(String(c.id).indexOf("-") + 1);
+    if (ehEquipe(tel)) continue;
     const snap = await docNosso(db, tel).get();
     const ultima = Math.max(assumiu, snap.exists ? Number(snap.data().ultima) || 0 : 0);
     // Sem nenhuma hora conhecida não mexe: melhor a Sofia calada do que atropelar a dona. Inclui a
@@ -59,4 +64,21 @@ async function voltarParaSofia(env, db, { agora = Date.now(), fetchFn = fetch } 
   return voltaram;
 }
 
-export { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia };
+/* Conversa da equipe (usuário/dona) com a loja: passa para humano para a Sofia não responder.
+   Chamada pelo webhook do GPTMaker quando começa um atendimento (a Sofia espera 10 s agrupando as
+   mensagens, dá tempo) e pelo cron, como rede de segurança. Não depende do formato do webhook. */
+async function segurarEquipe(env, { fetchFn = fetch } = {}) {
+  if (!env.GPTMAKER_TOKEN || !env.GPTMAKER_WORKSPACE) return [];
+  const chats = await gpt(env, "GET", `/workspace/${env.GPTMAKER_WORKSPACE}/chats?pageSize=30`, fetchFn);
+  const seguradas = [];
+  for (const c of (Array.isArray(chats) ? chats : []).filter(c => !c.humanTalk && !c.isGroup)) {
+    const tel = String(c.id).slice(String(c.id).indexOf("-") + 1);
+    if (!ehEquipe(tel)) continue;
+    await gpt(env, "PUT", `/chat/${encodeURIComponent(c.id)}/start-human`, fetchFn);
+    seguradas.push(tel);
+  }
+  if (seguradas.length) console.log(JSON.stringify({ msg: "conversa da equipe passada para humano", telefones: seguradas }));
+  return seguradas;
+}
+
+export { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia, segurarEquipe };

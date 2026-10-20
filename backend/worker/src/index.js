@@ -2,7 +2,7 @@
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
      POST /site/pedido, /site/consultar, /site/frete, /site/entrega  site dos clientes, sem login (site.js, frete.js)
-     /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento>/<token>  agente Sofia do GPTMaker (sofia.js)
+     /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento|webhook>/<token>  agente Sofia do GPTMaker (sofia.js)
      POST /webhook/orcamento/<token>  alerta de gasto do Google Cloud via Pub/Sub (orcamento.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
      GET /pagar/<pedido>       link curto de pagamento (leva ao último checkout gerado)
@@ -335,6 +335,11 @@ async function rotaDaSofia(request, env, ctx, rota, token) {
   // Parâmetros na URL e/ou JSON no corpo (o do corpo vale mais).
   const corpo = request.method === "POST" ? await request.json().catch(() => ({})) : {};
   const dados = { ...Object.fromEntries(url.searchParams), ...(corpo && typeof corpo === "object" ? corpo : {}) };
+  // Webhook do GPTMaker (início de atendimento / mensagem nova): segura as conversas da equipe.
+  if (rota === "webhook") {
+    ctx.waitUntil(sofiaHumano.segurarEquipe(env).catch(e => console.error(JSON.stringify({ msg: "segurar equipe falhou", erro: String(e) }))));
+    return json({ ok: true });
+  }
   const db = banco(env);
   try {
     if (rota === "consultar") return json({ ok: true, ...(await sofia.pedidosDoCliente(db, dados.telefone)) });
@@ -626,7 +631,7 @@ export default {
         urlWebhook: `${ORIGEM_API}/webhook/ryd/${env.RYD_WEBHOOK_TOKEN}`
       }).then(r => json(r), e => json({ erro: e.message }, 400));
     }
-    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento)\/([\w-]+)$/);
+    const sof = url.pathname.match(/^\/sofia\/(pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento|webhook)\/([\w-]+)$/);
     if (sof) return rotaDaSofia(request, env, ctx, sof[1], sof[2]);
     const evo = url.pathname.match(/^\/webhook\/evolution\/([\w-]+)$/);
     if (evo) return webhookEvolution(request, env, ctx, evo[1]);
@@ -661,6 +666,7 @@ export default {
     const db = banco(env);
     if (evento.cron === CRON_COZINHA) {
       ctx.waitUntil(alexa.lembrarProximos(env, db).catch(e => console.error(JSON.stringify({ msg: "lembrete da cozinha falhou", erro: String(e) }))));
+      ctx.waitUntil(sofiaHumano.segurarEquipe(env).catch(e => console.error(JSON.stringify({ msg: "segurar equipe falhou", erro: String(e) }))));
       ctx.waitUntil(sofiaHumano.voltarParaSofia(env, db).catch(e => console.error(JSON.stringify({ msg: "volta da Sofia falhou", erro: String(e) }))));
       ctx.waitUntil(ryd.sincronizarEntregas(db, env).catch(e => console.error(JSON.stringify({ msg: "sincronização da RYD falhou", erro: String(e) }))));
       return;

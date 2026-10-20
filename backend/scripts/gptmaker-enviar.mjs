@@ -8,7 +8,7 @@
    Telefone com ou sem 55/9 (ex.: 38998732363). Token: GPTMAKER_TOKEN no backend/.env. */
 import fs from "node:fs";
 
-const CANAL = "3FA5AEE7B6A2D0F985F39EBDDD858735"; // "WhatsApp D'Luh Festas" (Sofia)
+const CANAL = "3FAEEB09981240B3C0AC9E7F773F7E23"; // "Sofia Atende" (Z-API, desde 20/10)
 const API = "https://api.gptmaker.ai/v2";
 
 const args = process.argv.slice(2).filter(a => a !== "--seco");

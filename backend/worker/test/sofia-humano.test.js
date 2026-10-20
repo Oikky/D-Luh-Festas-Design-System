@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia } from "../src/sofia-humano.js";
+import { anotarNossaMensagem, telefonesDaNossaMensagem, voltarParaSofia, segurarEquipe } from "../src/sofia-humano.js";
 
 const H = 60 * 60 * 1000;
 const agora = Date.parse("2026-10-09T15:00:00Z");
@@ -65,4 +65,14 @@ test("devolve para a Sofia só conversa humana parada há 2h do nosso lado", asy
 
 test("sem token do GPTMaker não faz nada", async () => {
   assert.deepEqual(await voltarParaSofia({}, banco(), { fetchFn: () => { throw new Error("não devia chamar"); } }), []);
+});
+
+test("conversa da equipe vai para humano e nunca volta para a Sofia", async () => {
+  const { fetchFn, chamadas } = gptmaker(
+    [chat("553899540665", { humanTalk: false }), chat("553897457788", { humanTalk: false }), chat("5538991234567", { humanTalk: false }), chat("5538999540665")],
+    { [`${CANAL}-5538999540665`]: [assumiu(agora - 5 * H)] });
+  assert.deepEqual(await segurarEquipe(env, { fetchFn }), ["553899540665", "553897457788"]);
+  assert.ok(chamadas.includes(`PUT /chat/${CANAL}-553899540665/start-human`));
+  assert.ok(!chamadas.some(c => c.includes("5538991234567/start-human")));
+  assert.deepEqual(await voltarParaSofia(env, banco(), { agora, fetchFn }), []);
 });
