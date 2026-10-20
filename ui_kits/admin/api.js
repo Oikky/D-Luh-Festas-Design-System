@@ -104,10 +104,24 @@ window.DLUH_API = (() => {
       .map(p => { const d = ts(p.em); return { id: p.id, pedidoId: p.pedidoId, valor: p.valor || 0, meio: MEIO[p.meio] || p.meio || "", origem: p.por === "infinitepay" ? "site" : "manual",
         data: d ? isoLocal(d) : "", hora: d ? d.toTimeString().slice(0, 5) : "" }; })
       .sort((a, b) => `${b.data} ${b.hora}`.localeCompare(`${a.data} ${a.hora}`)),
-    /* Pedidos de visita ao salão etc. que a Sofia passou para a equipe (sofia-atendimento.js), mais novos primeiro. */
+    /* Funil das festas (atendimentos.js no Worker): da Sofia ou lançados pela equipe, mais novos
+       primeiro. Os de antes do funil só tinham status novo/resolvido. */
     atendimentos: docs => docs
-      .map(a => ({ id: a.id, tipo: a.tipo, nome: a.nome || "", tel: a.telefone || "", data: a.data || "", pessoas: a.pessoas || "",
-        obs: a.obs || "", status: a.status || "novo", criadoEm: ts(a.criadoEm) ? ts(a.criadoEm).toISOString() : "", resolvidoPor: a.resolvidoPor || "" }))
+      .map(a => {
+        const iso = v => ts(v) ? ts(v).toISOString() : "";
+        const f = a.festa || null;
+        return { id: a.id, tipo: a.tipo || "outro", nome: a.nome || "", tel: a.telefone || "", data: a.data || "", pessoas: a.pessoas || "",
+          obs: a.obs || "", canal: a.canal || "", origem: a.origem || "sofia",
+          etapa: a.etapa || (a.status === "resolvido" ? "conversando" : "novo"),
+          visitaEm: a.visitaEm || "", motivoPerda: a.motivoPerda || "",
+          festa: f ? { data: f.data || "", inicio: f.inicio || "", fim: f.fim || "", tipoEvento: f.tipoEvento || "", convidados: f.convidados || null,
+            servicos: f.servicos || [], local: f.local || "", valor: f.valor || 0 } : null,
+          contrato: a.contrato ? { tipo: a.contrato.tipo, dados: a.contrato.dados || {}, status: a.contrato.status || "Rascunho", atualizadoEm: iso(a.contrato.atualizadoEm) } : null,
+          pedidos: a.pedidos || [],
+          notas: (a.notas || []).map(n => ({ texto: n.texto, por: n.por || "", em: iso(n.em) })),
+          historico: (a.historico || []).map(h => ({ de: h.de || "", para: h.para, por: h.por || "", em: iso(h.em), motivo: h.motivo || "" })),
+          criadoEm: iso(a.criadoEm), resolvidoPor: a.resolvidoPor || "" };
+      })
       .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)),
     /* Transações avulsas, boletos e cartões, as stored; Financeiro.jsx shapes them. */
     financeiro: docs => docs,

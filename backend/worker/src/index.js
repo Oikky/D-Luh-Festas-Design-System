@@ -21,6 +21,7 @@ import * as infinitepay from "./infinitepay.js";
 import * as sofia from "./sofia.js";
 import * as sofiaHumano from "./sofia-humano.js";
 import * as atendimento from "./sofia-atendimento.js";
+import * as atendimentos from "./atendimentos.js";
 import * as produtos from "./produtos.js";
 import * as financeiro from "./financeiro.js";
 import * as notas from "./notas.js";
@@ -154,6 +155,12 @@ const ACOES = {
 
   /* Tela Atendimentos: marca o pedido de visita/evento como resolvido (ou volta para novo). */
   marcarAtendimento: (db, dados, por) => atendimento.marcarAtendimento(db, dados, por),
+  /* Funil das festas (atendimentos.js): lançar/editar, mudar de etapa, anotar, contrato e pagamento. */
+  salvarAtendimento: (db, dados, por) => atendimentos.salvarAtendimento(db, dados, por),
+  moverAtendimento: (db, dados, por) => atendimentos.moverAtendimento(db, dados, por),
+  anotarAtendimento: (db, dados, por) => atendimentos.anotarAtendimento(db, dados, por),
+  salvarContratoFesta: (db, dados, por) => atendimentos.salvarContratoFesta(db, dados, por),
+  pagarFesta: (db, dados, por) => atendimentos.pagarFesta(db, dados, por),
 
   /* "Notificar alterações": manda ao cliente, pelo WhatsApp da loja, o resumo atual do pedido. */
   async avisarCliente(db, { pedidoId }, por, env) {
@@ -249,6 +256,8 @@ const DEPOIS = {
     ...(entrouNaFila(r) ? [alexa.avisarNovoNaFila(env, db, dados.pedidoId)] : [])
   ],
   tirarPermuta: (env, db, dados) => [efeitos.sincronizarAgenda(env, db, dados.pedidoId)],
+  salvarAtendimento: (env, db, dados, r) => r.mudouFesta || dados.pedidos ? [atendimentos.sincronizarFesta(env, db, r.id)] : [],
+  moverAtendimento: (env, db, dados, r) => r.mudou ? [atendimentos.sincronizarFesta(env, db, r.id)] : [],
   lembrarEntrada: (env, db, dados, r, por) => [lembretes.enviarLembretes({ env, db, lista: r.lista, por, gerarCobranca: gerarEntrada(env, db, por) })],
   registrarPagamentoManual: (env, db, dados, r, por) => r.duplicado ? [] : [
     efeitos.sincronizarAgenda(env, db, dados.pedidoId), efeitos.avisarClientePagamento(env, db, dados.pedidoId, dados.valor),

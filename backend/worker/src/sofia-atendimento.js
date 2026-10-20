@@ -28,7 +28,12 @@ async function registrarAtendimento(db, dados, agora = new Date()) {
     pessoas: opcional(dados.pessoas, 40),
     obs: opcional(dados.obs, 500),
     status: "novo",
-    criadoEm: agora
+    etapa: "novo",
+    origem: "sofia",
+    historico: [{ para: "novo", por: "sofia", em: agora }],
+    notas: [],
+    criadoEm: agora,
+    atualizadoEm: agora
   };
   const ref = await db.collection(ATENDIMENTOS).add(a);
   return { id: ref.id, ...a };
@@ -66,7 +71,7 @@ async function marcarAtendimento(db, { id, resolvido }, por, agora = new Date())
   const ref = db.collection(ATENDIMENTOS).doc(String(id || ""));
   const snap = await ref.get();
   if (!snap.exists) throw new ErroDominio("not-found", "Atendimento não existe");
-  await ref.set(resolvido ? { status: "resolvido", resolvidoPor: por, resolvidoEm: agora } : { status: "novo", resolvidoPor: null, resolvidoEm: null }, { merge: true });
+  await ref.set(resolvido ? { status: "resolvido", etapa: "conversando", resolvidoPor: por, resolvidoEm: agora } : { status: "novo", etapa: "novo", resolvidoPor: null, resolvidoEm: null }, { merge: true });
   return { id: snap.id, status: resolvido ? "resolvido" : "novo" };
 }
 

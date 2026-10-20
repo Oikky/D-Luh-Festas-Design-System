@@ -106,7 +106,21 @@ const ctPadrao = modelos => { const d = {}; modelos.forEach(m => { d[m.id] = {};
 const ctCliente = c => (c.dados[c.tipo] || {}).contratante_nome || (c.dados[c.tipo] || {}).nome || "Sem nome";
 const ctValor = c => { const v = (c.dados[c.tipo] || {}).valor_total; return v ? "R$ " + fmtMoeda(v) : "—"; };
 
-function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast, naoSalvo }) {
+/* Imprimir / PDF: abre a prévia sozinha numa janela e chama a impressão do navegador
+   (lá dá para escolher a impressora ou "Salvar como PDF"). */
+function imprimirContrato(no, titulo) {
+  const w = window.open("", "_blank");
+  if (!w || !no) return false;
+  const base = location.href.replace(/[^/]*$/, "");
+  const css = [...document.querySelectorAll('link[rel="stylesheet"]')].map(l => `<link rel="stylesheet" href="${l.href}">`).join("");
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><base href="${base}"><title>${String(titulo).replace(/</g, "")}</title>${css}
+<style>@page{size:A4;margin:14mm}html,body{background:#fff;margin:0}body>div>div{box-shadow:none!important;padding:0!important}</style></head>
+<body>${no.outerHTML}<script>window.onload=()=>setTimeout(()=>{window.print()},300)<\/script></body></html>`);
+  w.document.close();
+  return true;
+}
+
+function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast, naoSalvo, voltar = "Contratos", salvoTexto, erroSalvar }) {
   const tipo = contrato.tipo;
   const modelo = modelos.find(m => m.id === tipo);
   const [verPrevia, setVerPrevia] = React.useState(!compact);
@@ -114,6 +128,8 @@ function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast,
   DS.useVoltar(true, onBack);
   DS.useVoltar(compact && verPrevia, () => setVerPrevia(false));
   const [finalizar, setFinalizar] = React.useState(false);
+  const folha = React.useRef(null);
+  const imprimir = () => { if (!imprimirContrato(folha.current, modelo.titulo + " — " + ctCliente(contrato))) onToast("O navegador bloqueou a janela de impressão"); };
   const set = (id, v) => onChange({ dados: { ...contrato.dados, [tipo]: { ...contrato.dados[tipo], [id]: v } } });
 
   /* The hall contract's saldo is derived from total minus entrada on every render. Storing it
@@ -132,10 +148,10 @@ function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast,
 
   return (<>
     <div style={{ display: "flex", gap: "var(--gap-inline)", alignItems: "center", flexWrap: "wrap" }}>
-      <Button size="sm" variant="ghost" icon="arrow-left" onClick={onBack}>Contratos</Button>
+      <Button size="sm" variant="ghost" icon="arrow-left" onClick={onBack}>{voltar}</Button>
       <div style={{ fontSize: "var(--fs-title)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)" }}>{ctCliente(contrato)}</div>
       <Badge tone={final ? "success" : "neutral"} icon={final ? "circle-check" : "pencil"}>{final ? "Finalizado" : "Rascunho"}</Badge>
-      {naoSalvo
+      {erroSalvar ? <Badge tone="danger" icon="circle-alert">{erroSalvar}</Badge> : salvoTexto ? <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>{salvoTexto}</span> : naoSalvo
         ? <span title="O armazenamento do navegador recusou a gravação (cheio ou em modo privado)."><Badge tone="danger" icon="circle-alert">Não salvo neste aparelho</Badge></span>
         : <span style={{ fontSize: "var(--fs-tiny)", color: "var(--text-muted)" }}>Salvo automaticamente · {contrato.atualizado}</span>}
     </div>
@@ -150,8 +166,8 @@ function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast,
       {compact ? <FilterPill trailingIcon={null} icon={verPrevia ? "pencil" : "eye"} active onClick={() => setVerPrevia(!verPrevia)}>
         {verPrevia ? "Editar dados" : "Ver prévia"}
       </FilterPill> : null}
-      <Button size="sm" variant="ghost" icon="printer" onClick={() => onToast("Contrato enviado para impressão")}>Imprimir</Button>
-      <Button size="sm" variant="ghost" icon="download" onClick={() => onToast("PDF gerado")}>PDF</Button>
+      <Button size="sm" variant="ghost" icon="printer" onClick={imprimir}>Imprimir</Button>
+      <Button size="sm" variant="ghost" icon="download" title="Na janela de impressão, escolha Salvar como PDF" onClick={imprimir}>PDF</Button>
       {final ? null : <Button size="sm" icon="check" disabled={faltando > 0} title={faltando ? "Preencha os campos obrigatórios para finalizar" : undefined} onClick={() => setFinalizar(true)}>Finalizar</Button>}
     </div>
 
@@ -189,6 +205,7 @@ function ContratoEditor({ contrato, modelos, compact, onChange, onBack, onToast,
         </div>
       ) : null}
     </div>
+    <div aria-hidden="true" style={{ position: "fixed", left: -10000, top: 0, width: 794 }}><div ref={folha}><Previa modelo={modelo} vals={vals} /></div></div>
     {finalizar ? <DS.ConfirmDialog icon="file-check" title="Finalizar contrato?"
       message="O contrato sai de rascunho e fica só para leitura. Imprimir e gerar PDF continuam disponíveis."
       confirmLabel="Sim, finalizar" cancelLabel="Voltar" onCancel={() => setFinalizar(false)}
@@ -241,7 +258,7 @@ function Contratos({ compact }) {
               value={ctValor(c)}
               trailing={<div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 10 }}>
                 <Button size="sm" variant={c.status === "Finalizado" ? "ghost" : "outline"} icon={c.status === "Finalizado" ? "eye" : "pencil"} onClick={() => setAberto(c.uid)}>{c.status === "Finalizado" ? "Abrir" : "Continuar"}</Button>
-                <IconButton icon="download" label="Baixar PDF" size={36} onClick={() => showToast("PDF gerado")} />
+                <IconButton icon="printer" label="Abrir para imprimir ou salvar PDF" size={36} onClick={() => setAberto(c.uid)} />
                 <IconButton icon="trash-2" label="Apagar" size={36} onClick={() => setApagar(c)} />
               </div>} />
           )) : <DS.EmptyState icon="file-text" title="Nenhum contrato ainda" description="Crie o primeiro pelo botão Novo contrato." />}
@@ -255,4 +272,4 @@ function Contratos({ compact }) {
   );
 }
 
-Object.assign(window, { Contratos, PreviaContrato: Previa });
+Object.assign(window, { Contratos, PreviaContrato: Previa, ContratoEditor, ctPadrao });

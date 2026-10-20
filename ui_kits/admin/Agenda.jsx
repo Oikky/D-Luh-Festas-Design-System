@@ -88,7 +88,7 @@ function ItemAgenda({ x, onAbrir }) {
   const t = tipoDe(x);
   return (
     <div onClick={onAbrir} role={onAbrir ? "button" : undefined} tabIndex={onAbrir ? 0 : undefined} data-row-action={onAbrir ? "" : undefined}
-      aria-label={onAbrir ? "Abrir o boleto de " + x.cliente : undefined}
+      aria-label={onAbrir ? (x.atendimentoId ? "Abrir a festa de " : "Abrir o boleto de ") + x.cliente : undefined}
       onKeyDown={onAbrir ? e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onAbrir(); } } : undefined} style={{
       cursor: onAbrir ? "pointer" : "default", transition: "var(--transition-control)",
       display: "flex", gap: 12, padding: "12px 13px", borderRadius: "var(--radius-sm)",
@@ -115,7 +115,9 @@ function ItemAgenda({ x, onAbrir }) {
       </div>
       <div style={{ textAlign: "right", flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
         <span style={{ fontSize: "var(--fs-body-l)", fontWeight: "var(--fw-bold)", whiteSpace: "nowrap", color: "var(--text-strong)" }}>{x.valor ? (t.fin ? "− " + x.valor : x.valor) : "—"}</span>
-        {t.fin ? (x.situacao ? <Badge tone={SITUACAO[x.situacao] || "neutral"}>{x.situacao}</Badge> : null) : <StatusBadge status={x.status} short />}
+        {t.fin ? (x.situacao ? <Badge tone={SITUACAO[x.situacao] || "neutral"}>{x.situacao}</Badge> : null)
+          : x.situacaoFesta ? <Badge tone={x.situacaoFesta === "Paga" ? "success" : x.situacaoFesta === "Realizada" ? "neutral" : "accent"}>{x.situacaoFesta}</Badge>
+          : <StatusBadge status={x.status} short />}
       </div>
     </div>
   );
@@ -127,8 +129,11 @@ function Agenda({ compact, onView }) {
   /* Boletos vêm do financeiro: cada parcela no dia do vencimento. Se o financeiro não carregar, a
      agenda segue só com as encomendas. */
   const fin = useAoVivo("financeiro");
+  /* Festas fechadas vêm do funil de Atendimentos; abrir leva à ficha da festa. */
+  const ats = useAoVivo("atendimentos");
   const abrirBoleto = x => x.boletoId ? () => onView && onView("financeiro", { boleto: x.boletoId, n: x.n })
-    : x.cartaoId ? () => onView && onView("financeiro", { cartao: x.cartaoId, mes: x.mesFatura }) : undefined;
+    : x.cartaoId ? () => onView && onView("financeiro", { cartao: x.cartaoId, mes: x.mesFatura })
+    : x.atendimentoId ? () => onView && onView("atendimentos", { festa: x.atendimentoId }) : undefined;
   const [filtro, setFiltro] = React.useState("tudo");
   const [sel, setSel] = React.useState(hoje);
   const [cursor, setCursor] = React.useState(() => ({ ano: Number(hoje.slice(0, 4)), mes: Number(hoje.slice(5, 7)) - 1 }));
@@ -144,7 +149,7 @@ function Agenda({ compact, onView }) {
   const escolher = chave => { setSel(chave); setCursor({ ano: Number(chave.slice(0, 4)), mes: Number(chave.slice(5, 7)) - 1 }); };
 
   /* Rows with no date cannot sit on a calendar; they are left out rather than breaking the grid. */
-  const todos = [...(carga.dados || []).filter(x => x.tipo !== "boleto" && x.tipo !== "cartao"), ...window.boletosNaAgenda(fin.dados, hoje), ...window.faturasNaAgenda(fin.dados, hoje)].filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
+  const todos = [...(carga.dados || []).filter(x => x.tipo !== "boleto" && x.tipo !== "cartao"), ...window.boletosNaAgenda(fin.dados, hoje), ...window.faturasNaAgenda(fin.dados, hoje), ...window.festasNaAgenda(ats.dados, fin.dados)].filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x.data || ""));
   const itens = filtro === "tudo" ? todos : todos.filter(x => x.tipo === filtro);
   const doDia = itens.filter(x => x.data === sel).sort((a, b) => (a.hora || "00:00").localeCompare(b.hora || "00:00"));
   const proximos = itens.filter(x => x.data > sel).sort((a, b) => (a.data + (a.hora || "")).localeCompare(b.data + (b.hora || ""))).slice(0, 4);

@@ -16,7 +16,8 @@ test("grava o pedido de visita com os campos vazios da Intenção limpos", async
   const db = banco();
   const agora = new Date("2026-10-09T15:00:00Z");
   const a = await registrarAtendimento(db, { telefone: "+55 38 99969-1571", tipo: "Visita", nome: "Ana", data: "sábado de manhã", pessoas: "nenhuma", obs: "-" }, agora);
-  assert.deepEqual(db.docs[a.id], { tipo: "visita", nome: "Ana", telefone: "5538999691571", data: "sábado de manhã", pessoas: "", obs: "", status: "novo", criadoEm: agora });
+  assert.deepEqual(db.docs[a.id], { tipo: "visita", nome: "Ana", telefone: "5538999691571", data: "sábado de manhã", pessoas: "", obs: "", status: "novo",
+    etapa: "novo", origem: "sofia", historico: [{ para: "novo", por: "sofia", em: agora }], notas: [], criadoEm: agora, atualizadoEm: agora });
   await assert.rejects(registrarAtendimento(db, { telefone: "123" }), /telefone/);
   assert.equal(tipoDe("aluguel do espaço"), "evento");
   assert.equal(tipoDe("quero falar com alguém"), "outro");

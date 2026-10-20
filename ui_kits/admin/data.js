@@ -62,14 +62,9 @@ window.DLUH = {
     { data: "2026-06-08", tipo: "boleto", cliente: "Embalagens Montes Claros", titulo: "Caixas para bolo e forminhas", valor: "R$ 438,00", situacao: "Vencido", parcela: "1/2" },
     { data: "2026-06-10", tipo: "encomenda", hora: "18:00", cliente: "Ana Cláudia", titulo: "Bolo de festa 3 andares — jardim encantado", valor: "R$ 320,00", status: "Entregue — Esperando restante" },
     { data: "2026-06-12", tipo: "encomenda", hora: "15:00", cliente: "Maria Helena", titulo: "Bolo Vulcão 2kg · 100 salgados sortidos", valor: "R$ 480,00", status: "Em produção" },
-    { data: "2026-06-12", tipo: "buffet", hora: "19:30", cliente: "Família Prates", titulo: "Buffet completo — aniversário de 15 anos", local: "Espaço Villa Bella", convidados: 120, valor: "R$ 8.400,00", status: "Em produção" },
     { data: "2026-06-13", tipo: "encomenda", hora: "11:00", cliente: "Willian Bicalho", titulo: "2 bolos Red Velvet · 50 docinhos gourmet", valor: "R$ 740,00", status: "Confirmado — Esperando pagamento" },
     { data: "2026-06-14", tipo: "encomenda", hora: "07:00", cliente: "Padaria Central", titulo: "400 salgados para revenda — contrato semanal", valor: "R$ 1.240,00", status: "Aguardando confirmação" },
-    { data: "2026-06-14", tipo: "festa", hora: "16:00", cliente: "Tiago Meireles", titulo: "Locação do salão — aniversário infantil", local: "Salão D'Luh", convidados: 60, valor: "R$ 1.800,00", status: "Confirmado — Esperando pagamento" },
-    { data: "2026-06-18", tipo: "buffet", hora: "20:00", cliente: "Colégio São José", titulo: "Buffet de formatura", local: "Auditório do colégio", convidados: 250, valor: "R$ 14.200,00", status: "Aguardando confirmação" },
-    { data: "2026-06-20", tipo: "festa", hora: "14:00", cliente: "Rafaela Prates", titulo: "Locação do salão — chá de bebê", local: "Salão D'Luh", convidados: 45, valor: "R$ 1.500,00", status: "Em produção" },
-    { data: "2026-06-21", tipo: "encomenda", hora: "09:30", cliente: "João Vitor", titulo: "Torta salgada grande — frango com catupiry", valor: "R$ 188,00", status: "Finalizado" },
-    { data: "2026-06-27", tipo: "buffet", hora: "12:00", cliente: "Empresa Minas Log", titulo: "Coffee break corporativo", local: "Sede da empresa", convidados: 80, valor: "R$ 3.900,00", status: "Confirmado — Esperando pagamento" }
+    { data: "2026-06-21", tipo: "encomenda", hora: "09:30", cliente: "João Vitor", titulo: "Torta salgada grande — frango com catupiry", valor: "R$ 188,00", status: "Finalizado" }
   ],
   contratos: [
     { cliente: "Família Prates", tipo: "buffet", data: "02/06/2026", valor: "R$ 8.400,00" },
@@ -82,6 +77,8 @@ window.DLUH = {
     { id: "f1", tipo: "transacao", desc: "Atacadão · farinha e açúcar", entrada: false, meio: "Cartão", data: "2026-06-11", valor: 61240 },
     { id: "f2", tipo: "transacao", desc: "Gás de cozinha", entrada: false, meio: "Dinheiro", data: "2026-06-10", valor: 13000 },
     { id: "f3", tipo: "transacao", desc: "Venda no balcão", entrada: true, meio: "Pix", data: "2026-06-09", valor: 4500 },
+    { id: "f3a", tipo: "transacao", desc: "Festa — Família Prates (12/06)", entrada: true, meio: "Pix", data: "2026-06-02", valor: 420000, festaId: "at4" },
+    { id: "f3b", tipo: "transacao", desc: "Festa — Tiago Meireles (14/06)", entrada: true, meio: "Pix", data: "2026-05-28", valor: 45000, festaId: "at5" },
     /* Boleto = o pai com as parcelas dentro (Boletos.jsx). */
     { id: "f4", tipo: "boleto", desc: "Delly's", periodo: "semanal", cnpjAntigo: false, arquivos: [], parcelas: [
       { n: 1, venc: "2026-06-05", valor: 10293, codigo: "90190.00009 01118.132008 02733.414177 5 1530000010293", arquivos: [], pago: true, pagoEm: "2026-06-05" },
@@ -110,12 +107,28 @@ window.DLUH = {
     { id: "pg4", pedidoId: "PED-2287", valor: 18800, meio: "Pix", origem: "site", data: "2026-06-09", hora: "16:10" },
     { id: "pg5", pedidoId: "PED-2291", valor: 24000, meio: "Pix", origem: "site", data: "2026-06-10", hora: "11:30" }
   ],
-  /* The global search's demo "Pagamentos" group. */
+  /* Funil das festas, já no formato que api.js entrega (dinheiro em centavos, datas ISO). */
   atendimentos: [
-    { id: "at1", tipo: "visita", nome: "Camila Rocha", tel: "38999123456", data: "sábado de manhã", pessoas: "80", obs: "Aniversário de 15 anos em dezembro", status: "novo", criadoEm: "2026-06-12T10:42:00" },
-    { id: "at2", tipo: "evento", nome: "Marcos Antunes", tel: "38998765432", data: "20/07", pessoas: "50", obs: "", status: "novo", criadoEm: "2026-06-11T18:05:00" },
-    { id: "at3", tipo: "visita", nome: "Joana Lima", tel: "38991112233", data: "", pessoas: "", obs: "", status: "resolvido", criadoEm: "2026-06-08T09:15:00", resolvidoPor: "luguilar86@gmail.com" }
+    { id: "at1", tipo: "visita", nome: "Camila Rocha", tel: "38999123456", data: "sábado de manhã", pessoas: "80", obs: "Aniversário de 15 anos em dezembro", origem: "sofia", etapa: "novo", criadoEm: "2026-06-12T10:42:00", festa: null, contrato: null, pedidos: [], notas: [], historico: [{ para: "novo", por: "sofia", em: "2026-06-12T10:42:00" }] },
+    { id: "at2", tipo: "evento", nome: "Marcos Antunes", tel: "38998765432", data: "20/07", pessoas: "50", obs: "", origem: "sofia", etapa: "visita", visitaEm: "2026-06-13T10:00", criadoEm: "2026-06-11T18:05:00",
+      festa: { data: "2026-07-20", inicio: "", fim: "", tipoEvento: "Aniversário de 40 anos", convidados: 50, servicos: ["salao"], local: "", valor: 0 }, contrato: null, pedidos: [],
+      notas: [{ texto: "Pediu para ver o salão com a esposa antes de fechar.", por: "luguilar86@gmail.com", em: "2026-06-11T18:40:00" }],
+      historico: [{ para: "novo", por: "sofia", em: "2026-06-11T18:05:00" }, { de: "novo", para: "visita", por: "luguilar86@gmail.com", em: "2026-06-11T18:40:00" }] },
+    { id: "at4", tipo: "evento", nome: "Família Prates", tel: "38991234567", data: "", pessoas: "", obs: "", canal: "Indicação", origem: "equipe", etapa: "fechada", criadoEm: "2026-05-20T09:00:00",
+      festa: { data: "2026-06-12", inicio: "19:30", fim: "23:30", tipoEvento: "Aniversário de 15 anos", convidados: 120, servicos: ["salao", "buffet", "doces"], local: "", valor: 840000 },
+      contrato: { tipo: "buffet", status: "Finalizado", atualizadoEm: "2026-06-02T15:00:00", dados: { buffet: { contratante_nome: "Família Prates", evento_tipo: "Aniversário de 15 anos", data_evento: "2026-06-12", inicio: "19:30", fim: "23:30", convidados: "120", valor_total: "8400" } } },
+      pedidos: ["PED-2291"], notas: [], historico: [{ para: "novo", por: "luguilar86@gmail.com", em: "2026-05-20T09:00:00" }, { de: "novo", para: "orcamento", por: "luguilar86@gmail.com", em: "2026-05-22T11:00:00" }, { de: "orcamento", para: "fechada", por: "luguilar86@gmail.com", em: "2026-06-02T15:00:00" }] },
+    { id: "at5", tipo: "evento", nome: "Tiago Meireles", tel: "38988776655", data: "", pessoas: "60", obs: "", canal: "Instagram", origem: "equipe", etapa: "fechada", criadoEm: "2026-05-25T14:00:00",
+      festa: { data: "2026-06-14", inicio: "16:00", fim: "20:00", tipoEvento: "Aniversário infantil", convidados: 60, servicos: ["salao"], local: "", valor: 90000 },
+      contrato: { tipo: "salao", status: "Rascunho", atualizadoEm: "2026-05-28T10:00:00", dados: { salao: { nome: "Tiago Meireles", tipo_festa: "de aniversário infantil", data_evento: "2026-06-14", hora_inicio: "16:00", valor_total: "900" } } },
+      pedidos: [], notas: [], historico: [{ para: "novo", por: "luguilar86@gmail.com", em: "2026-05-25T14:00:00" }, { de: "novo", para: "fechada", por: "luguilar86@gmail.com", em: "2026-05-28T10:00:00" }] },
+    { id: "at6", tipo: "evento", nome: "Rafaela Prates", tel: "38997001122", data: "", pessoas: "45", obs: "Chá de bebê", origem: "sofia", etapa: "orcamento", criadoEm: "2026-06-09T16:20:00",
+      festa: { data: "2026-06-20", inicio: "14:00", fim: "18:00", tipoEvento: "Chá de bebê", convidados: 45, servicos: ["salao", "doces"], local: "", valor: 150000 }, contrato: null, pedidos: [], notas: [],
+      historico: [{ para: "novo", por: "sofia", em: "2026-06-09T16:20:00" }, { de: "novo", para: "orcamento", por: "luguilar86@gmail.com", em: "2026-06-10T09:00:00" }] },
+    { id: "at3", tipo: "visita", nome: "Joana Lima", tel: "38991112233", data: "", pessoas: "", obs: "", origem: "sofia", etapa: "perdida", motivoPerda: "Fechou em outro lugar", criadoEm: "2026-06-08T09:15:00", festa: null, contrato: null, pedidos: [], notas: [],
+      historico: [{ para: "novo", por: "sofia", em: "2026-06-08T09:15:00" }, { de: "novo", para: "perdida", por: "luguilar86@gmail.com", em: "2026-06-09T09:15:00", motivo: "Fechou em outro lugar" }] }
   ],
+  /* The global search's demo "Pagamentos" group. */
   pagamentos: [
     { icon: "cake-slice", title: "Maria Helena", sub: "Entrada 50% · Pix", value: "+ R$ 240,00", tone: "in" },
     { icon: "credit-card", title: "Rafaela Prates", sub: "Pagamento total · Cartão", value: "+ R$ 352,00", tone: "in" },
