@@ -16,14 +16,22 @@ async function conferirPagamento({ handle, order_nsu, transaction_nsu, slug }, f
 }
 
 /* Os dados do cliente que o pedido tiver (nome, e-mail do login Google, WhatsApp) vão já
-   preenchidos: o checkout pede menos coisa para quem só quer pagar o Pix. */
+   preenchidos: o checkout pede menos coisa para quem só quer pagar o Pix.
+   Telefone fora do formato brasileiro (DDD + 8 ou 9 dígitos, com ou sem 55) fica de fora: a
+   InfinitePay recusa o link inteiro (422) por causa dele, e o checkout pede o número ao cliente. */
+function telefoneDoCheckout(telefone) {
+  const d = String(telefone || "").replace(/\D/g, "");
+  const nacional = /^55\d{10,11}$/.test(d) ? d.slice(2) : d;
+  return /^[1-9]{2}(9\d{8}|[2-5]\d{7})$/.test(nacional) ? `+55${nacional}` : null;
+}
+
 function clienteDoCheckout(c) {
   if (!c) return null;
-  const tel = String(c.telefone || "").replace(/\D/g, "");
+  const tel = telefoneDoCheckout(c.telefone);
   const customer = {
     ...(c.nome ? { name: String(c.nome) } : {}),
     ...(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email || "") ? { email: c.email } : {}),
-    ...(tel.length >= 10 ? { phone_number: `+${tel.length <= 11 ? "55" + tel : tel}` } : {})
+    ...(tel ? { phone_number: tel } : {})
   };
   return Object.keys(customer).length ? customer : null;
 }
