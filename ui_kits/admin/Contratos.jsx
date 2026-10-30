@@ -393,7 +393,8 @@ function ContratoEditor({ contrato, compact, onChange, onBack, onToast, naoSalvo
       {final ? null : <Button size="sm" variant="ghost" icon="text-cursor-input" onClick={() => setEditar(true)}>Editar texto</Button>}
       <Button size="sm" variant="ghost" icon="printer" onClick={() => imprimir(false)}>Imprimir</Button>
       <Button size="sm" variant={final ? "solid" : "ghost"} icon="download" onClick={() => baixar(false)}>Baixar PDF</Button>
-      {final ? null : <Button size="sm" icon="check" onClick={() => setFinalizar(true)}>Finalizar</Button>}
+      {final ? <Button size="sm" variant="ghost" icon="pencil" onClick={() => { onChange({ status: "Rascunho" }); onToast("Contrato reaberto para edição"); }}>Editar</Button>
+        : <Button size="sm" icon="check" onClick={() => setFinalizar(true)}>Finalizar</Button>}
     </div>
 
     {proprio ? <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderRadius: "var(--radius-sm)",
@@ -432,7 +433,7 @@ function ContratoEditor({ contrato, compact, onChange, onBack, onToast, naoSalvo
       confirmLabel={confirmar === "pdf" ? "Sim, gerar" : "Sim, imprimir"} cancelLabel="Voltar" onCancel={() => setConfirmar(null)}
       onConfirm={() => { const o = confirmar; setConfirmar(null); o === "pdf" ? baixar(true) : imprimir(true); }} /> : null}
     {finalizar ? <DS.ConfirmDialog icon="file-check" title="Finalizar contrato?"
-      message="O contrato sai de rascunho e fica só para leitura. Imprimir e baixar o PDF continuam disponíveis."
+      message="O contrato sai de rascunho e fica só para leitura (dá para reabrir em Editar). Imprimir e baixar o PDF continuam disponíveis."
       confirmLabel="Sim, finalizar" cancelLabel="Voltar" onCancel={() => setFinalizar(false)}
       onConfirm={() => { setFinalizar(false); onChange({ status: "Finalizado" }); onToast("Contrato finalizado"); }} /> : null}
   </>);
