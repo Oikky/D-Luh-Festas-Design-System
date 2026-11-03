@@ -23,6 +23,7 @@ product today.**
 | Contratos | `Contratos.jsx` | Financeiro → Contratos tab | Fills the buffet and salão models from form fields and renders a preview. Not in the rail. |
 | Busca | `Busca.jsx` | top bar | Accent-insensitive (`NFD` strip) search across pedidos, eventos and pagamentos; a hit routes to its screen. |
 | Notificações | `Notificacoes.jsx` | rail bell | Panel plus transient cards that stay 6s (paused while hovered or focused) and route on click. The transient cards replay demo events only with `?demo` in the URL. |
+| Custos | `Custos.jsx`, `custos-calculo.js` | rail | Fichas técnicas (ingredientes com preço, receitas, peso pronto e porção), equipe e despesas da festa, e o simulador (pacote × servido/self-service × 50–150 convidados, com margem sobre o preço de venda). Um documento só, `sis_custos/base`, gravado pelo Worker (`salvarCustos`). Com dado faltando a conta não sai: a tela lista o que falta. Autoteste das contas: `node custos-calculo.js`. |
 | Clientes | `Clientes.jsx` | rail | **Live.** Customers derived from the orders (same phone, site login or e-mail = same person): numbers, addresses, orders, total. "Novo pedido" pre-fills Pedido manual, which also suggests known customers as you type. |
 
 ## Frame

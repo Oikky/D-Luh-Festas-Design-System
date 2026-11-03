@@ -119,6 +119,8 @@ window.DLUH_API = (() => {
           contrato: a.contrato ? { tipo: a.contrato.tipo, dados: a.contrato.dados || {}, status: a.contrato.status || "Rascunho", atualizadoEm: iso(a.contrato.atualizadoEm),
             htmlProprio: a.contrato.htmlProprio || null, clausulas: a.contrato.clausulas || null, extensoManual: !!a.contrato.extensoManual } : null,
           pedidos: a.pedidos || [],
+          formulario: a.formulario ? { formato: a.formulario.formato, pacote: a.formulario.pacote || "", pratos: a.formulario.pratos || [], extras: a.formulario.extras || [],
+            restricoes: a.formulario.restricoes || "", obs: a.formulario.obs || "" } : null,
           notas: (a.notas || []).map(n => ({ texto: n.texto, por: n.por || "", em: iso(n.em) })),
           historico: (a.historico || []).map(h => ({ de: h.de || "", para: h.para, por: h.por || "", em: iso(h.em), motivo: h.motivo || "" })),
           criadoEm: iso(a.criadoEm), resolvidoPor: a.resolvidoPor || "" };
@@ -136,6 +138,8 @@ window.DLUH_API = (() => {
       .map(p => ({ ...p, preco: brl(p.valorUnit) }))
       .sort((a, b) => (a.categoria || "").localeCompare(b.categoria || "") || (a.nome || "").localeCompare(b.nome || "")),
     recheios: docs => (docs.find(d => d.id === "recheios") || {}).lista || [],
+    /* Fichas técnicas e custos (Custos.jsx): o documento sis_custos/base, ou null se ainda não foi salvo. */
+    custos: docs => { const d = docs.find(x => x.id === "base"); if (!d) return null; const { id, atualizadoEm, por, ...resto } = d; return resto; },
     fila: pedidos => pedidos
       .filter(x => x.cozinha !== "feito")
       .sort((a, b) => `${a.entrega?.data} ${a.entrega?.hora}`.localeCompare(`${b.entrega?.data} ${b.entrega?.hora}`))

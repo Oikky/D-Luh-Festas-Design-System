@@ -50,6 +50,7 @@ if (new URLSearchParams(location.search).get("fonte") === "firebase") {
       pedidosTodos,
       produtos: () => F.collection(db, "sis_produtos"),
       recheios: () => F.collection(db, "sis_catalogo"),
+      custos: () => F.collection(db, "sis_custos"),
       todosPagamentos: () => [diario("sis_pagamentos"), F.query(F.collection(db, "sis_pagamentos"), F.where("em", ">=", corte()))],
       pagamentosRecentes: () => F.query(F.collection(db, "sis_pagamentos"), F.where("em", ">=", corte())),
       financeiro: () => F.collection(db, "sis_financeiro"),

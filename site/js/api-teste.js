@@ -104,5 +104,11 @@
     return r.erro ? r : { status: r.pedido.status, entregador: r.pedido.entregador || null };
   }
 
-  window.DLuhAPI = { criarPedido, consultarPedido, acompanharEntrega, estimarFrete, modo: "teste" };
+  async function pedirFesta(dados) {
+    await espera(600);
+    console.log("[teste] festa", dados);
+    return { id: "teste-" + Date.now() };
+  }
+
+  window.DLuhAPI = { criarPedido, consultarPedido, acompanharEntrega, estimarFrete, pedirFesta, modo: "teste" };
 })();

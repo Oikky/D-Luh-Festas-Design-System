@@ -48,6 +48,11 @@ service cloud.firestore {
       allow read: if equipe() || sistema();
       allow write: if sistema();
     }
+    // Fichas técnicas e custos do buffet (tela Custos). Só a equipe lê; grava pelo Worker.
+    match /sis_custos/{doc} {
+      allow read: if equipe() || sistema();
+      allow write: if sistema();
+    }
     // Assistente do WhatsApp: conversas e mensagens já vistas. Só o Worker.
     match /sis_ia/{numero} {
       allow read, write: if sistema();

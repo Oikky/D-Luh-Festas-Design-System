@@ -114,3 +114,35 @@ test("telefone e data de Brasília", () => {
   assert.ok(!telIguais("4410", "4410"));
   assert.equal(hojeBrasilia(new Date("2026-10-01T02:00:00Z")), "2026-09-30");
 });
+
+/* Formulário "Monte sua festa" (festa-site.js). */
+import { festaDoSite, textoCliente } from "../src/festa-site.js";
+import { salvarCustos, publicarCardapio } from "../src/custos.js";
+
+const festa = (extra = {}) => ({ nome: "Ana Souza", telefone: "(38) 99812-4410", tipoEvento: "Casamento", data: "2026-12-12", inicio: "19:00",
+  convidados: 100, local: "salao", formato: "servido", pacote: "trad", pratos: ["arroz", "frango", "pernil"], extras: ["bolo", "xx"], ...extra });
+
+test("festa do site: só pratos do cardápio publicado, com limite por tipo, vira atendimento novo", async () => {
+  await salvarCustos(db, {
+    fichas: [{ id: "arroz", nome: "Arroz branco", categoria: "Arroz" }, { id: "grega", nome: "Arroz à grega", categoria: "Arroz" },
+      { id: "frango", nome: "Fricassê", categoria: "Proteína" }, { id: "pernil", nome: "Pernil", categoria: "Proteína" }],
+    pacotes: [{ id: "trad", nome: "Tradicional", fichas: ["arroz", "grega", "frango", "pernil"] }],
+    limites: { Arroz: 1, Proteína: 2 }
+  }, "ana");
+  await publicarCardapio(db);
+  const pub = (await db.doc("sis_catalogo/buffet").get()).data();
+  assert.deepEqual(pub.pacotes[0].pratos[0], { id: "arroz", nome: "Arroz branco", tipo: "Arroz" });
+  assert.equal(JSON.stringify(pub).includes("preco"), false);
+
+  const a = await festaDoSite(db, festa(), AGORA);
+  const salvo = (await db.collection("sis_atendimentos").doc(a.id).get()).data();
+  assert.equal(salvo.etapa, "novo");
+  assert.equal(salvo.festa.convidados, 100);
+  assert.deepEqual(salvo.festa.servicos, ["salao", "buffet"]);
+  assert.deepEqual(salvo.formulario.extras, ["bolo"]);
+  assert.match(textoCliente(a), /Arroz: Arroz branco/);
+  await assert.rejects(festaDoSite(db, festa({ pratos: ["arroz", "grega"] }), AGORA), /Arroz: escolha até 1/);
+  await assert.rejects(festaDoSite(db, festa({ pratos: ["inventado"] }), AGORA), /saiu do cardápio/);
+  await assert.rejects(festaDoSite(db, festa({ data: "2026-10-01" }), AGORA), /a partir de amanhã/);
+  await assert.rejects(festaDoSite(db, festa({ local: "outro", endereco: "" }), AGORA), /onde vai ser/);
+});

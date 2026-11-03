@@ -793,3 +793,25 @@ html.intro-ativa .topo .marca__d { opacity: 0; }
   #bolos-cena .cabeca-secao p { font-size: 1rem; }
 }
 .com-cenas .aros { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ── Monte sua festa ───────────────────────────────────────────── */
+
+.festa { display: grid; gap: clamp(16px, 2.5vw, 24px); max-width: 860px; padding-block: clamp(12px, 2vw, 20px) 96px; }
+.festa .painel > .titulo--m { margin-bottom: 18px; }
+.festa .painel__ajuda { margin-top: -10px; }
+.opcoes-modo--fim { margin: 22px 0 0; }
+.festa__legenda { grid-column: 1 / -1; padding: 0; margin-bottom: 2px; font-weight: 700; font-size: 0.9375rem; }
+.opcoes-linha { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
+.opcoes-linha .opcao-modo { padding: 14px 12px; }
+.opcoes-linha .opcao-modo { grid-template-columns: 1fr; text-align: left; }
+.festa__pratos, .festa__avulso { display: grid; gap: 10px; }
+.festa__avulso { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--linha); }
+.festa .escolha legend small { font-weight: 600; color: var(--cafe-2); }
+.festa__extras { margin-bottom: 18px; }
+.festa #f-pratos-erro { margin-top: 12px; }
+.pagina-festa .recebido { padding-block: clamp(32px, 6vw, 72px); }
+.pagina-festa .recebido > p { margin: 14px auto 0; max-width: 46ch; color: var(--cafe-2); font-size: 1.125rem; }
+@media (max-width: 640px) {
+  .festa .campo--metade, .festa .campo--terco { grid-column: span 6; }
+  .festa .opcoes-modo:not(.opcoes-linha) { grid-template-columns: 1fr; }
+}

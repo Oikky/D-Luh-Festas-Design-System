@@ -33,5 +33,8 @@
   // Taxa de entrega para o endereço (estimativa da Moblets, arredondada): { disponivel, taxa, km }.
   const estimarFrete = local => chamar("frete", { local });
 
-  window.DLuhAPI = { criarPedido, consultarPedido, acompanharEntrega, estimarFrete, modo: "producao" };
+  // "Monte sua festa" (festa.html): vira atendimento no funil; sem login.
+  const pedirFesta = dados => chamar("festa", dados);
+
+  window.DLuhAPI = { criarPedido, consultarPedido, acompanharEntrega, estimarFrete, pedirFesta, modo: "producao" };
 })();

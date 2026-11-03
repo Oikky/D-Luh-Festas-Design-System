@@ -482,7 +482,8 @@ function AtFicha({ a, todos, fin, pedidos, hoje, compact, onBack, acao, pendente
     }} />;
 
   const t = AT_TIPO[a.tipo] || AT_TIPO.outro;
-  const origem = a.origem === "equipe" ? "Lançado pela equipe" + (a.canal ? " · " + a.canal : "") : "Pela Sofia no WhatsApp";
+  const origem = a.origem === "equipe" ? "Lançado pela equipe" + (a.canal ? " · " + a.canal : "") : a.origem === "site" ? "Pelo formulário do site" : "Pela Sofia no WhatsApp";
+  const fm = a.formulario;
   const lado = { display: "flex", flexDirection: "column", gap: 12, minWidth: 0 };
   const pediu = [["calendar-days", "Quando quer", a.data], ["users", "Pessoas", a.pessoas], ["notebook-pen", "Observação", a.obs]].filter(x => x[2]);
 
@@ -514,7 +515,15 @@ function AtFicha({ a, todos, fin, pedidos, hoje, compact, onBack, acao, pendente
         <div style={lado}>
           <AtDinheiro a={a} fin={fin} pendente={pendente} onPagar={falta => setModal({ tipo: "pagar", falta })} onApagar={x => setModal({ tipo: "apagar", x })} />
           <AtContratoCard a={a} onAbrir={() => setContrato(true)} />
-          {pediu.length ? <AT.Card header={atTitulo(a.origem === "equipe" ? "O que a pessoa pediu" : "O que a Sofia anotou")}>
+          {fm ? <AT.Card header={atTitulo(`Cardápio ${fm.pacote} · ${fm.formato === "self" ? "self-service" : "buffet servido"}`)}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: "var(--fs-body-s)", lineHeight: "var(--lh-snug)" }}>
+              {[...new Set(fm.pratos.map(p => p.tipo))].map(t => <div key={t}><span style={{ color: "var(--text-muted)" }}>{t}: </span>{fm.pratos.filter(p => p.tipo === t).map(p => p.nome).join(", ")}</div>)}
+              {fm.extras.length ? <div><span style={{ color: "var(--text-muted)" }}>Também quer: </span>{fm.extras.map(x => ({ bebidas: "Bebidas", bolo: "Bolo", doces: "Doces", decoracao: "Decoração" })[x] || x).join(", ")}</div> : null}
+              {fm.restricoes ? <div><span style={{ color: "var(--text-muted)" }}>Restrições: </span>{fm.restricoes}</div> : null}
+              {fm.obs ? <div><span style={{ color: "var(--text-muted)" }}>Observações: </span>{fm.obs}</div> : null}
+            </div>
+          </AT.Card> : null}
+          {pediu.length && !fm ? <AT.Card header={atTitulo(a.origem === "equipe" ? "O que a pessoa pediu" : "O que a Sofia anotou")}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {pediu.map(([i, r, val]) => <AT.ListRow key={r} icon={i} title={val} subtitle={r} />)}
             </div>

@@ -9,6 +9,7 @@ import { criarPedido, editarPedido, mudarStatus, marcarFeito, registrarPagamento
 import { salvarProduto, apagarProduto, salvarRecheios, publicarCatalogo } from "../src/produtos.js";
 import { salvarFinanceiro, apagarFinanceiro, pagarBoleto, pagarFatura, faturaDaData, parcelasDaCompra, vencDaFatura } from "../src/financeiro.js";
 import { pagamentoDe } from "../src/dominio.js";
+import { salvarCustos } from "../src/custos.js";
 import { registrarNota } from "../src/notas.js";
 import { criarCobrancaJunta, pagarCobrancaJunta, dividir, linkDaCobranca } from "../src/cobrancas.js";
 
@@ -472,4 +473,22 @@ test("cobrança junta recusa pedidos já pagos ou inexistentes", async () => {
   await assert.rejects(criarCobrancaJunta(db, { pedidoIds: [a.id] }, "ana", link), /já estão pagos/);
   await assert.rejects(criarCobrancaJunta(db, { pedidoIds: ["PED-9999"] }, "ana", link), /não existe/);
   await assert.rejects(criarCobrancaJunta(db, { pedidoIds: [] }, "ana", link), /Escolha/);
+});
+
+test("salvarCustos grava o documento limpo e recusa formato errado", async () => {
+  await salvarCustos(db, {
+    ingredientes: [{ id: "arroz", nome: " Arroz ", preco: 2000, qtd: 5, unidade: "kg" }, { id: "manteiga", nome: "Manteiga", preco: null, qtd: 1, unidade: "kg" }],
+    fichas: [{ id: "f1", nome: "Arroz branco", itens: [{ ing: "arroz", qtd: 2, unidade: "kg" }], pendencias: ["Sal", " "] }],
+    equipe: [{ id: "g", funcao: "Garçom", valor: 18000, servido: { 50: 3 }, self: {} }],
+    precos: { margemPct: 30 }
+  }, "ana");
+  const c = (await db.doc("sis_custos/base").get()).data();
+  assert.equal(c.ingredientes[0].nome, "Arroz");
+  assert.equal(c.ingredientes[1].preco, null);
+  assert.deepEqual(c.fichas[0].pendencias, ["Sal"]);
+  assert.equal(c.equipe[0].servido["50"], 3);
+  assert.equal(c.equipe[0].servido["80"], null);
+  await assert.rejects(salvarCustos(db, { ingredientes: [{ id: "x", nome: "X", preco: 1.5, qtd: 1, unidade: "kg" }] }, "ana"), /centavos/);
+  await assert.rejects(salvarCustos(db, { ingredientes: [{ id: "x", nome: "X", preco: 1, qtd: 1, unidade: "saco" }] }, "ana"), /unidade/);
+  await assert.rejects(salvarCustos(db, { precos: { margemPct: 80, taxasPct: 20 } }, "ana"), /100%/);
 });

@@ -73,6 +73,14 @@ test("catálogo: qualquer visitante lê, só a conta sistema grava", async () =>
   await assertSucceeds(sistema().doc("sis_catalogo/recheios").set({ lista: [] }));
 });
 
+test("custos: só a equipe lê, só a conta sistema grava", async () => {
+  await assertSucceeds(equipe().doc("sis_custos/base").get());
+  await assertFails(env.unauthenticatedContext().firestore().doc("sis_custos/base").get());
+  await assertFails(cliente("cliente-1").doc("sis_custos/base").get());
+  await assertFails(equipe().doc("sis_custos/base").set({ fichas: [] }));
+  await assertSucceeds(sistema().doc("sis_custos/base").set({ fichas: [] }));
+});
+
 test("financeiro: a equipe lê, só a conta sistema grava", async () => {
   await assertSucceeds(equipe().doc("sis_financeiro/f1").get());
   await assertFails(cliente("cliente-1").doc("sis_financeiro/f1").get());

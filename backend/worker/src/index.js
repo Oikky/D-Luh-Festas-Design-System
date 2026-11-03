@@ -1,7 +1,7 @@
 /* API do sistema D'Luh.
      POST /api/<acao>          telas da equipe — Authorization: Bearer <ID token do Firebase>
                                (as ações de CLIENTE aceitam qualquer login do Firebase, até anônimo)
-     POST /site/pedido, /site/consultar, /site/frete, /site/entrega  site dos clientes, sem login (site.js, frete.js)
+     POST /site/pedido, /site/consultar, /site/frete, /site/entrega, /site/festa  site dos clientes, sem login (site.js, frete.js)
      /sofia/<pedido|consultar|pagar|sugerir|cancelar|comprovante|atendimento|webhook>/<token>  agente Sofia do GPTMaker (sofia.js)
      POST /webhook/orcamento/<token>  alerta de gasto do Google Cloud via Pub/Sub (orcamento.js)
      POST /webhook/infinitepay aviso de pagamento da InfinitePay
@@ -23,6 +23,8 @@ import * as sofiaHumano from "./sofia-humano.js";
 import * as atendimento from "./sofia-atendimento.js";
 import * as atendimentos from "./atendimentos.js";
 import * as produtos from "./produtos.js";
+import * as custos from "./custos.js";
+import * as festaSite from "./festa-site.js";
 import * as financeiro from "./financeiro.js";
 import * as notas from "./notas.js";
 import * as cobrancas from "./cobrancas.js";
@@ -124,6 +126,8 @@ const ACOES = {
   salvarProduto: (db, dados, por) => produtos.salvarProduto(db, dados, por),
   apagarProduto: (db, dados) => produtos.apagarProduto(db, dados),
   salvarRecheios: (db, dados, por) => produtos.salvarRecheios(db, dados, por),
+  /* Fichas técnicas, despesas e pacotes do buffet (tela Custos, custos.js). */
+  salvarCustos: (db, dados, por) => custos.salvarCustos(db, dados, por),
   enviarImagem: (db, dados, por, env) => enviarImagem(env, { dataUrl: dados.dataUrl, prefixo: "produto" }),
 
   /* Nota fiscal emitida no ERP4ME: guarda tipo, número e CPF/CNPJ no pedido (notas.js). */
@@ -240,6 +244,7 @@ const DEPOIS = {
   salvarProduto: (env, db) => [produtos.publicarCatalogo(db)],
   apagarProduto: (env, db) => [produtos.publicarCatalogo(db)],
   salvarRecheios: (env, db) => [produtos.publicarCatalogo(db)],
+  salvarCustos: (env, db) => [custos.publicarCardapio(db)],
   trocarFotoProduto: (env, db) => [produtos.publicarCatalogo(db)],
   apagarPagamento: (env, db, dados, r) => r.pedidoId && r.pagamento ? [efeitos.sincronizarAgenda(env, db, r.pedidoId)] : [],
   mudarStatus: (env, db, dados, r, por) => !r.mudou ? [] : [
@@ -307,6 +312,12 @@ async function rotaDoSite(request, env, ctx, rota, cors) {
     if (!(await site.turnstileOk(env, dados.turnstile, ip))) throw new ErroDominio("permission-denied", "Confirme que você não é um robô");
     const db = banco(env);
     if (rota === "consultar") return json(await site.consultarDoSite(db, dados), 200, cors);
+    /* "Monte sua festa": sem login (só nome e WhatsApp), vira atendimento no funil (festa-site.js). */
+    if (rota === "festa") {
+      const a = await festaSite.festaDoSite(db, dados);
+      depois(ctx, [festaSite.avisarFesta(env, a)], "festaDoSite", a.id);
+      return json({ id: a.id }, 200, cors);
+    }
     /* Pedido só com login Google: o e-mail e o nome da conta vão no pedido (e preenchidos no
        checkout), e o pedido fica ligado à conta. */
     const bearer = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
@@ -647,7 +658,7 @@ export default {
     }
 
     const cors = corsDe(request, env);
-    const rotaSite = url.pathname.match(/^\/site\/(pedido|consultar|frete|entrega)$/)?.[1];
+    const rotaSite = url.pathname.match(/^\/site\/(pedido|consultar|frete|entrega|festa)$/)?.[1];
     if (rotaSite) return rotaDoSite(request, env, ctx, rotaSite, cors);
     const acao = url.pathname.match(/^\/api\/(\w+)$/)?.[1];
     if (!acao || ![ACOES, ACOES_CLIENTE, ACOES_SISTEMA].some(a => Object.hasOwn(a, acao))) return json({ erro: "Não encontrado" }, 404, cors);

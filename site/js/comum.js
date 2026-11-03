@@ -30,6 +30,8 @@
     pausa: '<path d="M9 5v14M15 5v14"/>',
     insta: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>',
     play: '<path d="M7 4.5v15l12-7.5-12-7.5Z"/>',
+    cloche: '<path d="M3 18h18"/><path d="M5 18a7 7 0 0 1 14 0"/><path d="M12 11V8"/><path d="M10 8h4"/>',
+    prato: '<circle cx="13" cy="12" r="6"/><circle cx="13" cy="12" r="2.5"/><path d="M4 4v5a1.5 1.5 0 0 0 3 0V4M5.5 9v11"/>',
     salgado: '<path d="M12 3c-4 4.5-7 8.6-7 11.5A7 7 0 0 0 19 14.5C19 11.6 16 7.5 12 3Z"/><path d="M9 15.5c1.8 1.2 4.2 1.2 6 0"/>'
   };
 

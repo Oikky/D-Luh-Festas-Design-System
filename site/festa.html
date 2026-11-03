@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Monte sua festa · D'Luh Festas</title>
+  <meta name="description" content="Conte como vai ser a sua festa e escolha o cardápio do buffet. A D'Luh Festas monta o orçamento e te chama no WhatsApp.">
+  <meta name="theme-color" content="#ffffff">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="D'Luh Festas">
+  <meta property="og:title" content="Monte sua festa · D'Luh Festas">
+  <meta property="og:description" content="Escolha o cardápio do buffet e receba o orçamento no WhatsApp.">
+  <meta property="og:url" content="https://www.dluhfestas.com/festa">
+  <meta property="og:image" content="https://www.dluhfestas.com/midia/galeria-mesa-flores.jpg">
+  <link rel="canonical" href="https://www.dluhfestas.com/festa">
+  <link rel="icon" href="img/d-dluh.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="img/logo-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600..800;1,600..700&family=Urbanist:wght@400..800&display=swap">
+  <link rel="stylesheet" href="css/site.css?v=27">
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <div class="moldura topo__dentro">
+      <a class="marca" href="/" aria-label="D'Luh Festas, página inicial">
+        <span class="marca__d" data-marca-d><img src="img/d-dluh.svg" alt="" width="859" height="648"></span>
+        <span class="marca__nome">D'Luh <em>Festas</em></span>
+      </a>
+      <nav class="menu" aria-label="Principal">
+        <a href="/cardapio" class="so-largo">Cardápio</a>
+        <a href="/festa" class="so-largo" aria-current="page">Monte sua festa</a>
+        <a href="/#salao" class="so-largo">Nosso salão</a>
+        <a href="/pedido" class="so-largo">Acompanhar pedido</a>
+      </nav>
+      <a class="sacola so-estreito" href="/pedido" aria-label="Acompanhar pedido">
+        <svg class="icone" aria-hidden="true"><use href="#i-recebido"/></svg>
+      </a>
+      <a class="sacola" href="/cardapio" aria-label="Seu pedido" data-sacola>
+        <svg class="icone" aria-hidden="true"><use href="#i-sacola"/></svg>
+        <span class="sacola__n" data-sacola-n hidden>0</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="conteudo" class="moldura pagina-festa">
+    <div class="cabeca-pagina">
+      <h1 class="titulo">Monte sua festa</h1>
+      <p>Conte como vai ser e escolha o cardápio do buffet. A equipe monta o orçamento e te chama no WhatsApp.</p>
+    </div>
+
+    <form id="form-festa" class="festa" novalidate>
+      <section class="painel" aria-labelledby="t-festa">
+        <h2 class="titulo titulo--m" id="t-festa">A festa</h2>
+        <div class="campos">
+          <div class="campo campo--metade">
+            <label for="f-tipo">Que festa vai ser?</label>
+            <select class="entrada" id="f-tipo" name="tipoEvento" required>
+              <option value="">Escolha</option>
+              <option>Casamento</option><option>Aniversário</option><option>15 anos</option>
+              <option>Bodas</option><option>Formatura</option><option>Evento da empresa</option><option>Confraternização</option>
+              <option value="outra">Outra</option>
+            </select>
+            <p class="campo__erro" id="f-tipo-erro" hidden></p>
+          </div>
+          <div class="campo campo--metade" id="campo-outra" hidden>
+            <label for="f-outra">Qual?</label>
+            <input class="entrada" type="text" id="f-outra" maxlength="60" placeholder="Ex.: chá de bebê">
+          </div>
+          <div class="campo campo--terco">
+            <label for="f-data">Dia</label>
+            <input class="entrada" type="date" id="f-data" name="data" required>
+            <p class="campo__erro" id="f-data-erro" hidden></p>
+          </div>
+          <div class="campo campo--terco">
+            <label for="f-hora">Começa às <small>(se já souber)</small></label>
+            <input class="entrada" type="time" id="f-hora" name="inicio" step="900">
+          </div>
+          <div class="campo campo--terco">
+            <label for="f-conv">Convidados</label>
+            <input class="entrada num" type="number" id="f-conv" name="convidados" inputmode="numeric" min="10" max="1000" placeholder="100" required>
+            <p class="campo__erro" id="f-conv-erro" hidden></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="painel" aria-labelledby="t-onde">
+        <h2 class="titulo titulo--m" id="t-onde">Onde e como</h2>
+        <fieldset class="opcoes-modo">
+          <legend class="sr-only">Onde vai ser</legend>
+          <label class="opcao-modo">
+            <input type="radio" name="local" value="salao" checked>
+            <svg class="icone" aria-hidden="true"><use href="#i-loja"/></svg>
+            <strong>No salão D' Roma</strong><span>O nosso espaço</span>
+          </label>
+          <label class="opcao-modo">
+            <input type="radio" name="local" value="outro">
+            <svg class="icone" aria-hidden="true"><use href="#i-pino"/></svg>
+            <strong>Em outro lugar</strong><span>A gente leva o buffet</span>
+          </label>
+        </fieldset>
+        <div class="campos" id="campo-endereco" hidden>
+          <div class="campo">
+            <label for="f-end">Endereço da festa</label>
+            <input class="entrada" type="text" id="f-end" maxlength="160" autocomplete="street-address" placeholder="Rua, número, bairro e cidade">
+            <p class="campo__erro" id="f-end-erro" hidden></p>
+          </div>
+        </div>
+        <fieldset class="opcoes-modo opcoes-modo--fim">
+          <legend class="festa__legenda">Como servir</legend>
+          <label class="opcao-modo">
+            <input type="radio" name="formato" value="servido" checked>
+            <svg class="icone" aria-hidden="true"><use href="#i-cloche"/></svg>
+            <strong>Buffet servido</strong><span>A equipe serve nas mesas</span>
+          </label>
+          <label class="opcao-modo">
+            <input type="radio" name="formato" value="self">
+            <svg class="icone" aria-hidden="true"><use href="#i-prato"/></svg>
+            <strong>Self-service</strong><span>Mesa montada, cada um se serve</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="painel" aria-labelledby="t-cardapio">
+        <h2 class="titulo titulo--m" id="t-cardapio">Cardápio</h2>
+        <p class="painel__ajuda">Escolha a linha e marque os pratos. O orçamento sai depois, com o que você escolheu.</p>
+        <div id="cardapio" aria-live="polite"><p class="carregando">Carregando o cardápio…</p></div>
+        <p class="campo__erro" id="f-pratos-erro" hidden></p>
+      </section>
+
+      <section class="painel" aria-labelledby="t-extras">
+        <h2 class="titulo titulo--m" id="t-extras">Algo mais?</h2>
+        <fieldset class="escolha festa__extras">
+          <legend>Também tenho interesse em</legend>
+          <div class="chips">
+            <label class="chip"><input type="checkbox" name="extras" value="bebidas">Bebidas</label>
+            <label class="chip"><input type="checkbox" name="extras" value="bolo">Bolo</label>
+            <label class="chip"><input type="checkbox" name="extras" value="doces">Doces</label>
+            <label class="chip"><input type="checkbox" name="extras" value="decoracao">Decoração</label>
+          </div>
+        </fieldset>
+        <div class="campos">
+          <div class="campo">
+            <label for="f-restr">Alguma restrição alimentar? <small>(vegetariano, sem glúten, alergias…)</small></label>
+            <input class="entrada" type="text" id="f-restr" maxlength="300">
+          </div>
+          <div class="campo">
+            <label for="f-obs">Quer contar mais alguma coisa?</label>
+            <textarea class="entrada" id="f-obs" maxlength="600" placeholder="Tema, horário de término, dúvidas…"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="painel" aria-labelledby="t-contato">
+        <h2 class="titulo titulo--m" id="t-contato">Pra te chamar</h2>
+        <div class="campos">
+          <div class="campo campo--metade">
+            <label for="f-nome">Seu nome</label>
+            <input class="entrada" type="text" id="f-nome" maxlength="80" autocomplete="name" required>
+            <p class="campo__erro" id="f-nome-erro" hidden></p>
+          </div>
+          <div class="campo campo--metade">
+            <label for="f-tel">WhatsApp</label>
+            <input class="entrada num" type="tel" id="f-tel" inputmode="tel" autocomplete="tel-national" placeholder="(38) 99999-9999" required>
+            <p class="campo__erro" id="f-tel-erro" hidden></p>
+          </div>
+        </div>
+        <div id="f-erro-geral"></div>
+        <div class="painel__acoes">
+          <span></span>
+          <button class="botao botao--grande" type="submit" id="f-enviar">Mandar para a D'Luh <svg class="icone" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+      </section>
+    </form>
+
+    <section class="recebido" id="recebido" hidden tabindex="-1" aria-labelledby="t-recebido">
+      <div class="recebido__selo"><svg class="icone" aria-hidden="true"><use href="#i-check"/></svg></div>
+      <h2 class="titulo" id="t-recebido">Recebemos a sua festa!</h2>
+      <p>A equipe monta o orçamento com o que você escolheu e te chama no WhatsApp <strong id="r-tel"></strong>.</p>
+      <div class="recebido__acoes">
+        <a class="botao botao--contorno" href="/">Voltar ao início</a>
+        <a class="botao" href="/cardapio">Ver doces e salgados</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="moldura rodape__dentro">
+      <div>
+        <img src="img/logo-192.png" alt="D'Luh Festas" width="192" height="192">
+        <p>Doces e salgados pra festas, feitos em Montes Claros, MG.</p>
+      </div>
+      <div>
+        <h2>Site</h2>
+        <ul>
+          <li><a href="/">Início</a></li>
+          <li><a href="/cardapio">Cardápio</a></li>
+          <li><a href="/festa">Monte sua festa</a></li>
+          <li><a href="/pedido">Acompanhar pedido</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Contato</h2>
+        <ul>
+          <li><a href="https://wa.me/5538992229178" target="_blank" rel="noopener">WhatsApp (38) 99222-9178</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Salão</h2>
+        <ul>
+          <li><a href="https://www.instagram.com/dromafestas/" target="_blank" rel="noopener"><svg class="icone" aria-hidden="true"><use href="#i-insta"/></svg>&nbsp;D' Roma Festas no Instagram</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="moldura rodape__base">D'Luh Festas · Montes Claros, MG</div>
+  </footer>
+
+  <script src="js/comum.js?v=23"></script>
+  <script src="js/marca-dados.js?v=22"></script>
+  <script src="js/marca.js?v=22"></script>
+  <script src="js/api.js?v=24"></script>
+  <script src="js/api-teste.js?v=25"></script>
+  <script src="js/festa.js?v=1"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 """Monta www.dluhfestas.com no repositório do site (Oikky/dluhfestas, padrão ~/Downloads/dluhfestas):
-   - site dos clientes: site/{index,cardapio,pedido}.html + css/ js/ img/ midia/
+   - site dos clientes: site/{index,cardapio,pedido,festa}.html + css/ js/ img/ midia/
    - admin em /admin: ui_kits/admin + o que ele usa do design system (styles.css, tokens/, _ds_bundle.js,
      assets/logo) dentro de admin/ds/. Na cópia publicada o admin já abre ligado ao sistema de verdade
      (sem ?fonte=firebase); o modo demonstração fica em ?fonte=demo.
@@ -26,12 +26,12 @@ def copiar(de, para):
 
 # Site dos clientes
 if not SO_ADMIN:
-    for f in ["index.html", "cardapio.html", "pedido.html"]:
+    for f in ["index.html", "cardapio.html", "pedido.html", "festa.html"]:
         copiar(f"site/{f}", f)
     for d in ["css", "js", "img", "midia"]:
         copiar(f"site/{d}", d)
     # O editor ao vivo do Impeccable injeta um <script> do localhost nas páginas: nunca vai pro ar.
-    for f in ["index.html", "cardapio.html", "pedido.html"]:
+    for f in ["index.html", "cardapio.html", "pedido.html", "festa.html"]:
         p = os.path.join(DESTINO, f)
         s = open(p, encoding="utf8").read()
         s = re.sub(r"[ \t]*<!-- impeccable-live-start -->.*?<!-- impeccable-live-end -->\n?", "", s, flags=re.S)

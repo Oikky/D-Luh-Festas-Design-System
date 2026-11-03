@@ -14,7 +14,8 @@ const navItems = () => {
     { id: "produtos", label: "Produtos", icon: "package" },
     { id: "clientes", label: "Clientes", icon: "users" },
     { id: "atendimentos", label: "Atendimentos", icon: "headset" },
-    { id: "financeiro", label: "Financeiro", icon: "wallet" }
+    { id: "financeiro", label: "Financeiro", icon: "wallet" },
+    { id: "custos", label: "Custos", icon: "calculator" }
   ];
 };
 
