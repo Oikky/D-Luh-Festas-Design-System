@@ -30,7 +30,7 @@ async function chamar(env, metodo, corpo, fetchFn = fetch) {
 
 // O Telegram corta mensagem acima de 4096 caracteres.
 const cortar = s => (s.length > 4096 ? s.slice(0, 4095) + "…" : s);
-const teclado = botoes => botoes?.length ? { reply_markup: { inline_keyboard: botoes.map(b => [{ text: b.titulo, callback_data: b.id }]) } } : {};
+const teclado = botoes => botoes?.length ? { reply_markup: { inline_keyboard: botoes.map(b => [b.url ? { text: b.titulo, url: b.url } : { text: b.titulo, callback_data: b.id }]) } } : {};
 
 /* Texto simples (sem parse_mode: nome de cliente com "_" ou "*" não quebra a mensagem). */
 function enviar(env, topico, texto, botoes, fetchFn) {

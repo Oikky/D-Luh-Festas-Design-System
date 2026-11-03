@@ -6,7 +6,7 @@
 import { ErroDominio } from "./dominio.js";
 import { ATENDIMENTOS } from "./sofia-atendimento.js";
 import { CARDAPIO_BUFFET } from "./custos.js";
-import { enviarTexto, whatsappLigado } from "./whatsapp.js";
+import { enviarTexto, whatsappLigado, numeroDe } from "./whatsapp.js";
 import { enviar as enviarTelegram, telegramLigado, topicos } from "./telegram.js";
 import { hojeBrasilia } from "./site.js";
 
@@ -107,7 +107,7 @@ async function avisarFesta(env, a) {
   const equipe = textoEquipe(a);
   const envios = [
     // Tópico Festas; sem ele configurado em TELEGRAM_TOPICOS, cai em Pendentes.
-    ...(telegramLigado(env) ? [enviarTelegram(env, topicos(env).festas ? "festas" : "pendentes", equipe)] : []),
+    ...(telegramLigado(env) ? [enviarTelegram(env, topicos(env).festas ? "festas" : "pendentes", equipe, [{ titulo: "Abrir no Whats", url: `https://wa.me/${numeroDe(a.telefone)}` }])] : []),
     ...(whatsappLigado(env) ? [
       ...String(env.WHATSAPP_ATENDIMENTO || "").split(",").map(s => s.trim()).filter(Boolean).map(n => enviarTexto(env, n, equipe)),
       enviarTexto(env, a.telefone, textoCliente(a))
