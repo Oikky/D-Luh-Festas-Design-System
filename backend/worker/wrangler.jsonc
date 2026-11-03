@@ -45,7 +45,7 @@
     "IA_NUMEROS": "5538999540665,5538997457788",
     // Telegram: grupo da equipe (supergrupo com tópicos) e o número de cada tópico.
     "TELEGRAM_CHAT": "-1004334694564",
-    "TELEGRAM_TOPICOS": "pendentes:6,confirmados:4,pagamentos:8,ia:174",
+    "TELEGRAM_TOPICOS": "pendentes:6,confirmados:4,pagamentos:8,ia:174,festas:1652",
     // Alexa na cozinha (src/alexa.js): ID da skill (amzn1.ask.skill.…) e o ID do Echo no Voice Monkey
     // que fala quando um pedido entra na fila. Vazios = desligados.
     "ALEXA_SKILL_ID": "amzn1.ask.skill.22ac3f92-d68f-4dfb-b7aa-adf53cdd361f",

@@ -3,12 +3,13 @@
      Confirmados  pedido confirmado (estoque ok), esperando pagamento
      Pagamentos   cada pagamento que entra
      IA           a assistente (a mesma do WhatsApp) conversa ali
+     Festas       festa pedida pelo formulário do site (festa-site.js)
    O Telegram chama /webhook/telegram com o cabeçalho X-Telegram-Bot-Api-Secret-Token.
    Sem TELEGRAM_TOKEN e TELEGRAM_CHAT fica desligado; tópico sem número manda no Geral. */
 
 const telegramLigado = env => !!(env.TELEGRAM_TOKEN && env.TELEGRAM_CHAT);
 
-/* TELEGRAM_TOPICOS = "pendentes:6,confirmados:4,pagamentos:8,ia:174" */
+/* TELEGRAM_TOPICOS = "pendentes:6,confirmados:4,pagamentos:8,ia:174,festas:1652" */
 function topicos(env) {
   return Object.fromEntries(String(env.TELEGRAM_TOPICOS || "").split(",")
     .map(par => par.split(":").map(s => s.trim())).filter(([k, v]) => k && /^\d+$/.test(v || ""))

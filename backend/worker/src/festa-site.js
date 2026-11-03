@@ -7,7 +7,7 @@ import { ErroDominio } from "./dominio.js";
 import { ATENDIMENTOS } from "./sofia-atendimento.js";
 import { CARDAPIO_BUFFET } from "./custos.js";
 import { enviarTexto, whatsappLigado } from "./whatsapp.js";
-import { enviar as enviarTelegram, telegramLigado } from "./telegram.js";
+import { enviar as enviarTelegram, telegramLigado, topicos } from "./telegram.js";
 import { hojeBrasilia } from "./site.js";
 
 const FORMATOS = { servido: "Buffet servido", self: "Self-service" };
@@ -101,12 +101,13 @@ function textoCliente(a) {
   ].join("\n");
 }
 
-/* Telegram (Pendentes) + WhatsApp de cada número de WHATSAPP_ATENDIMENTO + confirmação ao cliente.
+/* Telegram (tópico Festas) + WhatsApp de cada número de WHATSAPP_ATENDIMENTO + confirmação ao cliente.
    Um envio falhar não derruba os outros. */
 async function avisarFesta(env, a) {
   const equipe = textoEquipe(a);
   const envios = [
-    ...(telegramLigado(env) ? [enviarTelegram(env, "pendentes", equipe)] : []),
+    // Tópico Festas; sem ele configurado em TELEGRAM_TOPICOS, cai em Pendentes.
+    ...(telegramLigado(env) ? [enviarTelegram(env, topicos(env).festas ? "festas" : "pendentes", equipe)] : []),
     ...(whatsappLigado(env) ? [
       ...String(env.WHATSAPP_ATENDIMENTO || "").split(",").map(s => s.trim()).filter(Boolean).map(n => enviarTexto(env, n, equipe)),
       enviarTexto(env, a.telefone, textoCliente(a))
