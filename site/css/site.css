@@ -209,6 +209,9 @@ h1, h2, h3 { text-wrap: balance; }
 .banner__infos { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 20px 0 0; padding: 0; list-style: none; font-weight: 600; font-size: 0.9375rem; }
 .banner__infos li { display: inline-flex; align-items: center; gap: 8px; }
 .banner__acoes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.banner .banner__extra { max-width: none; margin-top: 14px; font-size: 0.9375rem; color: rgb(255 255 255 / 0.85); }
+.banner__extra a { color: var(--branco); font-weight: 700; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; vertical-align: middle; text-underline-offset: 3px; }
+.banner__extra .icone { width: 18px; height: 18px; }
 .banner__pausa {
   position: absolute; right: 20px; bottom: 20px; width: 44px; height: 44px; border-radius: 50%;
   display: grid; place-items: center; border: 0; cursor: pointer;
